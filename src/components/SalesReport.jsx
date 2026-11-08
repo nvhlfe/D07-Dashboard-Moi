@@ -16,9 +16,10 @@ import * as XLSX from 'xlsx'
 import { analyzeSoSanLuong, maskSensitive, prevYearMonth } from '../lib/analyze'
 import { buildCases, journalForDay, summarizeCases, STATUS_LABELS } from '../lib/cases'
 import {
-  loadAdjustments, loadAudit, getUserName, setUserName,
+  loadAdjustments, loadAudit, getUserName,
   saveAdjustmentLocal, saveAdjustmentRemote,
 } from '../lib/store'
+import { isSuperAdmin } from '../lib/firebaseConfig'
 
 const fmtTr = (n) => {
   const v = Number(n) || 0
@@ -59,7 +60,9 @@ function StatusPill({ code }) {
   return <span className={`pill ${PILL_CLASS[code] || 'pill-other'}`}>{STATUS_LABELS[code] || code}</span>
 }
 
-export default function SalesReport({ snaps, loading, onGoNap }) {
+export default function SalesReport({ snaps, loading, onGoNap, user }) {
+  // Admin chinh (admin@d07.com) xem so ho so DAY DU; con lai che con 2 so cuoi.
+  const canSeeFull = isSuperAdmin(user)
   const [subview, setSubview] = useState('day')
   const [selectedMonth, setSelectedMonth] = useState('')
   const [day, setDay] = useState('')
@@ -67,7 +70,7 @@ export default function SalesReport({ snaps, loading, onGoNap }) {
   const [unitFilter, setUnitFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [expanded, setExpanded] = useState(null)
-  const [form, setForm] = useState({ name: '', status: 'PS', ipNet: '', note: '' })
+  const [form, setForm] = useState({ status: 'PS', ipNet: '', note: '' })
   const [saveMsg, setSaveMsg] = useState('')
   const [adjustments, setAdjustments] = useState(() => loadAdjustments())
   const [audit, setAudit] = useState(() => loadAudit())
@@ -126,7 +129,6 @@ export default function SalesReport({ snaps, loading, onGoNap }) {
     setExpanded(c.proposalNum)
     setSaveMsg('')
     setForm({
-      name: getUserName(),
       status: c.effectiveStatus,
       ipNet: String(c.effectiveIpNet),
       note: c.adjNote || '',
@@ -135,10 +137,10 @@ export default function SalesReport({ snaps, loading, onGoNap }) {
 
   const handleSaveAdj = () => {
     const c = expanded ? caseByNum.get(expanded) : null
-    if (!c) return
-    const by = (form.name || '').trim() || getUserName() || 'Admin'
-    if ((form.name || '').trim()) setUserName((form.name || '').trim())
+    if (!c || !user) return
+    const by = user.email || getUserName() || 'Admin'
     const parsedIp = form.ipNet === '' ? null : Number(form.ipNet)
+    // (nguoi sua lay tu tai khoan dang nhap — khong con o nhap ten thu cong)
     const adj = {
       status: form.status || null,
       ipNet: Number.isFinite(parsedIp) ? parsedIp : null,
@@ -195,8 +197,8 @@ export default function SalesReport({ snaps, loading, onGoNap }) {
   const renderDetail = (c) => (
     <div className="detail-box">
       <div style={{ fontSize: 13.5, marginBottom: 6 }}>
-        Số hồ sơ đầy đủ: <b>{maskSensitive(c.proposalNum, true)}</b>
-        {c.policyNum ? <> · Số HĐ: <b>{maskSensitive(c.policyNum, true)}</b></> : null}
+        Số hồ sơ{canSeeFull ? ' đầy đủ' : ''}: <b>{maskSensitive(c.proposalNum, canSeeFull)}</b>
+        {c.policyNum ? <> · Số HĐ: <b>{maskSensitive(c.policyNum, canSeeFull)}</b></> : null}
       </div>
       {c.product ? <div className="case-meta" style={{ marginBottom: 6 }}>Sản phẩm: {c.product}</div> : null}
       <ul className="journey">
@@ -240,10 +242,10 @@ export default function SalesReport({ snaps, loading, onGoNap }) {
         </div>
       )}
       <div style={{ fontSize: 13, fontWeight: 800, margin: '10px 0 8px' }}>✏️ Điều chỉnh hồ sơ</div>
-      <div className="field">
-        <label>Tên người sửa</label>
-        <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="VD: Lan" />
-      </div>
+      {!user ? (
+        <div className="lock-note">🔐 Đăng nhập để điều chỉnh hồ sơ — bạn vẫn xem được toàn bộ nhật ký, nhưng sửa trạng thái / IP / ghi chú cần tài khoản (điều chỉnh sẽ ghi tên theo email đăng nhập).</div>
+      ) : (
+      <>
       <div className="field">
         <label>Trạng thái</label>
         <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
@@ -263,6 +265,8 @@ export default function SalesReport({ snaps, loading, onGoNap }) {
       </div>
       <button className="btn-primary" onClick={handleSaveAdj}>💾 Lưu điều chỉnh</button>
       {saveMsg ? <div className="msg success">{saveMsg}</div> : null}
+      </>
+      )}
     </div>
   )
 
@@ -273,7 +277,7 @@ export default function SalesReport({ snaps, loading, onGoNap }) {
       <div className="case-head" onClick={() => openCase(c)}>
         <div className="case-main">
           <div className="case-num">
-            {maskSensitive(c.proposalNum, false)}
+            {maskSensitive(c.proposalNum, canSeeFull)}
             {c.adjusted && !c.adjustmentStale ? <span className="badge-adj">Đã chỉnh tay</span> : null}
             {c.adjustmentStale ? <span className="badge-stale">Hệ thống đã cập nhật khớp</span> : null}
           </div>
@@ -418,7 +422,7 @@ export default function SalesReport({ snaps, loading, onGoNap }) {
         {audit.slice(0, 20).map((a, i) => (
           <div className="audit-row" key={`${a.ts}-${i}`}>
             <div>
-              <b>{maskSensitive(a.proposalNum, false)}</b> — {renderAuditChanges(a.changes)}
+              <b>{maskSensitive(a.proposalNum, canSeeFull)}</b> — {renderAuditChanges(a.changes)}
             </div>
             <div className="a-ts">{a.by || 'Admin'} · {new Date(a.ts).toLocaleString('vi-VN')}</div>
           </div>

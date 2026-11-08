@@ -9,6 +9,7 @@
 // ─────────────────────────────────────────────────────────────
 import { initializeApp, getApps } from 'firebase/app'
 import { getFirestore, doc, collection, setDoc, getDoc, getDocs, addDoc } from 'firebase/firestore'
+import { resolveFirebaseConfig } from './firebaseConfig'
 
 export const SNAP_KEY = 'd07moi_snapshots'
 export const HIST_KEY = 'd07moi_history'
@@ -76,14 +77,20 @@ export function setTarget(year, month, value) {
   } catch { /* bo qua */ }
 }
 
-// ── Firebase config (nguoi dung dan, luu o fb_config nhu ban cu) ──
-export function getFbConfig() {
+// ── Firebase config ───────────────────────────────────────────
+// Mac dinh dung cau hinh D07 NHUNG SAN (lib/firebaseConfig.js) de app chay
+// tren moi thiet bi khong can dan config. Nguoi dung van co the dan config
+// khac (luu o fb_config nhu ban cu) — config dan tay duoc UU TIEN hon.
+export function getFbOverride() {
   try {
     const raw = localStorage.getItem(FB_KEY)
     if (!raw) return null
     const cfg = JSON.parse(raw)
     return cfg && cfg.apiKey ? cfg : null
   } catch { return null }
+}
+export function getFbConfig() {
+  return resolveFirebaseConfig()
 }
 export function setFbConfig(cfg) {
   try { localStorage.setItem(FB_KEY, JSON.stringify(cfg)) } catch { /* bo qua */ }
@@ -107,30 +114,43 @@ export function parseFirebaseConfigPaste(text) {
   } catch { return null }
 }
 
-// ── Firebase singleton (chi init khi da co config) ───────────
+// ── Firebase singleton — 1 app instance dung chung cho Firestore va Auth ──
 let _fb = null
-export function getFirebaseFs() {
+export function getFirebaseApp() {
   const cfg = getFbConfig()
   if (!cfg) return null
-  if (_fb && _fb.projectId === cfg.projectId) return _fb.fs
+  if (_fb && _fb.projectId === cfg.projectId) return _fb.app
   try {
-    const apps = getApps()
-    const app = apps.length ? apps[0] : initializeApp(cfg)
-    _fb = { projectId: cfg.projectId, fs: getFirestore(app) }
-    return _fb.fs
+    const existing = getApps().find((a) => a.options && a.options.projectId === cfg.projectId)
+    const app = existing || initializeApp(cfg)
+    _fb = { projectId: cfg.projectId, app, fs: getFirestore(app) }
+    return _fb.app
   } catch (e) {
     console.error('[store] Firebase init failed:', e)
     return null
   }
 }
+export function getFirebaseFs() {
+  const app = getFirebaseApp()
+  return app ? _fb.fs : null
+}
 
-/** Luu doc daily_sales_tvv/{ymd} — cung shape saveDailySalesDoc ban cu. */
-export async function saveDailyToFirestore(ymd, payload) {
+/**
+ * Luu doc daily_sales_tvv/{ymd} — cung shape saveDailySalesDoc ban cu.
+ * Tra { ok } de UI bao dung trang thai dong bo (khong throw nua).
+ * Luu y: Rules chi cho user DA DANG NHAP ghi — chua dang nhap se ok:false.
+ */
+export async function saveDailyToFirestore(ymd, payload, updatedBy = null) {
   const fs = getFirebaseFs()
   if (!fs) return { ok: false, reason: 'no-config' }
-  const updatedAt = new Date().toISOString()
-  await setDoc(doc(fs, 'daily_sales_tvv', ymd), { ...payload, updatedAt, updatedBy: null })
-  return { ok: true, updatedAt }
+  try {
+    const updatedAt = new Date().toISOString()
+    await setDoc(doc(fs, 'daily_sales_tvv', ymd), { ...payload, updatedAt, updatedBy })
+    return { ok: true, updatedAt }
+  } catch (e) {
+    console.warn('[store] saveDailyToFirestore:', e)
+    return { ok: false, reason: e?.code || 'remote-error' }
+  }
 }
 
 /**
@@ -211,6 +231,71 @@ export function saveAdjustmentLocal(proposalNum, adj, changes, by) {
   try { localStorage.setItem(AUDIT_KEY, JSON.stringify(audit.slice(0, 200))) } catch { /* bo qua */ }
   return { adjustments, audit: audit.slice(0, 200) }
 }
+// ── Ho so ca nhan (ca nhan hoa tung TVV) ─────────────────────
+// Firestore user_profiles/{uid} {email, displayName, msdl, updatedAt} +
+// cache localStorage 'd07moi_profile' theo uid (luon ghi cache truoc).
+// Rules cho user_profiles can Lan publish ban firestore.rules moi —
+// chua publish thi ghi may se loi: UI bao "da luu tren may nay".
+export const PROFILE_KEY = 'd07moi_profile'
+export function loadCachedProfile(uid) {
+  if (!uid) return null
+  try {
+    const all = JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}')
+    return all && all[uid] ? all[uid] : null
+  } catch { return null }
+}
+export function cacheProfile(uid, profile) {
+  if (!uid || !profile) return
+  try {
+    const all = JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}')
+    all[uid] = profile
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(all))
+  } catch { /* bo qua */ }
+}
+/** Doc profile: Firestore truoc, loi/khong co thi dung cache tren may. */
+export async function fetchUserProfile(uid) {
+  if (!uid) return null
+  const fs = getFirebaseFs()
+  if (fs) {
+    try {
+      const d = await getDoc(doc(fs, 'user_profiles', uid))
+      if (d.exists()) {
+        const p = d.data()
+        cacheProfile(uid, p)
+        return p
+      }
+    } catch (e) {
+      console.warn('[store] fetchUserProfile (cloud):', e)
+    }
+  }
+  return loadCachedProfile(uid)
+}
+/**
+ * Luu profile: LUON ghi cache tren may; ghi Firestore best-effort.
+ * Tra { ok: true, cloud: boolean, profile } — cloud=false khi Rules chua
+ * cho ghi user_profiles hoac loi mang, UI se bao ro cho nguoi dung.
+ */
+export async function saveUserProfile(uid, profile) {
+  const clean = {
+    email: profile?.email || '',
+    displayName: profile?.displayName || '',
+    msdl: profile?.msdl ? String(profile.msdl).trim() : '',
+    updatedAt: new Date().toISOString(),
+  }
+  cacheProfile(uid, clean)
+  const fs = getFirebaseFs()
+  let cloud = false
+  if (fs && uid) {
+    try {
+      await setDoc(doc(fs, 'user_profiles', uid), clean)
+      cloud = true
+    } catch (e) {
+      console.warn('[store] saveUserProfile (cloud):', e)
+    }
+  }
+  return { ok: true, cloud, profile: clean }
+}
+
 /** Best-effort ghi Firestore: case_adjustments/{proposalNum} + audit_log. Khong bao gio throw. */
 export async function saveAdjustmentRemote(proposalNum, adj, changes, by) {
   const fs = getFirebaseFs()

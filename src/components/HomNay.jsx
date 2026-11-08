@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────────────────────
 import React, { useMemo, useState } from 'react'
 import { analyzeSoSanLuong, inMonth } from '../lib/analyze'
+import { buildCases } from '../lib/cases'
 import { QUOTES, quoteIndexForDate } from '../lib/quotes'
 import { getTarget } from '../lib/store'
 
@@ -23,7 +24,7 @@ function daysUntil(isoDate) {
   return Math.round((target - today) / 86400000)
 }
 
-export default function HomNay({ snaps, loading, onGoNap }) {
+export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenLogin, onOpenAccount }) {
   const [quoteOffset, setQuoteOffset] = useState(0)
 
   const newest = snaps && snaps.length ? snaps[snaps.length - 1] : null
@@ -64,6 +65,7 @@ export default function HomNay({ snaps, loading, onGoNap }) {
     return {
       year, month, daysInMonth, analysis, prevAnalysis, prevSnap,
       fypTotal, top, heat, pendingOld, tvvActive, tvvTotal: agentsList.length,
+      agentsObj,
       snapDay: Number(newest.id.split('-')[2]),
     }
   }, [snaps, newest])
@@ -102,6 +104,23 @@ export default function HomNay({ snaps, loading, onGoNap }) {
   const projection = elapsedDays > 0 ? (fypTotal / elapsedDays) * daysInMonth : null
 
   const quote = QUOTES[(quoteIndexForDate(now) + quoteOffset) % QUOTES.length]
+
+  // ── Ca nhan hoa: so cua rieng TVV dang dang nhap (theo ma TVV trong profile) ──
+  const myMsdl = String(profile?.msdl || '').trim()
+  const myKey = myMsdl.toUpperCase()
+  const myAgent = myMsdl
+    ? (view.agentsObj[myMsdl] || Object.values(view.agentsObj).find((a) => String(a.msdl || '').toUpperCase() === myKey) || null)
+    : null
+  const myCases = myMsdl
+    ? buildCases(newest, {}).filter((c) => String(c.msdl || '').toUpperCase() === myKey)
+    : []
+  const myRankIdx = myMsdl ? analysis.agents.findIndex((a) => String(a.msdl || '').toUpperCase() === myKey) : -1
+  const myAnAgent = myRankIdx >= 0 ? analysis.agents[myRankIdx] : null
+  const myCounts = {
+    nop: myCases.length,
+    ph: myCases.filter((c) => c.effectiveStatus === 'IF').length,
+    pend: myCases.filter((c) => c.effectiveStatus === 'PS').length,
+  }
 
   const nopTr = t.subIp + t.pipeApe
   const stackTotal = t.netIp + t.pendIp + t.pipeApe
@@ -154,6 +173,42 @@ export default function HomNay({ snaps, loading, onGoNap }) {
           </div>
         </div>
       </div>
+
+      {/* ── Cua toi (ca nhan hoa theo ma TVV) ── */}
+      {!user ? (
+        <div className="card my-card">
+          <h2>🙋 Của tôi</h2>
+          <div className="my-line">Đăng nhập để xem số của riêng bạn trên mọi thiết bị — FYP, số hồ sơ và hạng phát hành của chính mình, khỏi phải lục cả danh sách GA.</div>
+          <button className="btn-ghost" style={{ marginTop: 10 }} onClick={onOpenLogin}>🔐 Đăng nhập</button>
+        </div>
+      ) : !myMsdl ? (
+        <div className="card my-card">
+          <h2>🙋 Của tôi</h2>
+          <div className="my-line">Bạn đã đăng nhập nhưng chưa gắn <b>Mã TVV</b> — gắn mã để màn hình này hiện số của riêng bạn.</div>
+          <div style={{ marginTop: 10 }}>
+            <span className="chip" onClick={onOpenAccount}>Thêm Mã TVV của tôi →</span>
+          </div>
+        </div>
+      ) : (
+        <div className="card my-card">
+          <h2>🙋 Của tôi — {myAgent?.agName || myAnAgent?.name || profile?.displayName || 'TVV'} {myAgent?.unit || myAnAgent?.unit ? <span className="muted">· {myAgent?.unit || myAnAgent?.unit}</span> : null}</h2>
+          {!myAgent && myCases.length === 0 ? (
+            <div className="my-line">Chưa thấy mã <b>{myMsdl}</b> trong dữ liệu tháng {month}/{year}. Kiểm tra lại Mã TVV ở mục Tài khoản (mã phải khớp mã số đại lý trong file Daily Sales).</div>
+          ) : (
+            <>
+              <div className="mini-stats" style={{ marginBottom: 4 }}>
+                <div className="mini-stat"><div className="ms-num">{fmtTr(myAgent?.fyp)} tr</div><div className="ms-label">FYP tháng của tôi</div></div>
+                <div className="mini-stat"><div className="ms-num">{fmtTr(myAgent?.fyc)} tr</div><div className="ms-label">FYC tháng của tôi</div></div>
+                <div className="mini-stat"><div className="ms-num">{myRankIdx >= 0 ? `${myRankIdx + 1}/${analysis.agents.length}` : '—'}</div><div className="ms-label">Hạng phát hành</div></div>
+              </div>
+              <div className="my-line">
+                Hồ sơ tháng này của tôi: nộp <b>{fmtInt(myCounts.nop)}</b> · phát hành <b>{fmtInt(myCounts.ph)}</b> · pending <b>{fmtInt(myCounts.pend)}</b>
+                {myRankIdx >= 0 ? <> · hạng được tính theo IP phát hành ròng toàn GA</> : null}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* ── Tien do FYP ── */}
       <div className="card">

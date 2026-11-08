@@ -1,8 +1,9 @@
 // ─────────────────────────────────────────────────────────────
 // NapDuLieu — Man hinh "Nap du lieu" (MVP):
 //  - Keo tha / chon file Daily Sales .xlsx -> parse 5 sheet -> xem tom tat
-//  - Luu: Firestore daily_sales_tvv/{date} neu da cau hinh Firebase (fb_config),
-//    va LUON luu snapshot vao localStorage de app chay ca khi chua co Firebase.
+//  - Luu: Firestore daily_sales_tvv/{date} bang config D07 NHUNG SAN (chi ghi
+//    duoc khi DA DANG NHAP — Rules), va LUON luu snapshot vao localStorage;
+//    thong bao sau luu noi RO da dong bo len may hay chi luu tren may nay.
 //  - Dat muc tieu FYP thang (localStorage d07moi_target_{yyyy-m}).
 //  - Khoi "Ket noi Firebase" (dan firebaseConfig, cung UX ban cu).
 //  - Lich su nap.
@@ -12,7 +13,7 @@ import React, { useRef, useState } from 'react'
 import { parseArrayBuffer, inferDateFromFileName } from '../lib/parseDaily'
 import {
   saveLocalSnapshot, saveDailyToFirestore, addHistory, loadHistory,
-  getTarget, setTarget, getFbConfig, setFbConfig, clearFbConfig, parseFirebaseConfigPaste,
+  getTarget, setTarget, getFbConfig, getFbOverride, setFbConfig, clearFbConfig, parseFirebaseConfigPaste,
 } from '../lib/store'
 
 const todayKey = () => {
@@ -21,7 +22,7 @@ const todayKey = () => {
 }
 const ERR_LOCKED = 'Không đọc được file này. Rất có thể file đang bị khóa bảo mật (RMS/IRM) của công ty hoặc file bị hỏng — vui lòng gửi bản sao KHÔNG khóa (mở file → Save As thành file mới) hoặc xuất ra CSV/Excel thường rồi nạp lại.'
 
-export default function NapDuLieu({ onSaved }) {
+export default function NapDuLieu({ onSaved, user }) {
   const [parsed, setParsed] = useState(null)
   const [fileName, setFileName] = useState('')
   const [dataDate, setDataDate] = useState(todayKey())
@@ -39,8 +40,9 @@ export default function NapDuLieu({ onSaved }) {
   })
   const [targetMsg, setTargetMsg] = useState('')
 
-  // Firebase config
-  const [fbCfg, setFbCfg] = useState(() => getFbConfig() || { apiKey: '', authDomain: '', projectId: '', storageBucket: '', messagingSenderId: '', appId: '', databaseURL: '' })
+  // Firebase config: mac dinh da NHUNG SAN config D07; form nay chi dung khi
+  // nguoi dung muon ghi de bang config khac (fb_config) o muc Nang cao.
+  const [fbCfg, setFbCfg] = useState(() => getFbOverride() || { apiKey: '', authDomain: '', projectId: '', storageBucket: '', messagingSenderId: '', appId: '', databaseURL: '' })
   const [pasteText, setPasteText] = useState('')
   const [fbMsg, setFbMsg] = useState('')
 
@@ -80,17 +82,14 @@ export default function NapDuLieu({ onSaved }) {
         proposalRows: parsed.proposalRows, pendingRows: parsed.pendingRows, pipelineRows: parsed.pipelineRows,
       }
       const local = saveLocalSnapshot(dataDate, fileName, payload)
+      const remote = await saveDailyToFirestore(dataDate, payload, user?.email || null)
       let fbNote = ''
-      if (getFbConfig()) {
-        try {
-          await saveDailyToFirestore(dataDate, payload)
-          fbNote = ' Đã đồng bộ lên Firebase (daily_sales_tvv).'
-        } catch (e) {
-          console.error('[NapDuLieu] firestore save:', e)
-          fbNote = ' ⚠️ Chưa đồng bộ được lên Firebase (đã lưu trên máy này; kiểm tra mạng/quyền Firebase rồi nạp lại nếu cần).'
-        }
+      if (remote.ok) {
+        fbNote = ' ☁️ Đã đồng bộ lên mây — các thiết bị khác đăng nhập là thấy.'
+      } else if (!user) {
+        fbNote = ' ⚠️ Đã lưu trên máy này — đăng nhập để đồng bộ lên mây cho các thiết bị khác.'
       } else {
-        fbNote = ' (Chưa kết nối Firebase — dữ liệu đang lưu trên máy này.)'
+        fbNote = ' ⚠️ Đã lưu trên máy này — chưa đồng bộ được lên mây (kiểm tra mạng rồi nạp lại; nếu vẫn lỗi, có thể Rules Firebase chưa cho ghi).'
       }
       const entry = {
         date: dataDate, fileName, savedAt: new Date().toISOString(),
@@ -119,7 +118,7 @@ export default function NapDuLieu({ onSaved }) {
   const saveFb = () => {
     if (!fbCfg.apiKey || !fbCfg.projectId) { setFbMsg('Cần ít nhất apiKey và projectId.'); return }
     setFbConfig(fbCfg)
-    setFbMsg('Đã lưu cấu hình Firebase. Các lần nạp sau sẽ tự đồng bộ lên daily_sales_tvv.')
+    setFbMsg('Đã lưu cấu hình ghi đè. App sẽ dùng cấu hình này thay cho cấu hình D07 nhúng sẵn.')
   }
   const applyPaste = () => {
     const cfg = parseFirebaseConfigPaste(pasteText)
@@ -190,32 +189,48 @@ export default function NapDuLieu({ onSaved }) {
         {targetMsg && <div className="msg success">{targetMsg}</div>}
       </div>
 
-      <details className="collapse">
-        <summary>🔥 Kết nối Firebase {getFbConfig() ? `(đã có config: ${getFbConfig().projectId || ''})` : '(chưa kết nối — app vẫn chạy bằng dữ liệu trên máy)'}</summary>
-        <p className="muted" style={{ margin: '8px 0' }}>
-          Dán toàn bộ block <b>firebaseConfig</b> từ Firebase Console (Project Settings → Your apps → Web),
-          hoặc điền từng ô. Config được lưu trên máy này (key <b>fb_config</b>, giống bản cũ) — khi có config,
-          dữ liệu nạp sẽ đồng bộ lên Firestore <b>daily_sales_tvv</b> để các máy khác cùng xem.
+      <div className="card">
+        <h2>☁️ Firebase — đồng bộ nhiều thiết bị</h2>
+        <p style={{ fontSize: 14 }}>
+          Cấu hình Firebase của D07 <b>đã được nhúng sẵn trong app</b> (project <b>{getFbConfig()?.projectId || 'd07-sales-dashboard'}</b>) — không cần dán config trên từng máy nữa.
         </p>
-        <div className="field">
-          <label>Dán firebaseConfig block</label>
-          <textarea rows={7} value={pasteText} onChange={(e) => setPasteText(e.target.value)}
-            placeholder={'const firebaseConfig = {\n  apiKey: "AIza...",\n  projectId: "...",\n  ...\n}'} />
-        </div>
-        <button className="btn-ghost" onClick={applyPaste} style={{ marginBottom: 12 }}>Parse & điền tự động</button>
-        {fbField('apiKey *', 'apiKey', 'AIzaSy...')}
-        {fbField('projectId *', 'projectId', 'your-project-id')}
-        {fbField('authDomain', 'authDomain', 'your-project.firebaseapp.com')}
-        {fbField('databaseURL', 'databaseURL', 'https://...firebasedatabase.app')}
-        {fbField('storageBucket', 'storageBucket', 'your-project.appspot.com')}
-        {fbField('messagingSenderId', 'messagingSenderId', '123456789')}
-        {fbField('appId', 'appId', '1:123:web:abc...')}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn-ghost" onClick={saveFb}>💾 Lưu cấu hình Firebase</button>
-          {getFbConfig() && <button className="btn-ghost" onClick={() => { clearFbConfig(); setFbMsg('Đã xoá cấu hình Firebase trên máy này.'); }}>Xoá cấu hình</button>}
-        </div>
-        {fbMsg && <div className="msg info">{fbMsg}</div>}
-      </details>
+        <p className="muted" style={{ marginTop: 6 }}>
+          Trạng thái: {user
+            ? <>đã đăng nhập <b>{user.email}</b> — nạp dữ liệu sẽ <b>đồng bộ lên mây</b>, máy khác đăng nhập là thấy.</>
+            : <>chưa đăng nhập — dữ liệu nạp chỉ lưu trên máy này. <b>Đăng nhập</b> (nút ở đầu trang) để đồng bộ lên mây cho các thiết bị khác.</>}
+        </p>
+        <p className="muted" style={{ marginTop: 6 }}>
+          Dữ liệu mây nằm ở Firestore <b>daily_sales_tvv</b> — dùng chung với dashboard cũ, không mất dữ liệu đã nạp trước đây.
+        </p>
+        {getFbOverride() && (
+          <div className="msg info">Đang dùng cấu hình GHI ĐÈ do bạn dán (project {getFbOverride().projectId || ''}) thay cho cấu hình nhúng sẵn.</div>
+        )}
+        <details className="collapse" style={{ marginTop: 12, marginBottom: 0 }}>
+          <summary>⚙️ Nâng cao: dùng cấu hình khác</summary>
+          <p className="muted" style={{ margin: '8px 0' }}>
+            Chỉ dùng khi muốn trỏ app sang Firebase project khác. Dán toàn bộ block <b>firebaseConfig</b>
+            hoặc điền từng ô — config ghi đè lưu trên máy này (key <b>fb_config</b>, giống bản cũ) và được ưu tiên hơn cấu hình nhúng sẵn.
+          </p>
+          <div className="field">
+            <label>Dán firebaseConfig block</label>
+            <textarea rows={7} value={pasteText} onChange={(e) => setPasteText(e.target.value)}
+              placeholder={'const firebaseConfig = {\n  apiKey: "AIza...",\n  projectId: "...",\n  ...\n}'} />
+          </div>
+          <button className="btn-ghost" onClick={applyPaste} style={{ marginBottom: 12 }}>Parse & điền tự động</button>
+          {fbField('apiKey *', 'apiKey', 'AIzaSy...')}
+          {fbField('projectId *', 'projectId', 'your-project-id')}
+          {fbField('authDomain', 'authDomain', 'your-project.firebaseapp.com')}
+          {fbField('databaseURL', 'databaseURL', 'https://...firebasedatabase.app')}
+          {fbField('storageBucket', 'storageBucket', 'your-project.appspot.com')}
+          {fbField('messagingSenderId', 'messagingSenderId', '123456789')}
+          {fbField('appId', 'appId', '1:123:web:abc...')}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn-ghost" onClick={saveFb}>💾 Lưu cấu hình ghi đè</button>
+            {getFbOverride() && <button className="btn-ghost" onClick={() => { clearFbConfig(); setFbMsg('Đã xoá cấu hình ghi đè — app quay về cấu hình D07 nhúng sẵn.'); }}>Quay về cấu hình D07 mặc định</button>}
+          </div>
+          {fbMsg && <div className="msg info">{fbMsg}</div>}
+        </details>
+      </div>
 
       <div className="card">
         <h2>🕘 Lịch sử nạp</h2>
