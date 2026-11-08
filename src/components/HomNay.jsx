@@ -1,12 +1,15 @@
 // ─────────────────────────────────────────────────────────────
 // HomNay — Man hinh "Hom Nay" (MVP): hero countdown + quote, tien do FYP,
-// 4 KPI, delta, Top 5 TVV, thanh xep chong, heatmap nhip nop, canh bao.
+// 4 KPI, delta, Top 5 TVV, thanh xep chong, bieu do nhip nop theo ngay
+// (cot xep chong SVG, thay heatmap APE cu — mau D03) + hanh trinh nam, canh bao.
 // Nguon so: snapshot Daily moi nhat (Firestore neu co, khong thi localStorage).
 // Logic KPI dung analyzeSoSanLuong (port tu So San Luong ban cu).
 // ─────────────────────────────────────────────────────────────
 import React, { useMemo, useState } from 'react'
-import { analyzeSoSanLuong, inMonth } from '../lib/analyze'
+import { analyzeSoSanLuong } from '../lib/analyze'
 import { buildCases } from '../lib/cases'
+import { dailyStacks, monthJourney } from '../lib/journey'
+import { DailyStackChart, YearJourneyChart } from './Charts'
 import { QUOTES, quoteIndexForDate } from '../lib/quotes'
 import { getTarget } from '../lib/store'
 import { isSuperAdmin } from '../lib/firebaseConfig'
@@ -27,6 +30,7 @@ function daysUntil(isoDate) {
 
 export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenLogin, onOpenAccount }) {
   const [quoteOffset, setQuoteOffset] = useState(0)
+  const [selDay, setSelDay] = useState(null)
 
   const newest = snaps && snaps.length ? snaps[snaps.length - 1] : null
 
@@ -52,33 +56,20 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
         .slice(0, 5)
         .map((a) => ({ name: a.agName, unit: a.unit, ip: a.ipNet }))
     }
-    // Heatmap "Nhip nop theo ngay": TONG APE nop trong ngay (apeSub cua cac
-    // dong Proposal, theo proposalDate) — Lan chot lay so APE thay vi so ho so.
-    // heatCount giu so ho so de hien kem trong title cua o. Snapshot cu chua
-    // co apeSub thi cong 0 (khong crash).
     const daysInMonth = new Date(year, month, 0).getDate()
-    const heat = Array(daysInMonth + 1).fill(0)
-    const heatCount = Array(daysInMonth + 1).fill(0)
-    ;(newest.data?.proposalRows || []).forEach((r) => {
-      if (r.proposalDate && inMonth(r.proposalDate, year, month)) {
-        const d = Number(r.proposalDate.split('-')[2])
-        if (d >= 1 && d <= daysInMonth) {
-          heat[d] += Number(r.apeSub) || 0
-          heatCount[d] += 1
-        }
-      }
-    })
-    const heatMax = Math.max(0, ...heat)
-    const heatCountMax = Math.max(0, ...heatCount)
-    // Snapshot nap TRUOC ban cap nhat APE chua co apeSub -> heatMax = 0 du co
-    // ho so nop that. Lan chot nhip CHI lay APE (khong hien so ho so thay the)
-    // nen UI de o trong + hien hop canh bao "chua co APE" kem nut di nap lai.
-    const heatHasApe = heatMax > 0
+    // Bieu do "Nhip nop theo ngay" (thay heatmap APE cu — theo mau D03 Lan
+    // gui): cot xep chong theo ngay NOP, to theo TRANG THAI HIEN TAI; gia tri
+    // groupValue (IF = IP Net rong; PS/Pipeline = APE neu co, khong thi IP Sub)
+    // — nhat quan voi thanh xep chong o Doi Ngu / Sales Report.
+    const stacks = dailyStacks(buildCases(newest), ymPrefix)
+    // "Hanh trinh nam": moi thang lay snapshot MOI NHAT cua thang do (trong
+    // snaps da gop may + may) -> IP phat hanh + so hop dong phat hanh.
+    const journey = monthJourney(snaps, year)
     const pendingOld = (analysis.pendingAll || []).filter((c) => (c.ageDays ?? 0) > 7)
     const tvvActive = agentsList.filter((a) => (Number(a.fyp) || 0) > 0 || (a.cIF || 0) + (a.cPS || 0) + (a.cOther || 0) > 0).length
     return {
       year, month, daysInMonth, analysis, prevAnalysis, prevSnap,
-      fypTotal, top, heat, heatCount, heatMax, heatCountMax, heatHasApe, pendingOld, tvvActive, tvvTotal: agentsList.length,
+      fypTotal, top, stacks, journey, pendingOld, tvvActive, tvvTotal: agentsList.length,
       agentsObj,
       snapDay: Number(newest.id.split('-')[2]),
     }
@@ -98,9 +89,15 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
     )
   }
 
-  const { year, month, daysInMonth, analysis, prevAnalysis, fypTotal, top, heat, heatCount, heatMax, heatCountMax, heatHasApe, pendingOld } = view
+  const { year, month, daysInMonth, analysis, prevAnalysis, fypTotal, top, stacks, journey, pendingOld } = view
   const t = analysis.totals
   const target = getTarget(year, month)
+
+  // ── Ngay dang chon tren bieu do nhip nop (mac dinh = ngay du lieu) ──
+  const ymStr = newest.id.slice(0, 7)
+  const selDate = selDay && selDay.startsWith(ymStr) ? selDay : newest.id
+  const selStack = stacks[selDate] || null
+  const selDM = `${selDate.split('-')[2]}/${selDate.split('-')[1]}`
 
   // ── Countdown theo thang cua snapshot, tinh voi ngay hom nay that ──
   const now = new Date()
@@ -307,32 +304,34 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
         </div>
       )}
 
-      {/* ── Heatmap ── */}
+      {/* ── Bieu do nhip nop theo ngay (cot xep chong, thay heatmap) ── */}
       <div className="card">
-        <h2>🗓️ Nhịp nộp theo ngày — tháng {month}/{year}</h2>
-        <div className="heatmap">
-          {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
-            const ape = heat[d] || 0
-            const n = heatCount[d] || 0
-            const lvl = !heatHasApe || ape <= 0 || heatMax <= 0 ? '' : ape <= heatMax / 3 ? 'l1' : ape <= (2 * heatMax) / 3 ? 'l2' : 'l3'
-            return (
-              <div key={d} className={`heat-cell ${lvl} ${d > view.snapDay ? 'future' : ''}`} title={heatHasApe ? `Ngày ${d}: APE nộp ${fmtTr(ape)} tr · ${n} hồ sơ` : `Ngày ${d}`}>
-                <span>{d}</span><span className="hc-count">{heatHasApe && ape > 0 ? `${fmtTr(ape)} tr` : ''}</span>
-              </div>
-            )
-          })}
+        <h2>🌊 Nhịp nộp theo ngày — tháng {month}/{year}</h2>
+        <div className="chart-sub">Giá trị hồ sơ theo ngày nộp, tô theo trạng thái hiện tại — Phát hành tính IP ròng, Pending/Chưa lên phí tính APE (chưa có APE thì tính IP Sub). Bấm vào một cột để xem số của ngày đó.</div>
+        <div className="legend chart-legend">
+          <span><span className="dot" style={{ background: '#7c3aed' }} />Đã phát hành</span>
+          <span><span className="dot" style={{ background: '#ec4899' }} />Pending</span>
+          <span><span className="dot" style={{ background: '#06b6d4' }} />Chưa lên phí</span>
         </div>
-        {heatHasApe ? (
-          <div className="muted" style={{ marginTop: 8 }}>Số trong ô = tổng APE nộp trong ngày (triệu đồng, theo cột APE Sub trên Proposal) · chạm/rê vào ô để xem kèm số hồ sơ.</div>
-        ) : heatCountMax > 0 ? (
-          <div className="warn-box" style={{ marginTop: 10 }}>
-            <div className="w-title">⚠️ Chưa có APE theo ngày</div>
-            <div>Bản dữ liệu tháng {month}/{year} đang xem được nạp <b>trước bản cập nhật APE</b> nên chưa có số APE theo ngày để vẽ nhịp. Nạp lại file Daily Sales (bản mới nhất) là nhịp sẽ hiện theo APE.</div>
-            <button className="btn-ghost" style={{ marginTop: 8 }} onClick={onGoNap}>📥 Tới tab Nạp dữ liệu</button>
-          </div>
-        ) : (
-          <div className="muted" style={{ marginTop: 8 }}>Chưa có hồ sơ nộp nào trong tháng này.</div>
-        )}
+        <DailyStackChart days={stacks} yyyyMm={ymStr} daysInMonth={daysInMonth} selected={selDate} onSelect={setSelDay} />
+        <div className="chart-detail">
+          {selStack && selStack.total > 0 ? (
+            <>📅 Ngày <b>{selDM}</b>: Phát hành <b>{fmtTr(selStack.issued)} tr</b> · Pending <b>{fmtTr(selStack.pending)} tr</b> · Chưa lên phí <b>{fmtTr(selStack.pipeline)} tr</b> · Tổng <b>{fmtTr(selStack.total)} tr</b></>
+          ) : (
+            <>📅 Ngày <b>{selDM}</b>: chưa có hồ sơ nộp trong dữ liệu hiện tại.</>
+          )}
+        </div>
+      </div>
+
+      {/* ── Hanh trinh nam: IP phat hanh + so hop dong theo thang ── */}
+      <div className="card">
+        <h2>🗓️ Hành trình {year} — GA D07</h2>
+        <div className="chart-sub">IP phát hành (triệu) ghi trên đầu cột · đường cam là số hợp đồng phát hành mỗi tháng (số ghi dưới tên tháng) · tháng {month} tạm tính đến {view.snapDay}/{month} · mỗi tháng lấy bản Daily mới nhất của tháng đó.</div>
+        <div className="legend chart-legend">
+          <span><span className="dot" style={{ background: '#7c3aed' }} />IP phát hành</span>
+          <span><span className="dash" />Số hợp đồng phát hành</span>
+        </div>
+        <YearJourneyChart journey={journey} currentMonth={month} />
       </div>
     </div>
   )
