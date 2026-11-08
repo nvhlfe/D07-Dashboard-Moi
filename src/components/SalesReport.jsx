@@ -59,6 +59,16 @@ function StatusPill({ code }) {
   return <span className={`pill ${PILL_CLASS[code] || 'pill-other'}`}>{STATUS_LABELS[code] || code}</span>
 }
 
+// So HIEU CHINH tren the: ho so PHAT HANH (IF) va PENDING (PS) hien so
+// POLICY (so hop dong); cac nhom con lai (chua len phi chua co so hop dong)
+// hien so HSYC (proposalNum). So con lai thanh so phu.
+const primaryNum = (c) => {
+  const st = c.effectiveStatus || c.baseStatus
+  return (st === 'IF' || st === 'PS') && c.policyNum
+    ? { value: c.policyNum, label: 'Số HĐ', secondary: c.proposalNum, secondaryLabel: 'HSYC' }
+    : { value: c.proposalNum, label: 'HSYC', secondary: c.policyNum || '', secondaryLabel: 'Số HĐ' }
+}
+
 export default function SalesReport({ snaps, loading, onGoNap, user }) {
   // Admin chinh (admin@d07.com) xem so ho so DAY DU; con lai che con 2 so cuoi.
   const canSeeFull = isSuperAdmin(user)
@@ -154,17 +164,19 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
     if (unitFilter !== 'ALL' && c.unit !== unitFilter) return false
     if (search.trim()) {
       const q = search.trim().toLowerCase()
-      const hay = `${c.agName} ${c.msdl} ${c.proposalNum} ${c.unit}`.toLowerCase()
+      const hay = `${c.agName} ${c.msdl} ${c.proposalNum} ${c.policyNum || ''} ${c.unit}`.toLowerCase()
       if (!hay.includes(q)) return false
     }
     return true
   })
 
-  const renderDetail = (c) => (
+  const renderDetail = (c) => {
+    const pn = primaryNum(c)
+    return (
     <div className="detail-box">
       <div style={{ fontSize: 13.5, marginBottom: 6 }}>
-        Số hồ sơ{canSeeFull ? ' đầy đủ' : ''}: <b>{maskSensitive(c.proposalNum, canSeeFull)}</b>
-        {c.policyNum ? <> · Số Policy: <b>{maskSensitive(c.policyNum, canSeeFull)}</b></> : null}
+        {pn.label}{canSeeFull ? ' đầy đủ' : ''}: <b>{maskSensitive(pn.value, canSeeFull)}</b>
+        {pn.secondary ? <> · {pn.secondaryLabel}: <b>{maskSensitive(pn.secondary, canSeeFull)}</b></> : null}
       </div>
       {c.product ? <div className="case-meta" style={{ marginBottom: 6 }}>Sản phẩm: {c.product}</div> : null}
       <ul className="journey">
@@ -199,17 +211,20 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
       )}
       <div className="lock-note">Chi tiết chỉ để xem. Muốn cập nhật trạng thái / IP của hồ sơ, hãy đẩy file Daily Sales mới (hoặc file Proposal riêng) ở tab Nạp dữ liệu — thay đổi sẽ hiện ở mục “🔔 Thay đổi so với bản trước”.</div>
     </div>
-  )
+    )
+  }
 
   const renderCard = (c) => {
     const v = cardValue(c)
+    const pn = primaryNum(c)
     return (
     <div className="case-card" key={c.proposalNum}>
       <div className="case-head" onClick={() => openCase(c)}>
         <div className="case-main">
           <div className="case-num">
-            {maskSensitive(c.proposalNum, canSeeFull)}
+            {maskSensitive(pn.value, canSeeFull)}
           </div>
+          {pn.secondary ? <div className="muted" style={{ fontSize: 11.5, fontWeight: 600 }}>{pn.secondaryLabel} {maskSensitive(pn.secondary, canSeeFull)}</div> : null}
           <div className="case-who">{c.agName || '—'}{c.unit ? ` · ${c.unit}` : ''}</div>
           <div className="case-meta">
             Nộp {fmtDateVN(c.proposalDate)}
@@ -229,19 +244,23 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
     )
   }
 
-  // 1 dong trong panel Thay doi: ngay nop, TVV, Unit, so HSYC + so Policy (che theo quyen)
-  const renderChangeRow = (c, extra) => (
+  // 1 dong trong panel Thay doi: ngay nop, TVV, Unit, so hieu chinh theo trang
+  // thai (IF/PS -> so Policy, con lai -> so HSYC) + so phu (che theo quyen)
+  const renderChangeRow = (c, extra) => {
+    const pn = primaryNum(c)
+    return (
     <div className="audit-row" key={`${c.proposalNum}-${c.policyNum || ''}`}>
       <div>
-        <b>{maskSensitive(c.proposalNum, canSeeFull)}</b>
-        {c.policyNum ? <span className="muted"> · Policy {maskSensitive(c.policyNum, canSeeFull)}</span> : null}
+        <b>{maskSensitive(pn.value, canSeeFull)}</b>
+        {pn.secondary ? <span className="muted"> · {pn.secondaryLabel} {maskSensitive(pn.secondary, canSeeFull)}</span> : null}
         <div className="a-ts">
           Nộp {fmtDateVN(c.proposalDate)} · {c.agName || '—'}{c.unit ? ` · ${c.unit}` : ''}{extra ? ` · ${extra}` : ''}
         </div>
       </div>
       <StatusPill code={c.baseStatus} />
     </div>
-  )
+    )
+  }
 
   return (
     <div>
