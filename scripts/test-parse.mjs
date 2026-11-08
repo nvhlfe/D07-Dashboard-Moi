@@ -32,6 +32,16 @@ function summarize(label, path, snapDate) {
   console.log(`Tong APE Sub (Proposal): ${Math.round(apeSubTotal * 10) / 10} tr · Pending co PolicyNum: ${pendWithPolicy}/${p.pendingRows.length} · Pipeline co PolicyNum: ${pipeWithPolicy}/${p.pipelineRows.length}`)
   assert.ok(p.proposalRows.every((r) => typeof r.apeSub === 'number' && typeof r.apeNet === 'number'), 'proposalRows phai co apeSub/apeNet la so')
   assert.ok(p.pendingRows.every((r) => typeof r.policyNum === 'string') && p.pipelineRows.every((r) => typeof r.policyNum === 'string'), 'pendingRows/pipelineRows phai co truong policyNum (string)')
+  // Chi so tham khao TVV (dot Bang Vang theo mau D03, 08/11): FYC QTD / FYC L12M
+  // la so; TLDTPTT so % truc tiep hoac null khi o trong (KHONG ep 0).
+  assert.ok(agents.every((a) => typeof a.fycQtd === 'number' && Number.isFinite(a.fycQtd)), 'agent phai co fycQtd la so')
+  assert.ok(agents.every((a) => typeof a.fycL12m === 'number' && Number.isFinite(a.fycL12m)), 'agent phai co fycL12m la so')
+  assert.ok(agents.every((a) => a.tldtptt === null || (typeof a.tldtptt === 'number' && Number.isFinite(a.tldtptt))), 'tldtptt phai la so huu han hoac null')
+  const tldtCount = agents.filter((a) => a.tldtptt !== null).length
+  console.log(`TLDTPTT: ${tldtCount}/${agents.length} TVV co gia tri (con lai null -> hien “—”)`)
+  if (label.includes('25.10')) {
+    assert.strictEqual(tldtCount, 106, 'File 25.10: so TVV co TLDTPTT phai = 106 (dem doc lap tu file tho)')
+  }
   if (label.includes('25.10')) {
     assert.ok(apeSubTotal > 0, 'Tong APE Sub file 25.10 phai > 0')
     assert.ok(pendWithPolicy > 0, 'Pending file 25.10 phai co dong co PolicyNum')

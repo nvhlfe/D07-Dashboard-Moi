@@ -4,10 +4,17 @@
 //
 // Nguon: snapshot Daily Sales moi nhat cua thang:
 //   - snapshot.data.agents: sheet Agent, khoa theo MSDL (fyp/fyc/caseNet/
-//     actCase/agSeg/level... — xem lib/parseDaily.js).
+//     actCase/agSeg/level/fypYtd/fycQtd/fycL12m/tldtptt/ipSub/ipNet/caseSub
+//     — xem lib/parseDaily.js).
 //   - snapshot.data.units: sheet Leader, khoa theo UnitCode (leaderName).
 //   - cases: lib/cases.js buildCases — ho so DUY NHAT theo MSDL:
 //     nop = case inProposal, PH = effectiveStatus 'IF', pend = 'PS'.
+//
+// DOT LAM LAI THEO MAU D03 (Lan gui anh 08/11/2026): man Doi Ngu hien theo
+// TVV kieu BANG VANG (xep hang + thanh xep chong 3 nhom bang groupValue +
+// bam vao TVV xem ho so pending cua chinh ho), KHONG con hien theo nhom
+// Unit/MOC. Phan buildTeam theo Unit + MOC van GIU trong lib (khong xoa)
+// de test cu va kha nang dung lai sau nay khong bi mat.
 //
 // LUOT ACT / MOC — SO UOC TINH TU DAILY, KHONG PHAI SO CHINH THUC:
 // Dinh nghia MOC o ban cu (file Compensation, sheet UM-OFF): duy tri chuc
@@ -22,6 +29,8 @@
 // Don vi tien: trieu dong (nhu du lieu Daily).
 // ─────────────────────────────────────────────────────────────
 
+import { groupValue } from './cases.js'
+
 export const MOC_TARGET = 6
 
 const num = (v) => {
@@ -34,7 +43,11 @@ const num = (v) => {
  * { units: [{ unit, leaderName, agentCount, fyp, fyc, actCount, actNeed,
  *             actEnough, agents: [agentView] }],
  *   totals: { unitCount, agentCount, actAgents, unitsEnough, fyp, fyc } }
- * agentView: { msdl, agName, unit, agSeg, level, fyp, fyc, nop, ph, pend, isAct }
+ * agentView: { msdl, agName, unit, agSeg, level, fyp, fyc, nop, ph, pend,
+ *              isAct, fypYtd, fycQtd, fycL12m, tldtptt, ipSub, ipNet, caseSub,
+ *              bar: { issued, pending, pipeline, total } (groupValue),
+ *              pendingCases: [{ policyNum, proposalNum, product,
+ *              proposalDate, ageDays, ageBucket, pendingReasons, value }] }
  * Sap xep: Unit chua du MOC truoc, trong nhom theo FYP giam dan;
  * TVV trong Unit theo FYP giam dan.
  */
@@ -43,16 +56,37 @@ export function buildTeam(snapshot, cases) {
   const agentsObj = data.agents || {}
   const unitsObj = data.units || {}
 
-  // Dem ho so duy nhat theo MSDL tu cases (buildCases)
+  // Dem ho so duy nhat theo MSDL tu cases (buildCases) + tong gia tri trung
+  // bay (groupValue) theo nhom trang thai cho thanh xep chong + danh sach
+  // ho so pending rut gon cua tung TVV (cho man Doi Ngu kieu Bang Vang).
   const counts = new Map()
   for (const c of cases || []) {
     const msdl = String(c.msdl || '')
     if (!msdl) continue
-    const cur = counts.get(msdl) || { nop: 0, ph: 0, pend: 0 }
+    const cur = counts.get(msdl) || {
+      nop: 0, ph: 0, pend: 0,
+      bar: { issued: 0, pending: 0, pipeline: 0, total: 0 },
+      pendingCases: [],
+    }
     if (c.inProposal) cur.nop += 1
-    if (c.effectiveStatus === 'IF') cur.ph += 1
-    if (c.effectiveStatus === 'PS') cur.pend += 1
+    if (c.effectiveStatus === 'IF') { cur.ph += 1; cur.bar.issued += groupValue(c) }
+    if (c.effectiveStatus === 'PS') {
+      cur.pend += 1
+      cur.bar.pending += groupValue(c)
+      cur.pendingCases.push({
+        policyNum: c.policyNum || '', proposalNum: c.proposalNum,
+        product: c.product || '', proposalDate: c.proposalDate || null,
+        ageDays: c.ageDays, ageBucket: c.ageBucket,
+        pendingReasons: c.pendingReasons || [], value: groupValue(c),
+      })
+    }
+    if (c.effectiveStatus === 'PIPELINE') cur.bar.pipeline += groupValue(c)
     counts.set(msdl, cur)
+  }
+  for (const cur of counts.values()) {
+    cur.bar.total = cur.bar.issued + cur.bar.pending + cur.bar.pipeline
+    // Pending cho lau nhat len truoc — can xu ly truoc
+    cur.pendingCases.sort((x, y) => (y.ageDays ?? -1) - (x.ageDays ?? -1))
   }
 
   const unitMap = new Map()
@@ -73,7 +107,11 @@ export function buildTeam(snapshot, cases) {
 
   for (const a of Object.values(agentsObj)) {
     const msdl = String(a.msdl || '')
-    const c = counts.get(msdl) || { nop: 0, ph: 0, pend: 0 }
+    const c = counts.get(msdl) || {
+      nop: 0, ph: 0, pend: 0,
+      bar: { issued: 0, pending: 0, pipeline: 0, total: 0 },
+      pendingCases: [],
+    }
     const view = {
       msdl,
       agName: a.agName || '',
@@ -82,9 +120,18 @@ export function buildTeam(snapshot, cases) {
       level: a.level || '',
       fyp: num(a.fyp),
       fyc: num(a.fyc),
+      fypYtd: num(a.fypYtd),
+      fycQtd: num(a.fycQtd),
+      fycL12m: num(a.fycL12m),
+      tldtptt: a.tldtptt === null || a.tldtptt === undefined ? null : num(a.tldtptt),
+      ipSub: num(a.ipSub),
+      ipNet: num(a.ipNet),
+      caseSub: num(a.caseSub),
       nop: c.nop,
       ph: c.ph,
       pend: c.pend,
+      bar: c.bar,
+      pendingCases: c.pendingCases,
       isAct: num(a.caseNet) > 0 || num(a.actCase) > 0,
     }
     // Unit la (khong co trong sheet Leader) van tao tu agents, leaderName ''
@@ -125,4 +172,23 @@ export function flattenAgents(team) {
     for (const a of u.agents) out.push({ ...a, unit: a.unit || u.unit })
   }
   return out
+}
+
+const RANK_KEYS = {
+  ipNet: (a) => num(a.ipNet), // IP phat hanh (mac dinh, nhu bang chi so D03)
+  barTotal: (a) => num(a.bar && a.bar.total), // tong nop theo groupValue
+  fyp: (a) => num(a.fyp), // FYP thang
+}
+
+/**
+ * Xep hang TVV toan GA (moi agentView tu moi Unit) theo sortKey:
+ * 'ipNet' (IP phat hanh — mac dinh) | 'barTotal' (tong nop) | 'fyp'.
+ * Giam dan; hoa thi theo ten TVV (tieng Viet) tang dan cho on dinh.
+ */
+export function rankAgents(team, sortKey = 'ipNet') {
+  const keyFn = RANK_KEYS[sortKey] || RANK_KEYS.ipNet
+  return flattenAgents(team)
+    .slice()
+    .sort((x, y) => keyFn(y) - keyFn(x)
+      || String(x.agName || '').localeCompare(String(y.agName || ''), 'vi'))
 }

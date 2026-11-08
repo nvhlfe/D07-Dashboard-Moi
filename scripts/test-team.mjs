@@ -3,6 +3,8 @@
 //    hoac actCase > 0 — doi chieu DOC LAP truc tiep tu data.agents),
 //    actNeed/actEnough theo nguong MOC 6, tong nop/PH hoa giai voi buildCases.
 //  - flattenAgents: du 547 TVV, moi dong kem unit.
+//  - Bang Vang (08/11): agentView co chi so tham khao + bar (groupValue) +
+//    pendingCases; rankAgents xep hang dung thu tu; tong bar.issued = 1.577,6tr.
 // LUU Y con so Act: sheet Agent THO co 35 dong 'Case Net' > 0, nhung 1 dong
 // bi loai boi bo loc dong hop le cua parseDaily (YearMonth/AGCode) nen
 // data.agents chi con 34 TVV dat Act. Test doi chieu tren data.agents
@@ -13,7 +15,7 @@ import { readFileSync } from 'node:fs'
 import assert from 'node:assert'
 import { parseWorkbook } from '../src/lib/parseDaily.js'
 import { buildCases } from '../src/lib/cases.js'
-import { buildTeam, flattenAgents, MOC_TARGET } from '../src/lib/team.js'
+import { buildTeam, flattenAgents, rankAgents, MOC_TARGET } from '../src/lib/team.js'
 
 const path = process.env.HOME + '/workspace/user/files/Daily_Sales_25.10.xlsx'
 const wb = XLSX.read(readFileSync(path), { type: 'buffer', cellDates: false })
@@ -97,6 +99,50 @@ const directFyp = agentsArr.reduce((s, a) => s + (Number(a.fyp) || 0), 0)
 const directFyc = agentsArr.reduce((s, a) => s + (Number(a.fyc) || 0), 0)
 assert.ok(Math.abs(t.fyp - directFyp) < 1e-6, 'Tong FYP phai = tong FYP sheet Agent')
 assert.ok(Math.abs(t.fyc - directFyc) < 1e-6, 'Tong FYC phai = tong FYC sheet Agent')
+
+// ── Bang Vang theo TVV (dot lam lai theo mau D03, 08/11) ──
+// agentView phai co cac chi so tham khao + bar (groupValue) + pendingCases.
+const r1t = (x) => Math.round(x * 10) / 10
+assert.ok(flat.every((a) => typeof a.fypYtd === 'number' && typeof a.fycQtd === 'number' && typeof a.fycL12m === 'number'
+  && typeof a.ipSub === 'number' && typeof a.ipNet === 'number' && typeof a.caseSub === 'number'
+  && (a.tldtptt === null || typeof a.tldtptt === 'number')
+  && a.bar && typeof a.bar.issued === 'number' && typeof a.bar.pending === 'number'
+  && typeof a.bar.pipeline === 'number' && Array.isArray(a.pendingCases)),
+'agentView phai co fypYtd/fycQtd/fycL12m/tldtptt/ipSub/ipNet/caseSub + bar + pendingCases')
+assert.ok(flat.every((a) => Math.abs(a.bar.total - (a.bar.issued + a.bar.pending + a.bar.pipeline)) < 1e-9), 'bar.total phai = issued + pending + pipeline cua tung TVV')
+
+// rankAgents mac dinh (ipNet): phan tu dau phai la TVV co ipNet lon nhat,
+// doi chieu truc tiep tu data.agents.
+const rankedDefault = rankAgents(team)
+const maxIpNet = Math.max(...agentsArr.map((a) => Number(a.ipNet) || 0))
+console.log(`\nrankAgents('ipNet'): dau bang = ${rankedDefault[0].agName} (${rankedDefault[0].unit}) ipNet = ${r1t(rankedDefault[0].ipNet)} tr · max ipNet dem truc tiep tu sheet Agent = ${r1t(maxIpNet)} tr`)
+assert.strictEqual(rankedDefault.length, 547, 'rankAgents phai tra du 547 TVV')
+assert.ok(Math.abs(rankedDefault[0].ipNet - maxIpNet) < 1e-9, 'Phan tu dau rankAgents mac dinh phai co ipNet = max ipNet cua data.agents')
+assert.ok(rankedDefault.every((a, i) => i === 0 || rankedDefault[i - 1].ipNet >= a.ipNet - 1e-9), 'rankAgents ipNet phai giam dan')
+const rankedBar = rankAgents(team, 'barTotal')
+assert.ok(rankedBar.every((a, i) => i === 0 || rankedBar[i - 1].bar.total >= a.bar.total - 1e-9), 'rankAgents barTotal phai giam dan theo bar.total')
+const rankedFyp = rankAgents(team, 'fyp')
+assert.ok(rankedFyp.every((a, i) => i === 0 || rankedFyp[i - 1].fyp >= a.fyp - 1e-9), 'rankAgents fyp phai giam dan theo fyp')
+
+// Tong bar toan GA: issued phai = 1.577,6 tr (IP Net IF duy nhat).
+const barIssued = flat.reduce((s, a) => s + a.bar.issued, 0)
+const barPending = flat.reduce((s, a) => s + a.bar.pending, 0)
+const barPipeline = flat.reduce((s, a) => s + a.bar.pipeline, 0)
+console.log(`Tong bar toan GA: issued = ${r1t(barIssued)} tr · pending = ${r1t(barPending)} tr · pipeline = ${r1t(barPipeline)} tr · tong = ${r1t(barIssued + barPending + barPipeline)} tr`)
+assert.ok(Math.abs(barIssued - 1577.6) <= 0.1, `Tong bar.issued toan GA phai = 1.577,6 tr (thuc te ${r1t(barIssued)})`)
+
+// pendingCases: TVV nhieu pending nhat phai khop so case PS dem truc tiep
+// tu buildCases theo msdl.
+const psByMsdl = new Map()
+for (const c of cases) {
+  if (c.effectiveStatus !== 'PS') continue
+  psByMsdl.set(c.msdl, (psByMsdl.get(c.msdl) || 0) + 1)
+}
+const topPend = [...flat].sort((x, y) => y.pendingCases.length - x.pendingCases.length)[0]
+console.log(`TVV nhieu pending nhat: ${topPend.agName} (${topPend.unit}) = ${topPend.pendingCases.length} HS · dem truc tiep tu buildCases = ${psByMsdl.get(topPend.msdl) || 0} HS`)
+assert.strictEqual(topPend.pendingCases.length, psByMsdl.get(topPend.msdl) || 0, 'pendingCases cua TVV nhieu pending nhat phai khop so case PS dem truc tiep tu buildCases')
+assert.strictEqual(flat.reduce((s, a) => s + a.pendingCases.length, 0), directPend, 'Tong pendingCases toan GA phai = tong case PS cua buildCases')
+assert.ok(flat.every((a) => a.pendingCases.every((pc) => typeof pc.proposalNum === 'string' && Array.isArray(pc.pendingReasons))), 'pendingCases phai co proposalNum + pendingReasons (mang)')
 
 console.log('Top Unit theo luot Act:', [...team.units].sort((x, y) => y.actCount - x.actCount).slice(0, 3).map((u) => `${u.unit}:${u.actCount}/${MOC_TARGET}`).join(' · '))
 console.log(`TVV chua co ho so (nop=0): ${flat.filter((a) => a.nop === 0).length}`)

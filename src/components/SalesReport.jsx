@@ -1,13 +1,19 @@
 // ─────────────────────────────────────────────────────────────
 // SalesReport — Man hinh "Sales Report" (SPEC v3, man hinh 2):
-// NHAT KY TUNG HO SO theo ngay, khong phai nhap tay tong so theo TVV.
-//  - Theo ngay: chon ngay -> nop / phat hanh / nop-dang-pending cua ngay do.
-//  - Tat ca ho so: tim kiem + loc Unit/trang thai, the ho so che so (2 so cuoi),
-//    bam vao xem hanh trinh Nop -> Len phi -> Pending -> Phat hanh (CHI XEM).
-//  - Pending: sap xep ho so cho lau nhat truoc, kem ly do + nhom tuoi.
-//  - Thay doi so voi ban truoc: panel thong bao diff 2 snapshot lien ke
-//    (moi nop / moi phat hanh / chuyen pending / doi trang thai / bien mat),
-//    khop theo PolicyNumber truoc, HSYC sau (lib/cases.js diffCases).
+// NHAT KY TUNG HO SO, khong phai nhap tay tong so theo TVV.
+// CAU TRUC (dot lam lai theo mau D03, Lan chot 08/11/2026):
+//  - The tom tat thang: phat hanh rong (tru CF lien thang) + THANH XEP
+//    CHONG TOAN GA theo gia tri trung bay (groupValue) 3 nhom
+//    Phat hanh / Pending / Chua len phi + ty le phat hanh theo gia tri.
+//  - Danh sach ho so THONG NHAT (bo 3 subview Theo ngay / Tat ca /
+//    Pending): co tim kiem + loc Unit + loc trang thai.
+//      + Loc Pending (PS): danh sach phang, cho lau nhat len truoc.
+//      + Con lai: NHOM THEO NGAY NOP (moi nhat truoc), header nhom dinh
+//        kem so ho so + tong gia tri cua ngay.
+//  - The ho so: vien trai theo mau trang thai, che so (2 so cuoi), bam
+//    vao xem hanh trinh Nop -> Len phi -> Pending -> Phat hanh (CHI XEM).
+//  - Da GO: xuat Excel + panel "Thay doi so voi ban truoc" (diffCases
+//    van nam trong lib/cases.js nhung UI khong dung nua).
 // CAP NHAT DU LIEU (Lan chot 08/11/2026 — thay co che chinh tay): day FILE
 // MOI (Daily day du hoac Proposal rieng) o tab Nap du lieu, nhu Sales Report
 // ban cu. Chi tiet ho so chi de xem, khong con form chinh tay.
@@ -15,9 +21,8 @@
 // cua HomNay: App truyen snaps tu Firestore neu co, khong thi localStorage).
 // ─────────────────────────────────────────────────────────────
 import React, { useMemo, useState } from 'react'
-import * as XLSX from 'xlsx'
 import { analyzeSoSanLuong, maskSensitive, prevYearMonth } from '../lib/analyze'
-import { buildCases, diffCases, journalForDay, summarizeCases, STATUS_LABELS } from '../lib/cases'
+import { buildCases, groupValue, summarizeCases, STATUS_LABELS } from '../lib/cases'
 import { isSuperAdmin } from '../lib/firebaseConfig'
 
 const fmtTr = (n) => {
@@ -25,12 +30,14 @@ const fmtTr = (n) => {
   return (Math.round(v * 10) / 10).toLocaleString('vi-VN')
 }
 const fmtInt = (n) => Math.round(Number(n) || 0).toLocaleString('vi-VN')
+const fmtPct1 = (n) => `${(Math.round((Number(n) || 0) * 10) / 10).toLocaleString('vi-VN')}%`
 const fmtDateVN = (iso) => {
   if (!iso) return '—'
   const p = String(iso).split('-')
   return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : String(iso)
 }
 const PILL_CLASS = { IF: 'pill-if', PS: 'pill-ps', PIPELINE: 'pill-pipe', OTHER: 'pill-other' }
+const CARD_CLASS = { IF: 'st-if', PS: 'st-ps', PIPELINE: 'st-pipe', OTHER: 'st-other' }
 const STATUS_FILTERS = [
   { code: 'ALL', label: 'Tất cả' },
   { code: 'IF', label: 'Phát hành' },
@@ -72,14 +79,11 @@ const primaryNum = (c) => {
 export default function SalesReport({ snaps, loading, onGoNap, user }) {
   // Admin chinh (admin@d07.com) xem so ho so DAY DU; con lai che con 2 so cuoi.
   const canSeeFull = isSuperAdmin(user)
-  const [subview, setSubview] = useState('day')
   const [selectedMonth, setSelectedMonth] = useState('')
-  const [day, setDay] = useState('')
   const [search, setSearch] = useState('')
   const [unitFilter, setUnitFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [expanded, setExpanded] = useState(null)
-  const [showChanges, setShowChanges] = useState(false)
 
   const months = useMemo(
     () => [...new Set((snaps || []).map((s) => s.id.slice(0, 7)))].sort(),
@@ -102,12 +106,18 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
     const cases = buildCases(snap)
     const summary = summarizeCases(cases)
     const unitList = [...new Set(cases.map((c) => c.unit).filter(Boolean))].sort()
-    // Snapshot lien truoc snap dang xem (uu tien cung thang) de diff thong bao thay doi
-    const sorted = [...(snaps || [])].sort((a, b) => String(a.id).localeCompare(String(b.id)))
-    const idx = sorted.findIndex((s) => s.id === snap.id)
-    const prevSnap = idx > 0 ? sorted[idx - 1] : null
-    const diff = prevSnap ? diffCases(buildCases(prevSnap), cases) : null
-    return { year, month, snap, prevSnap, diff, analysis, cases, summary, unitList }
+    // Tong gia tri trung bay (groupValue) toan GA theo nhom trang thai —
+    // cho thanh xep chong o the tom tat. OTHER khong vao thanh, chi ghi chu.
+    const gaBar = { issued: 0, pending: 0, pipeline: 0, other: 0 }
+    for (const c of cases) {
+      if (c.effectiveStatus === 'IF') gaBar.issued += groupValue(c)
+      else if (c.effectiveStatus === 'PS') gaBar.pending += groupValue(c)
+      else if (c.effectiveStatus === 'PIPELINE') gaBar.pipeline += groupValue(c)
+      // OTHER: groupValue = 0 (khong vao thanh) — gia tri "Khac" ghi chu lay
+      // theo gia tri the ho so (ipSub, khong thi ipNet) de con so co y nghia.
+      else gaBar.other += Number(c.ipSub) > 0 ? Number(c.ipSub) : (Number(c.ipNet) || 0)
+    }
+    return { year, month, snap, analysis, cases, summary, unitList, gaBar }
   }, [snaps, effMonth])
 
   if (loading) {
@@ -124,39 +134,11 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
     )
   }
 
-  const { year, month, snap, prevSnap, diff, analysis, cases, summary, unitList } = view
+  const { year, month, snap, analysis, cases, summary, unitList, gaBar } = view
   const t = analysis.totals
-  const effDay = day && day.startsWith(effMonth) ? day : snap.id
-  const journal = journalForDay(cases, effDay)
 
   const openCase = (c) => {
     setExpanded(expanded === c.proposalNum ? null : c.proposalNum)
-  }
-
-  const exportExcel = () => {
-    const perTvv = new Map()
-    const perUnit = new Map()
-    const bump = (m, key, init, c) => {
-      if (!m.has(key)) m.set(key, init())
-      const r = m.get(key)
-      if (c.effectiveStatus !== 'OTHER') r.nop += 1
-      if (c.effectiveStatus === 'IF') { r.ph += 1; r.ipPh += Number(c.effectiveIpNet) || 0 }
-      if (c.effectiveStatus === 'PS') r.pend += 1
-    }
-    for (const c of cases) {
-      bump(perTvv, c.msdl || c.agName, () => ({ 'TVV': c.agName || '—', 'Mã số': c.msdl || '', 'Unit': c.unit || '', nop: 0, ph: 0, pend: 0, ipPh: 0 }), c)
-      bump(perUnit, c.unit || '—', () => ({ 'Unit': c.unit || '—', nop: 0, ph: 0, pend: 0, ipPh: 0 }), c)
-    }
-    const tvvRows = [...perTvv.values()]
-      .sort((a, b) => b.ipPh - a.ipPh)
-      .map((r) => ({ 'TVV': r['TVV'], 'Mã số': r['Mã số'], 'Unit': r['Unit'], 'Số nộp': r.nop, 'Số phát hành': r.ph, 'Số pending': r.pend, 'IP phát hành (tr)': Math.round(r.ipPh * 10) / 10 }))
-    const unitRows = [...perUnit.values()]
-      .sort((a, b) => b.ipPh - a.ipPh)
-      .map((r) => ({ 'Unit': r['Unit'], 'Số nộp': r.nop, 'Số phát hành': r.ph, 'Số pending': r.pend, 'IP phát hành (tr)': Math.round(r.ipPh * 10) / 10 }))
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tvvRows), 'Overview')
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(unitRows), 'TongHop')
-    XLSX.writeFile(wb, `SalesReport_D07_${year}-${String(month).padStart(2, '0')}.xlsx`)
   }
 
   const filteredAll = cases.filter((c) => {
@@ -169,6 +151,37 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
     }
     return true
   })
+
+  // ── To chuc DANH SACH THONG NHAT ──
+  // Loc Pending (PS): danh sach PHANG, sap tuoi pending giam dan (cho lau
+  // nhat truoc). Cac loc con lai: NHOM THEO NGAY NOP giam dan; nhom khong
+  // co ngay nop xep cuoi. Trong nhom giu nguyen thu tu cua filteredAll
+  // (buildCases da sap ngay nop moi truoc, cung ngay theo so HSYC).
+  const isPendingView = statusFilter === 'PS'
+  const pendingFlat = isPendingView
+    ? [...filteredAll].sort((a, b) => (b.ageDays ?? -1) - (a.ageDays ?? -1)
+      || String(a.proposalDate || '').localeCompare(String(b.proposalDate || '')))
+    : []
+  const dayGroups = []
+  if (!isPendingView) {
+    const byDay = new Map()
+    for (const c of filteredAll) {
+      const key = c.proposalDate || ''
+      if (!byDay.has(key)) byDay.set(key, [])
+      byDay.get(key).push(c)
+    }
+    const keys = [...byDay.keys()].filter((k) => k).sort((a, b) => String(b).localeCompare(String(a)))
+    if (byDay.has('')) keys.push('')
+    for (const key of keys) {
+      const items = byDay.get(key)
+      dayGroups.push({ key, items, total: items.reduce((s, c) => s + groupValue(c), 0) })
+    }
+  }
+
+  // Thanh xep chong toan GA: 3 nhom vao thanh; ty le phat hanh theo gia tri
+  const gaTotal = gaBar.issued + gaBar.pending + gaBar.pipeline
+  const gaPct = (v) => (gaTotal > 0 ? (v / gaTotal) * 100 : 0)
+  const issueRate = gaTotal > 0 ? (gaBar.issued / gaTotal) * 100 : null
 
   const renderDetail = (c) => {
     const pn = primaryNum(c)
@@ -209,7 +222,7 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
           {c.pendingReasons.map((r) => <span className="reason-chip" key={r}>{r}</span>)}
         </div>
       )}
-      <div className="lock-note">Chi tiết chỉ để xem. Muốn cập nhật trạng thái / IP của hồ sơ, hãy đẩy file Daily Sales mới (hoặc file Proposal riêng) ở tab Nạp dữ liệu — thay đổi sẽ hiện ở mục “🔔 Thay đổi so với bản trước”.</div>
+      <div className="lock-note">Chi tiết chỉ để xem. Số liệu tự cập nhật khi có bản Daily Sales mới ở tab Nạp dữ liệu.</div>
     </div>
     )
   }
@@ -218,7 +231,7 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
     const v = cardValue(c)
     const pn = primaryNum(c)
     return (
-    <div className="case-card" key={c.proposalNum}>
+    <div className={`case-card ${CARD_CLASS[c.effectiveStatus] || 'st-other'}`} key={c.proposalNum}>
       <div className="case-head" onClick={() => openCase(c)}>
         <div className="case-main">
           <div className="case-num">
@@ -244,24 +257,6 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
     )
   }
 
-  // 1 dong trong panel Thay doi: ngay nop, TVV, Unit, so hieu chinh theo trang
-  // thai (IF/PS -> so Policy, con lai -> so HSYC) + so phu (che theo quyen)
-  const renderChangeRow = (c, extra) => {
-    const pn = primaryNum(c)
-    return (
-    <div className="audit-row" key={`${c.proposalNum}-${c.policyNum || ''}`}>
-      <div>
-        <b>{maskSensitive(pn.value, canSeeFull)}</b>
-        {pn.secondary ? <span className="muted"> · {pn.secondaryLabel} {maskSensitive(pn.secondary, canSeeFull)}</span> : null}
-        <div className="a-ts">
-          Nộp {fmtDateVN(c.proposalDate)} · {c.agName || '—'}{c.unit ? ` · ${c.unit}` : ''}{extra ? ` · ${extra}` : ''}
-        </div>
-      </div>
-      <StatusPill code={c.baseStatus} />
-    </div>
-    )
-  }
-
   return (
     <div>
       {/* ── Tom tat thang ── */}
@@ -277,140 +272,68 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
           {' · '}Pending <b>{fmtInt(summary.byStatus.PS.n)}</b>
           {' · '}Chưa lên phí <b>{fmtInt(summary.byStatus.PIPELINE.n)}</b>
         </div>
-        <div className="muted" style={{ marginTop: 4 }}>Dữ liệu đến {fmtDateVN(snap.id)} · nhật ký từng hồ sơ, không nhập tay tổng số theo TVV</div>
+
+        {/* ── Thanh xep chong TOAN GA theo gia tri trung bay ── */}
+        <div className="stack-bar" style={{ marginBottom: 6 }}>
+          {gaBar.issued > 0 ? <div className="seg-issued" style={{ width: `${gaPct(gaBar.issued)}%` }} /> : null}
+          {gaBar.pending > 0 ? <div className="seg-pending" style={{ width: `${gaPct(gaBar.pending)}%` }} /> : null}
+          {gaBar.pipeline > 0 ? <div className="seg-pipe" style={{ width: `${gaPct(gaBar.pipeline)}%` }} /> : null}
+        </div>
+        <div className="legend">
+          <span><span className="dot" style={{ background: '#22c55e' }} />Phát hành {fmtTr(gaBar.issued)} tr</span>
+          <span><span className="dot" style={{ background: '#f59e0b' }} />Pending {fmtTr(gaBar.pending)} tr</span>
+          <span><span className="dot" style={{ background: '#38bdf8' }} />Chưa lên phí {fmtTr(gaBar.pipeline)} tr</span>
+        </div>
+        <div style={{ fontSize: 13.5, marginTop: 6 }}>
+          Tỷ lệ phát hành theo giá trị: <b>{issueRate !== null ? fmtPct1(issueRate) : '—'}</b>
+          {gaBar.other > 0 ? <span className="muted"> · Khác {fmtTr(gaBar.other)} tr (không tính vào thanh)</span> : null}
+        </div>
+
+        <div className="muted" style={{ marginTop: 6 }}>Dữ liệu đến {fmtDateVN(snap.id)} · nhật ký từng hồ sơ, không nhập tay tổng số theo TVV</div>
         {months.length > 1 && (
           <div className="field" style={{ marginTop: 10, marginBottom: 0 }}>
             <label>Tháng xem</label>
-            <select value={effMonth} onChange={(e) => { setSelectedMonth(e.target.value); setDay(''); setExpanded(null) }}>
+            <select value={effMonth} onChange={(e) => { setSelectedMonth(e.target.value); setExpanded(null) }}>
               {months.map((m) => <option key={m} value={m}>{`Tháng ${m.split('-')[1]}/${m.split('-')[0]}`}</option>)}
             </select>
           </div>
         )}
-        <button className="btn-ghost" style={{ marginTop: 10, width: '100%' }} onClick={exportExcel}>⬇ Xuất Excel (Overview + Tổng hợp)</button>
       </div>
 
-      {/* ── Thay doi so voi ban truoc (diff 2 snapshot) ── */}
-      {diff && prevSnap && (
-        <div className="card">
-          <h2>🔔 Thay đổi so với bản trước</h2>
-          <div className="muted" style={{ marginBottom: 8 }}>
-            Đối chiếu bản {fmtDateVN(prevSnap.id)} → bản {fmtDateVN(snap.id)} (khớp theo số Policy trước, số HSYC sau):
-          </div>
-          <div style={{ fontSize: 14, lineHeight: 1.9 }}>
-            <div>🆕 Mới nộp: <b>{diff.added.length}</b> · ✅ Mới phát hành: <b>{diff.becameIssued.length}</b> · ⏳ Chuyển sang pending: <b>{diff.becamePending.length}</b></div>
-            <div>🔀 Đổi trạng thái khác: <b>{diff.statusChanged.length}</b> · 🗑️ Không còn trong bản mới: <b>{diff.removed.length}</b> · Giữ nguyên: <b>{fmtInt(diff.unchanged)}</b></div>
-          </div>
-          <button className="btn-ghost" style={{ marginTop: 8, width: '100%' }} onClick={() => setShowChanges((v) => !v)}>
-            {showChanges ? 'Thu gọn danh sách' : 'Xem danh sách chi tiết'}
-          </button>
-          {showChanges && (
-            <div style={{ marginTop: 8 }}>
-              {diff.added.length > 0 && (<>
-                <div style={{ fontWeight: 800, margin: '8px 0 4px' }}>🆕 Mới nộp ({diff.added.length})</div>
-                {diff.added.map((c) => renderChangeRow(c))}
-              </>)}
-              {diff.becameIssued.length > 0 && (<>
-                <div style={{ fontWeight: 800, margin: '8px 0 4px' }}>✅ Mới phát hành ({diff.becameIssued.length})</div>
-                {diff.becameIssued.map((c) => renderChangeRow(c))}
-              </>)}
-              {diff.becamePending.length > 0 && (<>
-                <div style={{ fontWeight: 800, margin: '8px 0 4px' }}>⏳ Chuyển sang pending ({diff.becamePending.length})</div>
-                {diff.becamePending.map((c) => renderChangeRow(c))}
-              </>)}
-              {diff.statusChanged.length > 0 && (<>
-                <div style={{ fontWeight: 800, margin: '8px 0 4px' }}>🔀 Đổi trạng thái khác ({diff.statusChanged.length})</div>
-                {diff.statusChanged.map(({ c, from, to }) => renderChangeRow(c, `${STATUS_LABELS[from] || from} → ${STATUS_LABELS[to] || to}`))}
-              </>)}
-              {diff.removed.length > 0 && (<>
-                <div style={{ fontWeight: 800, margin: '8px 0 4px' }}>🗑️ Không còn trong bản mới ({diff.removed.length})</div>
-                {diff.removed.map((c) => renderChangeRow(c))}
-              </>)}
-              {diff.added.length + diff.becameIssued.length + diff.becamePending.length + diff.statusChanged.length + diff.removed.length === 0 && (
-                <div className="muted">Không có thay đổi nào giữa 2 bản.</div>
-              )}
-            </div>
-          )}
+      {/* ── Bo loc danh sach ── */}
+      <div className="search-row">
+        <div className="field">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="🔎 Tìm theo tên TVV, mã số, số hồ sơ…" />
         </div>
-      )}
-
-      {/* ── Chuyen muc ── */}
+      </div>
+      <div className="field">
+        <select value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)}>
+          <option value="ALL">Tất cả Unit</option>
+          {unitList.map((u) => <option key={u} value={u}>{u}</option>)}
+        </select>
+      </div>
       <div className="chips-row">
-        <button className={`fchip ${subview === 'day' ? 'active' : ''}`} onClick={() => setSubview('day')}>🗓️ Theo ngày</button>
-        <button className={`fchip ${subview === 'all' ? 'active' : ''}`} onClick={() => setSubview('all')}>🗂️ Tất cả hồ sơ</button>
-        <button className={`fchip ${subview === 'pending' ? 'active' : ''}`} onClick={() => setSubview('pending')}>⏳ Pending ({fmtInt(summary.byStatus.PS.n)})</button>
+        {STATUS_FILTERS.map((f) => (
+          <button key={f.code} className={`fchip sm ${statusFilter === f.code ? 'active' : ''}`} onClick={() => setStatusFilter(f.code)}>{f.label}</button>
+        ))}
       </div>
 
-      {subview === 'day' && (
-        <div>
-          <div className="card">
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label>Ngày xem nhật ký</label>
-              <input type="date" value={effDay} min={`${effMonth}-01`} max={snap.id} onChange={(e) => setDay(e.target.value)} />
+      {/* ── Danh sach ho so thong nhat ── */}
+      <div className="muted" style={{ marginBottom: 8 }}>
+        {filteredAll.length} hồ sơ · bấm vào thẻ để xem hành trình hồ sơ
+        {isPendingView ? ' · đang sắp xếp chờ lâu nhất trước' : ' · nhóm theo ngày nộp'}
+      </div>
+      {filteredAll.length === 0 && <div className="card empty"><div className="e-ic">🔍</div>Không có hồ sơ nào khớp bộ lọc.</div>}
+      {isPendingView
+        ? pendingFlat.map(renderCard)
+        : dayGroups.map((g) => (
+          <div key={g.key || 'nodate'}>
+            <div className="day-head">
+              📅 {g.key ? fmtDateVN(g.key) : 'Không rõ ngày nộp'} — {g.items.length} hồ sơ · {fmtTr(g.total)} tr
             </div>
+            {g.items.map(renderCard)}
           </div>
-          <div className="mini-stats">
-            <div className="mini-stat"><div className="ms-num">{journal.submitted.length}</div><div className="ms-label">Nộp ngày đó</div></div>
-            <div className="mini-stat"><div className="ms-num">{journal.issued.length}</div><div className="ms-label">Phát hành ngày đó</div></div>
-            <div className="mini-stat"><div className="ms-num">{journal.submittedPending.length}</div><div className="ms-label">Nộp ngày đó đang pending</div></div>
-          </div>
-          {journal.submitted.length === 0 && journal.issued.length === 0 && (
-            <div className="card empty"><div className="e-ic">🌤️</div>Ngày {fmtDateVN(effDay)} không có hồ sơ nộp mới hay phát hành nào trong dữ liệu hiện có.</div>
-          )}
-          {journal.submitted.length > 0 && (
-            <>
-              <div style={{ fontWeight: 800, margin: '4px 2px 8px' }}>Hồ sơ nộp ngày {fmtDateVN(effDay)}</div>
-              {journal.submitted.map(renderCard)}
-            </>
-          )}
-          {journal.issued.filter((c) => c.proposalDate !== effDay).length > 0 && (
-            <>
-              <div style={{ fontWeight: 800, margin: '10px 2px 8px' }}>Hồ sơ nộp trước đó, phát hành ngày {fmtDateVN(effDay)}</div>
-              {journal.issued.filter((c) => c.proposalDate !== effDay).map(renderCard)}
-            </>
-          )}
-          {journal.submittedPipeline.length > 0 && (
-            <>
-              <div style={{ fontWeight: 800, margin: '10px 2px 8px' }}>Hồ sơ chưa lên phí nộp ngày {fmtDateVN(effDay)} ({journal.submittedPipeline.length})</div>
-              {journal.submittedPipeline.map(renderCard)}
-            </>
-          )}
-        </div>
-      )}
-
-      {subview === 'all' && (
-        <div>
-          <div className="search-row">
-            <div className="field">
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="🔎 Tìm theo tên TVV, mã số, số hồ sơ…" />
-            </div>
-          </div>
-          <div className="field">
-            <select value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)}>
-              <option value="ALL">Tất cả Unit</option>
-              {unitList.map((u) => <option key={u} value={u}>{u}</option>)}
-            </select>
-          </div>
-          <div className="chips-row">
-            {STATUS_FILTERS.map((f) => (
-              <button key={f.code} className={`fchip sm ${statusFilter === f.code ? 'active' : ''}`} onClick={() => setStatusFilter(f.code)}>{f.label}</button>
-            ))}
-          </div>
-          <div className="muted" style={{ marginBottom: 8 }}>{filteredAll.length} hồ sơ · bấm vào thẻ để xem hành trình hồ sơ</div>
-          {filteredAll.length === 0 && <div className="card empty"><div className="e-ic">🔍</div>Không có hồ sơ nào khớp bộ lọc.</div>}
-          {filteredAll.slice(0, 200).map(renderCard)}
-          {filteredAll.length > 200 && <div className="muted" style={{ textAlign: 'center' }}>Đang hiện 200 hồ sơ đầu — hãy lọc thêm để thu hẹp.</div>}
-        </div>
-      )}
-
-      {subview === 'pending' && (
-        <div>
-          <div className="muted" style={{ marginBottom: 8 }}>
-            {summary.pending.length} hồ sơ đang pending · sắp xếp chờ lâu nhất trước · tuổi tính đến {fmtDateVN(snap.id)}
-          </div>
-          {summary.pending.length === 0 && <div className="card empty"><div className="e-ic">🎉</div>Không có hồ sơ pending nào.</div>}
-          {summary.pending.map(renderCard)}
-        </div>
-      )}
+        ))}
     </div>
   )
 }

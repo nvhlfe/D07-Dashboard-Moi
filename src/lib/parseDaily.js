@@ -66,6 +66,13 @@ export function parseWorkbook(wb) {
   for (const r of (rawAgent || [])) {
     if (!isYearMonth(r['YearMonth']) || !r['AGCode']) continue
     const msdl = String(r['AGCode'])
+    // TLDTPTT (ty le duy tri): so % TRUC TIEP trong file (vd 93.2 = 93,2%).
+    // Nhieu TVV khong co gia tri (file 25.10 chi 106/547) -> giu null de UI
+    // hien "—", KHONG ep ve 0 (0% se gay hieu nham la duy tri 0%).
+    const rawTldt = r['TLDTPTT']
+    const tldtptt = rawTldt !== null && rawTldt !== undefined && rawTldt !== '' && Number.isFinite(Number(rawTldt))
+      ? Number(rawTldt)
+      : null
     agents[msdl] = {
       unit: r['UnitCode'] || '', leaderCode: r['LeaderCode'] ? String(r['LeaderCode']) : '',
       msdl, agName: r['AGName'] || '', agSeg: r['AGSegName'] || '',
@@ -74,6 +81,7 @@ export function parseWorkbook(wb) {
       level: r['AGLevel'] || '', apeNet: num(r['APE Net']), netMp: num(r['Net Manpower']),
       actFyc: num(r['Active Net (FYC)']), actCase: num(r['Active Net (Case)']),
       fypYtd: num(r['FYP YTD']), fycYtd: num(r['FYC YTD']),
+      fycQtd: num(r['FYC QTD']), fycL12m: num(r['FYC L12M']), tldtptt,
       cIF: 0, cPS: 0, cOther: 0,
     }
   }

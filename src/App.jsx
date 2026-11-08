@@ -302,7 +302,7 @@ export default function App() {
               onOpenAccount={openAccount} />
           )}
           {tab === 'sales' && <SalesReport snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} user={user} />}
-          {tab === 'team' && <DoiNgu snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} />}
+          {tab === 'team' && <DoiNgu snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} user={user} />}
           {tab === 'nap' && <NapDuLieu onSaved={reload} user={user} snaps={snaps} />}
 
           <nav className="bottom-nav">

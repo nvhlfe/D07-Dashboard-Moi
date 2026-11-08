@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs'
 import assert from 'node:assert'
 import { parseWorkbook } from '../src/lib/parseDaily.js'
 import { analyzeSoSanLuong } from '../src/lib/analyze.js'
-import { buildCases, caseKey, diffCases, journalForDay, summarizeCases } from '../src/lib/cases.js'
+import { buildCases, caseKey, diffCases, groupValue, journalForDay, summarizeCases } from '../src/lib/cases.js'
 
 const path = process.env.HOME + '/workspace/user/files/Daily_Sales_25.10.xlsx'
 const wb = XLSX.read(readFileSync(path), { type: 'buffer', cellDates: false })
@@ -157,5 +157,33 @@ assert.strictEqual(diff.becameIssued[0].proposalNum, flipNum, 'Ho so becameIssue
 assert.strictEqual(diff.becamePending.length, 0, 'Khong co ho so nao chuyen sang PS o ban moi')
 assert.strictEqual(diff.statusChanged.length, 0, 'Khong co doi trang thai khac')
 assert.strictEqual(diff.unchanged, prevCases.length - 1, 'Con lai giu nguyen = tong prev tru ho so doi trang thai')
+
+// ── apeSub/apeNet tren case + groupValue (dot Bang Vang / thanh xep chong, 08/11) ──
+// Case phai mang apeSub/apeNet cua dong Proposal dau tien theo HSYC; tong
+// theo case (chi case inProposal) phai khop tong theo DONG DUY NHAT.
+const seenApe = new Set()
+let apeSubUnique = 0
+let apeNetUnique = 0
+for (const p of parsed.proposalRows) {
+  const k = String(p.proposalNum)
+  if (seenApe.has(k)) continue
+  seenApe.add(k)
+  apeSubUnique += Number(p.apeSub) || 0
+  apeNetUnique += Number(p.apeNet) || 0
+}
+const caseApeSub = cases.filter((c) => c.inProposal).reduce((s, c) => s + c.apeSub, 0)
+const caseApeNet = cases.filter((c) => c.inProposal).reduce((s, c) => s + c.apeNet, 0)
+console.log(`\napeSub: tong case inProposal = ${r1(caseApeSub)} tr · tong dong Proposal duy nhat = ${r1(apeSubUnique)} tr · apeNet duy nhat = ${r1(apeNetUnique)} tr`)
+assert.ok(Math.abs(caseApeSub - apeSubUnique) < 1e-6, 'Tong apeSub cua case inProposal phai = tong apeSub dong Proposal duy nhat')
+assert.ok(Math.abs(caseApeNet - apeNetUnique) < 1e-6, 'Tong apeNet cua case inProposal phai = tong apeNet dong Proposal duy nhat')
+assert.ok(cases.filter((c) => !c.inProposal).every((c) => c.apeSub === 0 && c.apeNet === 0), 'Case khong co dong Proposal: apeSub/apeNet phai = 0')
+
+// groupValue: tong nhom IF toan GA phai = tong IP Net duy nhat 1.577,6 tr.
+const gvIssued = cases.filter((c) => c.effectiveStatus === 'IF').reduce((s, c) => s + groupValue(c), 0)
+const gvPending = cases.filter((c) => c.effectiveStatus === 'PS').reduce((s, c) => s + groupValue(c), 0)
+const gvPipeline = cases.filter((c) => c.effectiveStatus === 'PIPELINE').reduce((s, c) => s + groupValue(c), 0)
+console.log(`groupValue toan GA: phat hanh = ${r1(gvIssued)} tr · pending = ${r1(gvPending)} tr · chua len phi = ${r1(gvPipeline)} tr · tong thanh = ${r1(gvIssued + gvPending + gvPipeline)} tr`)
+assert.ok(Math.abs(gvIssued - 1577.6) <= 0.1, `Tong groupValue nhom IF phai = 1.577,6 tr (thuc te ${r1(gvIssued)})`)
+assert.ok(cases.filter((c) => c.effectiveStatus === 'OTHER').every((c) => groupValue(c) === 0), 'groupValue cua OTHER phai = 0')
 
 console.log('\n✅ TAT CA ASSERT DAT')

@@ -270,3 +270,67 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
 .act-badge { font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; white-space: nowrap; margin-top: 2px; flex-shrink: 0; }
 .act-badge.ok { background: #dcfce7; color: #166534; }
 .act-badge.no { background: #f1f5f9; color: var(--text3); }
+
+/* ── Doi Ngu — Bang Vang TVV (theo mau D03) ─────────────────────── */
+.bv-card { padding: 16px 14px 12px; }
+.bv-row { border-bottom: 1px solid var(--line); border-radius: 10px; padding: 2px 6px; }
+.bv-row:last-child { border-bottom: none; }
+.bv-r1 { background: linear-gradient(135deg, #fffbeb, #ffffff 70%); }
+.bv-r2 { background: linear-gradient(135deg, #f0f9ff, #ffffff 70%); }
+.bv-r3 { background: linear-gradient(135deg, #fdf2f8, #ffffff 70%); }
+.bv-head {
+  display: flex; align-items: flex-start; gap: 10px; width: 100%;
+  background: none; border: none; padding: 10px 0; cursor: pointer;
+  text-align: left; font-family: inherit; min-height: 44px;
+}
+.bv-avatar {
+  position: relative; flex: 0 0 auto; width: 46px; height: 46px;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 800; border: 2px solid transparent;
+}
+.bv-av-dia { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+.bv-av-pla { background: #e2e8f0; border-color: #cbd5e1; color: #475569; }
+.bv-av-gold { background: #fef3c7; border-color: #fcd34d; color: #b45309; }
+.bv-av-oth { background: #f1f5f9; border-color: #e2e8f0; color: #475569; }
+.bv-medal { position: absolute; right: -5px; bottom: -5px; font-size: 15px; line-height: 1; }
+.bv-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bv-name { font-size: 15px; font-weight: 800; color: var(--text); line-height: 1.25; }
+.bv-rank { color: var(--text3); font-weight: 700; margin-right: 6px; font-size: 13px; }
+.bv-sub { font-size: 12.5px; color: var(--text3); font-weight: 600; }
+.bv-seg-dia { color: #2563eb; }
+.bv-seg-pla { color: #64748b; }
+.bv-seg-gold { color: #d97706; }
+.bv-bar { display: flex; height: 8px; border-radius: 99px; overflow: hidden; background: var(--line2); margin-top: 6px; }
+.bv-seg-issued { background: #7c3aed; min-width: 4px; }
+.bv-seg-pending { background: #ec4899; min-width: 4px; }
+.bv-seg-pipeline { background: #06b6d4; min-width: 4px; }
+.bv-nums { display: flex; flex-wrap: wrap; gap: 1px 12px; font-size: 11.5px; font-weight: 600; margin-top: 4px; }
+.bv-num-issued { color: #7c3aed; }
+.bv-num-pending { color: #db2777; }
+.bv-num-pipeline { color: #0891b2; }
+.bv-total { flex: 0 0 auto; text-align: right; padding-top: 2px; }
+.bv-total-num { display: block; font-size: 19px; font-weight: 800; color: var(--text); line-height: 1.1; }
+.bv-total-sub { display: block; font-size: 12px; color: var(--text3); font-weight: 600; margin-top: 2px; }
+.bv-expand { padding: 2px 0 12px 56px; }
+.bv-ref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin-bottom: 10px; }
+.bv-ref span { display: block; font-size: 11px; color: var(--text3); font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
+.bv-ref b { font-size: 15px; color: var(--text); }
+.bv-pend-title { font-size: 13.5px; font-weight: 800; margin: 4px 0 6px; }
+.bv-pend { border-top: 1px dashed var(--line); padding: 8px 0; }
+.bv-pend-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14.5px; }
+.bv-pend-val { margin-left: auto; font-weight: 800; color: var(--pink); }
+@media (max-width: 480px) {
+  .bv-expand { padding-left: 0; }
+  .bv-total-num { font-size: 17px; }
+}
+
+/* ── Sales Report — nhom theo ngay nop + vien trai trang thai ──── */
+.day-head {
+  position: sticky; top: 0; z-index: 3;
+  background: var(--bg); padding: 8px 2px; margin: 4px 0 2px;
+  font-size: 13.5px; font-weight: 800; color: var(--text2);
+}
+.case-card.st-if { border-left: 4px solid #22c55e; }
+.case-card.st-ps { border-left: 4px solid #f59e0b; }
+.case-card.st-pipe { border-left: 4px solid #38bdf8; }
+.case-card.st-other { border-left: 4px solid #cbd5e1; }

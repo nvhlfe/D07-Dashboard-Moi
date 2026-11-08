@@ -8,8 +8,10 @@
 // CO CHE CAP NHAT (Lan chot 08/11/2026 — THAY THE lop dieu chinh tay truoc
 // day): muon cap nhat trang thai/IP ho so thi DAY FILE MOI (file Daily Sales
 // day du, hoac file Proposal rieng) o tab Nap du lieu — nhu Sales Report ban
-// cu. Khong con chinh tay tung ho so. Panel "Thay doi so voi ban truoc" o
-// Sales Report dung diffCases de thong bao nhung thay doi giua 2 snapshot.
+// cu. Khong con chinh tay tung ho so. (diffCases van giu trong lib nhung
+// panel "Thay doi so voi ban truoc" da bi GO khoi Sales Report o dot lam
+// lai theo mau D03 — Lan chot bo.)
+// groupValue: gia tri trung bay cua ho so cho thanh xep chong (Bang Vang).
 //
 // KHOA HO SO: ho so Phat hanh (IF) / Pending (PS) lay theo SO POLICY
 // (policyNum) — xem caseKey. Viec doi chieu giua 2 ban (diffCases) cung khop
@@ -65,6 +67,24 @@ export function caseKey(c) {
 }
 
 /**
+ * Gia tri "trung bay" cua 1 ho so — dung cho THANH XEP CHONG (Bang Vang o
+ * man Doi Ngu + thanh toan GA o Sales Report). Nhat quan voi cardValue cua
+ * Sales Report (gia tri chinh tren the ho so):
+ *   IF       -> effectiveIpNet (IP phat hanh rong)
+ *   PS       -> APE neu co (tu sheet Pending), khong thi IP Sub
+ *   PIPELINE -> APE neu co (tu sheet Pipeline), khong thi IP Sub
+ *   OTHER    -> 0 (khong tinh vao thanh)
+ */
+export function groupValue(c) {
+  if (!c) return 0
+  const st = c.effectiveStatus || c.baseStatus
+  const ape = num(c.ape)
+  if (st === 'IF') return num(c.effectiveIpNet)
+  if (st === 'PS' || st === 'PIPELINE') return ape > 0 ? ape : num(c.ipSub)
+  return 0
+}
+
+/**
  * Gop snapshot thanh danh sach HO SO (key = proposalNum).
  * snapshot: { id: 'yyyy-mm-dd', data } (doc daily_sales_tvv) — hoac raw data
  * kem truong snapshotDate.
@@ -82,7 +102,7 @@ export function buildCases(snapshot) {
         proposalNum: key, msdl: '', agName: '', unit: '',
         proposalDate: null, firstIssuedDate: null,
         status: '', statusFull: '', product: '', policyNum: '',
-        baseStatus: 'OTHER', ipSub: 0, ipNet: 0, ape: 0,
+        baseStatus: 'OTHER', ipSub: 0, ipNet: 0, ape: 0, apeSub: 0, apeNet: 0,
         pendingReasons: [], reasonDetails: [],
         description: '', classify: '', poName: '',
         inPipeline: false, inPendingSheet: false, inProposal: false,
@@ -119,6 +139,8 @@ export function buildCases(snapshot) {
     c.baseStatus = p.statusGroup === 'IF' ? 'IF' : p.statusGroup === 'PS' ? 'PS' : 'OTHER'
     c.ipSub = num(p.ipSub)
     c.ipNet = num(p.ipNet)
+    c.apeSub = num(p.apeSub)
+    c.apeNet = num(p.apeNet)
   }
 
   // 2) Sheet Pending — bo sung ly do cho + ho so chi co o sheet nay = PS
