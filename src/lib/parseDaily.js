@@ -56,6 +56,7 @@ export function parseWorkbook(wb) {
       proposalDate: excelDateIntToISO(r['ProposalDate']),
       firstIssuedDate: excelDateIntToISO(r['FirstIssuedDate']),
       caseSub: num(r['Case Sub (IF-PS)']), ipSub: num(r['IP Sub']), ipNet: num(r['IP Net']),
+      apeSub: num(r['APE Sub (IF-PS)']), apeNet: num(r['APE Net']),
       policyNum: r['PolicyNum'] ? String(r['PolicyNum']) : '',
     })
   }
@@ -114,7 +115,8 @@ export function parseWorkbook(wb) {
       .map((f) => ({ name: f, detail: String(r[f]).slice(0, 200) }))
     pendingRows.push({
       unit: r['UnitCode'] || '', msdl: String(r['AGCode']), agName: r['AGName'] || '',
-      proposalNum: String(r['ProposalNum']), proposalDate: excelDateIntToISO(r['ProposalDate']),
+      proposalNum: String(r['ProposalNum']), policyNum: r['PolicyNum'] ? String(r['PolicyNum']) : '',
+      proposalDate: excelDateIntToISO(r['ProposalDate']),
       product: r['ProductNameVN'] || r['BasicProductCode'] || '', ape: num(r['APE (mil)']),
       poName: r['POName'] || '', description: r['Description'] || '',
       classify: r['Classify'] || '', requirements,
@@ -127,7 +129,8 @@ export function parseWorkbook(wb) {
     if (!isValidCode(r['AGCode']) || !r['ProposalNum']) continue
     pipelineRows.push({
       unit: r['UnitCode'] || '', msdl: String(r['AGCode']), agName: r['AGName'] || '',
-      proposalNum: String(r['ProposalNum']), proposalDate: excelDateIntToISO(r['ProposalDate']),
+      proposalNum: String(r['ProposalNum']), policyNum: r['PolicyNum'] ? String(r['PolicyNum']) : '',
+      proposalDate: excelDateIntToISO(r['ProposalDate']),
       product: r['ProductNameVN'] || r['BasicProductCode'] || '', ape: num(r['APE (mil)']),
       poName: r['PO_Name'] || '', description: r['Description'] || '', classify: r['Classify'] || '',
     })

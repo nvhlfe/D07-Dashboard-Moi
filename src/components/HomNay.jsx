@@ -52,20 +52,28 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
         .slice(0, 5)
         .map((a) => ({ name: a.agName, unit: a.unit, ip: a.ipNet }))
     }
-    // Heatmap: dem Proposal theo ngay nop trong thang
+    // Heatmap "Nhip nop theo ngay": TONG APE nop trong ngay (apeSub cua cac
+    // dong Proposal, theo proposalDate) — Lan chot lay so APE thay vi so ho so.
+    // heatCount giu so ho so de hien kem trong title cua o. Snapshot cu chua
+    // co apeSub thi cong 0 (khong crash).
     const daysInMonth = new Date(year, month, 0).getDate()
     const heat = Array(daysInMonth + 1).fill(0)
+    const heatCount = Array(daysInMonth + 1).fill(0)
     ;(newest.data?.proposalRows || []).forEach((r) => {
       if (r.proposalDate && inMonth(r.proposalDate, year, month)) {
         const d = Number(r.proposalDate.split('-')[2])
-        if (d >= 1 && d <= daysInMonth) heat[d] += 1
+        if (d >= 1 && d <= daysInMonth) {
+          heat[d] += Number(r.apeSub) || 0
+          heatCount[d] += 1
+        }
       }
     })
+    const heatMax = Math.max(0, ...heat)
     const pendingOld = (analysis.pendingAll || []).filter((c) => (c.ageDays ?? 0) > 7)
     const tvvActive = agentsList.filter((a) => (Number(a.fyp) || 0) > 0 || (a.cIF || 0) + (a.cPS || 0) + (a.cOther || 0) > 0).length
     return {
       year, month, daysInMonth, analysis, prevAnalysis, prevSnap,
-      fypTotal, top, heat, pendingOld, tvvActive, tvvTotal: agentsList.length,
+      fypTotal, top, heat, heatCount, heatMax, pendingOld, tvvActive, tvvTotal: agentsList.length,
       agentsObj,
       snapDay: Number(newest.id.split('-')[2]),
     }
@@ -85,7 +93,7 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
     )
   }
 
-  const { year, month, daysInMonth, analysis, prevAnalysis, fypTotal, top, heat, pendingOld } = view
+  const { year, month, daysInMonth, analysis, prevAnalysis, fypTotal, top, heat, heatCount, heatMax, pendingOld } = view
   const t = analysis.totals
   const target = getTarget(year, month)
 
@@ -299,16 +307,17 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
         <h2>🗓️ Nhịp nộp theo ngày — tháng {month}/{year}</h2>
         <div className="heatmap">
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
-            const c = heat[d] || 0
-            const lvl = c === 0 ? '' : c === 1 ? 'l1' : c === 2 ? 'l2' : 'l3'
+            const ape = heat[d] || 0
+            const n = heatCount[d] || 0
+            const lvl = ape <= 0 || heatMax <= 0 ? '' : ape <= heatMax / 3 ? 'l1' : ape <= (2 * heatMax) / 3 ? 'l2' : 'l3'
             return (
-              <div key={d} className={`heat-cell ${lvl} ${d > view.snapDay ? 'future' : ''}`} title={`Ngày ${d}: ${c} hồ sơ nộp`}>
-                <span>{d}</span><span className="hc-count">{c > 0 ? `${c} HS` : ''}</span>
+              <div key={d} className={`heat-cell ${lvl} ${d > view.snapDay ? 'future' : ''}`} title={`Ngày ${d}: APE nộp ${fmtTr(ape)} tr · ${n} hồ sơ`}>
+                <span>{d}</span><span className="hc-count">{ape > 0 ? `${fmtTr(ape)} tr` : ''}</span>
               </div>
             )
           })}
         </div>
-        <div className="muted" style={{ marginTop: 8 }}>Số trong ô = số hồ sơ nộp trong ngày (theo ngày nộp trên Proposal).</div>
+        <div className="muted" style={{ marginTop: 8 }}>Số trong ô = tổng APE nộp trong ngày (triệu đồng, theo cột APE Sub trên Proposal) · chạm/rê vào ô để xem kèm số hồ sơ.</div>
       </div>
     </div>
   )

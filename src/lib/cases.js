@@ -3,18 +3,23 @@
 // Logic THUAN (khong React / DOM / localStorage) de test bang node duoc.
 //
 // Nguon: snapshot Daily Sales moi nhat cua thang (proposalRows ∪ pendingRows
-// ∪ pipelineRows, khoa theo so HSYC proposalNum) + LOP DIEU CHINH rieng
-// (adjustments: { [proposalNum]: { status, ipNet, note, updatedAt, updatedBy } }).
+// ∪ pipelineRows, khoa theo so HSYC proposalNum).
 //
-// Trang thai (ma noi bo):
+// CO CHE CAP NHAT (Lan chot 08/11/2026 — THAY THE lop dieu chinh tay truoc
+// day): muon cap nhat trang thai/IP ho so thi DAY FILE MOI (file Daily Sales
+// day du, hoac file Proposal rieng) o tab Nap du lieu — nhu Sales Report ban
+// cu. Khong con chinh tay tung ho so. Panel "Thay doi so voi ban truoc" o
+// Sales Report dung diffCases de thong bao nhung thay doi giua 2 snapshot.
+//
+// KHOA HO SO: ho so Phat hanh (IF) / Pending (PS) lay theo SO POLICY
+// (policyNum) — xem caseKey. Viec doi chieu giua 2 ban (diffCases) cung khop
+// theo policyNum truoc, proposalNum sau.
+//
+// Trang thai (ma noi bo) — truong effective* = base* (khong con ghi de):
 //   'IF'       = Phat hanh
 //   'PS'       = Pending
 //   'PIPELINE' = Chua len phi
 //   'OTHER'    = Khac (PO/DC/WD/CF...)
-//
-// Dieu chinh: chi ghi de khi CHUA "stale". Dieu chinh stale = snapshot goc
-// da cap nhat khop dung gia tri da chinh (he thong da theo kip) → khong
-// con ghi de nua, UI bao "He thong da cap nhat khop" thay vi "Da chinh tay".
 // Don vi tien: trieu dong (nhu du lieu Daily).
 // ─────────────────────────────────────────────────────────────
 
@@ -48,47 +53,26 @@ export function ageBucketOf(ageDays) {
   return '>14'
 }
 
-/** Chuan hoa trang thai trong adjustment (chap nhan ca ma 'IF' lan nhan tieng Viet). */
-export function normalizeAdjStatus(s) {
-  if (!s) return null
-  const v = String(s).trim()
-  if (STATUS_CODES.includes(v)) return v
-  const found = Object.entries(STATUS_LABELS).find(([, label]) => label === v)
-  return found ? found[0] : null
-}
-
 /**
- * Xet dieu chinh cua 1 ho so voi gia tri GOC trong snapshot.
- * Tra { adjusted, stale, adjStatus, adjIpNet }.
- * - overrideFields: cac truong dieu chinh thuc su ghi de gia tri (status / ipNet).
- * - stale: co override, va MOI override deu da bang gia tri goc hien tai.
- * - note-only: ghi chu nhat ky, khong ghi de gia tri → khong bao gio stale.
+ * Khoa dinh danh ho so: ho so Phat hanh (IF) hoac Pending (PS) ma co so
+ * Policy thi khoa theo PolicyNumber ('PN:...'); con lai theo so HSYC
+ * ('HS:...'). Lan chot: HS phat hanh/Pending lay theo so PolicyNumber.
  */
-export function evaluateAdjustment(adj, baseStatus, baseIpNet) {
-  if (!adj || typeof adj !== 'object') {
-    return { adjusted: false, stale: false, adjStatus: null, adjIpNet: null }
-  }
-  const adjStatus = normalizeAdjStatus(adj.status)
-  const hasIp = adj.ipNet !== null && adj.ipNet !== undefined && adj.ipNet !== '' && Number.isFinite(Number(adj.ipNet))
-  const adjIpNet = hasIp ? Number(adj.ipNet) : null
-  const overrides = []
-  if (adjStatus) overrides.push(adjStatus === baseStatus)
-  if (hasIp) overrides.push(adjIpNet === num(baseIpNet))
-  const stale = overrides.length > 0 && overrides.every(Boolean)
-  const hasAny = !!adjStatus || hasIp || (adj.note !== null && adj.note !== undefined && String(adj.note).trim() !== '')
-  return { adjusted: hasAny, stale, adjStatus, adjIpNet }
+export function caseKey(c) {
+  const pn = str(c?.policyNum).trim()
+  if (pn && (c.baseStatus === 'IF' || c.baseStatus === 'PS')) return `PN:${pn}`
+  return `HS:${str(c?.proposalNum)}`
 }
 
 /**
  * Gop snapshot thanh danh sach HO SO (key = proposalNum).
  * snapshot: { id: 'yyyy-mm-dd', data } (doc daily_sales_tvv) — hoac raw data
- * kem truong snapshotDate. adjustments: { [proposalNum]: {...} }.
+ * kem truong snapshotDate.
  * Ho so khong co so HSYC (proposalNum rong) bi bo qua (khong khoa duoc).
  */
-export function buildCases(snapshot, adjustments = {}) {
+export function buildCases(snapshot) {
   const data = (snapshot && snapshot.data) || snapshot || {}
   const asOf = (snapshot && (snapshot.id || snapshot.date)) || data.snapshotDate || null
-  const adjs = adjustments && typeof adjustments === 'object' ? adjustments : {}
   const map = new Map()
   const ensure = (proposalNum) => {
     const key = str(proposalNum)
@@ -142,6 +126,7 @@ export function buildCases(snapshot, adjustments = {}) {
     const c = ensure(r.proposalNum)
     if (!c) continue
     c.inPendingSheet = true
+    if (!c.policyNum && r.policyNum) c.policyNum = r.policyNum
     fillIdentity(c, r)
     if (!c.inProposal) {
       c.baseStatus = 'PS'
@@ -163,6 +148,7 @@ export function buildCases(snapshot, adjustments = {}) {
     const c = ensure(r.proposalNum)
     if (!c) continue
     c.inPipeline = true
+    if (!c.policyNum && r.policyNum) c.policyNum = r.policyNum
     fillIdentity(c, r)
     if (!c.inProposal && !c.inPendingSheet) {
       c.baseStatus = 'PIPELINE'
@@ -174,24 +160,19 @@ export function buildCases(snapshot, adjustments = {}) {
     if (!c.poName && r.poName) c.poName = r.poName
   }
 
-  // 4) Tuoi ho so + ap lop dieu chinh
+  // 4) Tuoi ho so. Khong con lop dieu chinh tay: effective* = base*,
+  // adjustment/adjusted/adjustmentStale/adjNote giu co dinh de cac noi
+  // dang dung cac truong nay khong vo (luon "chua dieu chinh").
   const out = []
   for (const c of map.values()) {
     c.ageDays = daysBetween(c.proposalDate, asOf)
     c.ageBucket = ageBucketOf(c.ageDays)
-    const adj = adjs[c.proposalNum] || null
-    c.adjustment = adj
-    const ev = evaluateAdjustment(adj, c.baseStatus, c.ipNet)
-    c.adjusted = ev.adjusted
-    c.adjustmentStale = ev.stale
-    c.adjNote = adj && adj.note ? String(adj.note) : ''
-    if (adj && !ev.stale) {
-      c.effectiveStatus = ev.adjStatus || c.baseStatus
-      c.effectiveIpNet = ev.adjIpNet !== null ? ev.adjIpNet : c.ipNet
-    } else {
-      c.effectiveStatus = c.baseStatus
-      c.effectiveIpNet = c.ipNet
-    }
+    c.adjustment = null
+    c.adjusted = false
+    c.adjustmentStale = false
+    c.adjNote = ''
+    c.effectiveStatus = c.baseStatus
+    c.effectiveIpNet = c.ipNet
     out.push(c)
   }
   // Sap xep mac dinh: ngay nop moi nhat truoc, cung ngay thi theo so HSYC
@@ -200,11 +181,58 @@ export function buildCases(snapshot, adjustments = {}) {
 }
 
 /**
+ * Doi chieu 2 ban ho so (snapshot truoc -> snapshot moi) de bao thay doi.
+ * Khop ho so theo POLICY NUMBER truoc (ho so IF/PS co PolicyNum), roi moi
+ * den proposalNum (so HSYC). Tra:
+ *   added:         ho so chi co o ban MOI
+ *   removed:       ho so chi co o ban CU (khong con trong ban moi)
+ *   becameIssued:  truoc chua phai IF -> sau la IF
+ *   becamePending: truoc chua phai PS -> sau la PS
+ *   statusChanged: [{ c, from, to }] doi trang thai con lai (khong tinh 2 nhom tren)
+ *   unchanged:     so ho so khop nhau va giu nguyen trang thai (baseStatus)
+ */
+export function diffCases(prevCases, nextCases) {
+  const prev = prevCases || []
+  const next = nextCases || []
+  const byPolicy = new Map()
+  const byProposal = new Map()
+  for (const c of next) {
+    const pn = str(c.policyNum).trim()
+    if (pn && !byPolicy.has(pn)) byPolicy.set(pn, c)
+    const hs = str(c.proposalNum)
+    if (hs && !byProposal.has(hs)) byProposal.set(hs, c)
+  }
+  const matched = new Set()
+  const added = []
+  const removed = []
+  const becameIssued = []
+  const becamePending = []
+  const statusChanged = []
+  let unchanged = 0
+  for (const p of prev) {
+    const pn = str(p.policyNum).trim()
+    let n = pn ? byPolicy.get(pn) : undefined
+    if (!n) n = byProposal.get(str(p.proposalNum))
+    if (!n || matched.has(n)) { removed.push(p); continue }
+    matched.add(n)
+    const from = p.baseStatus
+    const to = n.baseStatus
+    if (from === to) unchanged += 1
+    else if (to === 'IF') becameIssued.push(n)
+    else if (to === 'PS') becamePending.push(n)
+    else statusChanged.push({ c: n, from, to })
+  }
+  for (const n of next) if (!matched.has(n)) added.push(n)
+  return { added, removed, becameIssued, becamePending, statusChanged, unchanged }
+}
+
+/**
  * Nhat ky 1 ngay: nop hom do / phat hanh hom do / trong so nop hom do dang pending.
- * "Nop" o day = ho so tren sheet Proposal (da len phi IF/PS + nhom khac) — KHOP
- * voi heatmap "Nhip nop theo ngay" o man Hinh Hom Nay (cung dem Proposal) de 2
- * man hinh khong lech nhau. Ho so chi co o sheet Pipeline (chua len phi) nop
- * trong ngay duoc tach rieng o submittedPipeline de UI hien bo sung.
+ * "Nop" o day = ho so tren sheet Proposal (da len phi IF/PS + nhom khac) — cung
+ * tap dong Proposal voi heatmap "Nhip nop theo ngay" o man Hinh Hom Nay (heatmap
+ * nay tong APE Sub cua cac dong nay) de 2 man hinh khong lech nhau. Ho so chi co
+ * o sheet Pipeline (chua len phi) nop trong ngay duoc tach rieng o
+ * submittedPipeline de UI hien bo sung.
  * (Doi chieu file 25.10: ngay 25/10 co 4 Proposal + 4 Pipeline nop moi.)
  */
 export function journalForDay(cases, yyyyMmDd) {

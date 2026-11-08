@@ -3,22 +3,21 @@
 // NHAT KY TUNG HO SO theo ngay, khong phai nhap tay tong so theo TVV.
 //  - Theo ngay: chon ngay -> nop / phat hanh / nop-dang-pending cua ngay do.
 //  - Tat ca ho so: tim kiem + loc Unit/trang thai, the ho so che so (2 so cuoi),
-//    bam vao xem hanh trinh Nop -> Len phi -> Pending -> Phat hanh + dieu chinh.
+//    bam vao xem hanh trinh Nop -> Len phi -> Pending -> Phat hanh (CHI XEM).
 //  - Pending: sap xep ho so cho lau nhat truoc, kem ly do + nhom tuoi.
-//  - Dieu chinh: lop rieng (localStorage + audit, best-effort Firestore),
-//    khong bi lan nap Daily sau ghi de; khi he thong cap nhat khop thi
-//    dieu chinh thanh "stale" va ngung ghi de (logic o lib/cases.js).
+//  - Thay doi so voi ban truoc: panel thong bao diff 2 snapshot lien ke
+//    (moi nop / moi phat hanh / chuyen pending / doi trang thai / bien mat),
+//    khop theo PolicyNumber truoc, HSYC sau (lib/cases.js diffCases).
+// CAP NHAT DU LIEU (Lan chot 08/11/2026 — thay co che chinh tay): day FILE
+// MOI (Daily day du hoac Proposal rieng) o tab Nap du lieu, nhu Sales Report
+// ban cu. Chi tiet ho so chi de xem, khong con form chinh tay.
 // Nguon so: snapshot Daily moi nhat cua thang dang chon (cung cach tai
 // cua HomNay: App truyen snaps tu Firestore neu co, khong thi localStorage).
 // ─────────────────────────────────────────────────────────────
 import React, { useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { analyzeSoSanLuong, maskSensitive, prevYearMonth } from '../lib/analyze'
-import { buildCases, journalForDay, summarizeCases, STATUS_LABELS } from '../lib/cases'
-import {
-  loadAdjustments, loadAudit, getUserName,
-  saveAdjustmentLocal, saveAdjustmentRemote,
-} from '../lib/store'
+import { buildCases, diffCases, journalForDay, summarizeCases, STATUS_LABELS } from '../lib/cases'
 import { isSuperAdmin } from '../lib/firebaseConfig'
 
 const fmtTr = (n) => {
@@ -70,10 +69,7 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
   const [unitFilter, setUnitFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [expanded, setExpanded] = useState(null)
-  const [form, setForm] = useState({ status: 'PS', ipNet: '', note: '' })
-  const [saveMsg, setSaveMsg] = useState('')
-  const [adjustments, setAdjustments] = useState(() => loadAdjustments())
-  const [audit, setAudit] = useState(() => loadAudit())
+  const [showChanges, setShowChanges] = useState(false)
 
   const months = useMemo(
     () => [...new Set((snaps || []).map((s) => s.id.slice(0, 7)))].sort(),
@@ -93,17 +89,16 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
     const p2 = (n) => String(n).padStart(2, '0')
     const prevDocs = (snaps || []).filter((s) => s.id.startsWith(`${pm.year}-${p2(pm.month)}-`))
     const analysis = analyzeSoSanLuong(monthSnaps, prevDocs, { year, month })
-    const cases = buildCases(snap, adjustments)
+    const cases = buildCases(snap)
     const summary = summarizeCases(cases)
     const unitList = [...new Set(cases.map((c) => c.unit).filter(Boolean))].sort()
-    return { year, month, snap, analysis, cases, summary, unitList }
-  }, [snaps, effMonth, adjustments])
-
-  const caseByNum = useMemo(() => {
-    const m = new Map()
-    ;(view?.cases || []).forEach((c) => m.set(c.proposalNum, c))
-    return m
-  }, [view])
+    // Snapshot lien truoc snap dang xem (uu tien cung thang) de diff thong bao thay doi
+    const sorted = [...(snaps || [])].sort((a, b) => String(a.id).localeCompare(String(b.id)))
+    const idx = sorted.findIndex((s) => s.id === snap.id)
+    const prevSnap = idx > 0 ? sorted[idx - 1] : null
+    const diff = prevSnap ? diffCases(buildCases(prevSnap), cases) : null
+    return { year, month, snap, prevSnap, diff, analysis, cases, summary, unitList }
+  }, [snaps, effMonth])
 
   if (loading) {
     return <div className="card empty"><div className="e-ic">⏳</div>Đang tải dữ liệu…</div>
@@ -119,42 +114,13 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
     )
   }
 
-  const { year, month, snap, analysis, cases, summary, unitList } = view
+  const { year, month, snap, prevSnap, diff, analysis, cases, summary, unitList } = view
   const t = analysis.totals
   const effDay = day && day.startsWith(effMonth) ? day : snap.id
   const journal = journalForDay(cases, effDay)
 
   const openCase = (c) => {
-    if (expanded === c.proposalNum) { setExpanded(null); return }
-    setExpanded(c.proposalNum)
-    setSaveMsg('')
-    setForm({
-      status: c.effectiveStatus,
-      ipNet: String(c.effectiveIpNet),
-      note: c.adjNote || '',
-    })
-  }
-
-  const handleSaveAdj = () => {
-    const c = expanded ? caseByNum.get(expanded) : null
-    if (!c || !user) return
-    const by = user.email || getUserName() || 'Admin'
-    const parsedIp = form.ipNet === '' ? null : Number(form.ipNet)
-    // (nguoi sua lay tu tai khoan dang nhap — khong con o nhap ten thu cong)
-    const adj = {
-      status: form.status || null,
-      ipNet: Number.isFinite(parsedIp) ? parsedIp : null,
-      note: form.note || '',
-    }
-    const changes = {}
-    if (adj.status && adj.status !== c.effectiveStatus) changes.status = { from: c.effectiveStatus, to: adj.status }
-    if (adj.ipNet !== null && adj.ipNet !== c.effectiveIpNet) changes.ipNet = { from: c.effectiveIpNet, to: adj.ipNet }
-    if ((adj.note || '') !== (c.adjNote || '')) changes.note = { from: c.adjNote || '', to: adj.note || '' }
-    const saved = saveAdjustmentLocal(c.proposalNum, adj, changes, by)
-    setAdjustments(saved.adjustments)
-    setAudit(saved.audit)
-    saveAdjustmentRemote(c.proposalNum, adj, changes, by).catch(() => { /* best-effort */ })
-    setSaveMsg(`✓ Đã lưu điều chỉnh cho hồ sơ ••••${c.proposalNum.slice(-2)} — ${by} · ${new Date().toLocaleString('vi-VN')}`)
+    setExpanded(expanded === c.proposalNum ? null : c.proposalNum)
   }
 
   const exportExcel = () => {
@@ -198,7 +164,7 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
     <div className="detail-box">
       <div style={{ fontSize: 13.5, marginBottom: 6 }}>
         Số hồ sơ{canSeeFull ? ' đầy đủ' : ''}: <b>{maskSensitive(c.proposalNum, canSeeFull)}</b>
-        {c.policyNum ? <> · Số HĐ: <b>{maskSensitive(c.policyNum, canSeeFull)}</b></> : null}
+        {c.policyNum ? <> · Số Policy: <b>{maskSensitive(c.policyNum, canSeeFull)}</b></> : null}
       </div>
       {c.product ? <div className="case-meta" style={{ marginBottom: 6 }}>Sản phẩm: {c.product}</div> : null}
       <ul className="journey">
@@ -231,42 +197,7 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
           {c.pendingReasons.map((r) => <span className="reason-chip" key={r}>{r}</span>)}
         </div>
       )}
-      {c.adjusted && !c.adjustmentStale && (
-        <div className="msg info" style={{ marginBottom: 10 }}>
-          ✏️ Hồ sơ này đã được chỉnh tay{c.adjustment?.updatedBy ? ` bởi ${c.adjustment.updatedBy}` : ''}{c.adjNote ? ` — ghi chú: “${c.adjNote}”` : ''}
-        </div>
-      )}
-      {c.adjustmentStale && (
-        <div className="msg success" style={{ marginBottom: 10 }}>
-          ✓ Hệ thống đã cập nhật khớp với điều chỉnh trước đó — không còn ghi đè nữa.
-        </div>
-      )}
-      <div style={{ fontSize: 13, fontWeight: 800, margin: '10px 0 8px' }}>✏️ Điều chỉnh hồ sơ</div>
-      {!user ? (
-        <div className="lock-note">🔐 Đăng nhập để điều chỉnh hồ sơ — bạn vẫn xem được toàn bộ nhật ký, nhưng sửa trạng thái / IP / ghi chú cần tài khoản (điều chỉnh sẽ ghi tên theo email đăng nhập).</div>
-      ) : (
-      <>
-      <div className="field">
-        <label>Trạng thái</label>
-        <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
-          <option value="IF">Phát hành</option>
-          <option value="PS">Pending</option>
-          <option value="PIPELINE">Chưa lên phí</option>
-          <option value="OTHER">Khác</option>
-        </select>
-      </div>
-      <div className="field">
-        <label>IP Net (triệu đồng)</label>
-        <input type="number" inputMode="decimal" value={form.ipNet} onChange={(e) => setForm((f) => ({ ...f, ipNet: e.target.value }))} />
-      </div>
-      <div className="field">
-        <label>Ghi chú / lý do pending</label>
-        <input value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} placeholder="VD: Chờ bổ sung khám y tế" />
-      </div>
-      <button className="btn-primary" onClick={handleSaveAdj}>💾 Lưu điều chỉnh</button>
-      {saveMsg ? <div className="msg success">{saveMsg}</div> : null}
-      </>
-      )}
+      <div className="lock-note">Chi tiết chỉ để xem. Muốn cập nhật trạng thái / IP của hồ sơ, hãy đẩy file Daily Sales mới (hoặc file Proposal riêng) ở tab Nạp dữ liệu — thay đổi sẽ hiện ở mục “🔔 Thay đổi so với bản trước”.</div>
     </div>
   )
 
@@ -278,8 +209,6 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
         <div className="case-main">
           <div className="case-num">
             {maskSensitive(c.proposalNum, canSeeFull)}
-            {c.adjusted && !c.adjustmentStale ? <span className="badge-adj">Đã chỉnh tay</span> : null}
-            {c.adjustmentStale ? <span className="badge-stale">Hệ thống đã cập nhật khớp</span> : null}
           </div>
           <div className="case-who">{c.agName || '—'}{c.unit ? ` · ${c.unit}` : ''}</div>
           <div className="case-meta">
@@ -300,14 +229,19 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
     )
   }
 
-  const renderAuditChanges = (changes) => {
-    if (!changes || typeof changes !== 'object' || !Object.keys(changes).length) return 'Cập nhật điều chỉnh'
-    const parts = []
-    if (changes.status) parts.push(`Trạng thái: ${STATUS_LABELS[changes.status.from] || changes.status.from} → ${STATUS_LABELS[changes.status.to] || changes.status.to}`)
-    if (changes.ipNet) parts.push(`IP Net: ${fmtTr(changes.ipNet.from)} → ${fmtTr(changes.ipNet.to)} tr`)
-    if (changes.note) parts.push(`Ghi chú: “${changes.note.to || ''}”`)
-    return parts.join(' · ') || 'Cập nhật điều chỉnh'
-  }
+  // 1 dong trong panel Thay doi: ngay nop, TVV, Unit, so HSYC + so Policy (che theo quyen)
+  const renderChangeRow = (c, extra) => (
+    <div className="audit-row" key={`${c.proposalNum}-${c.policyNum || ''}`}>
+      <div>
+        <b>{maskSensitive(c.proposalNum, canSeeFull)}</b>
+        {c.policyNum ? <span className="muted"> · Policy {maskSensitive(c.policyNum, canSeeFull)}</span> : null}
+        <div className="a-ts">
+          Nộp {fmtDateVN(c.proposalDate)} · {c.agName || '—'}{c.unit ? ` · ${c.unit}` : ''}{extra ? ` · ${extra}` : ''}
+        </div>
+      </div>
+      <StatusPill code={c.baseStatus} />
+    </div>
+  )
 
   return (
     <div>
@@ -335,6 +269,50 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
         )}
         <button className="btn-ghost" style={{ marginTop: 10, width: '100%' }} onClick={exportExcel}>⬇ Xuất Excel (Overview + Tổng hợp)</button>
       </div>
+
+      {/* ── Thay doi so voi ban truoc (diff 2 snapshot) ── */}
+      {diff && prevSnap && (
+        <div className="card">
+          <h2>🔔 Thay đổi so với bản trước</h2>
+          <div className="muted" style={{ marginBottom: 8 }}>
+            Đối chiếu bản {fmtDateVN(prevSnap.id)} → bản {fmtDateVN(snap.id)} (khớp theo số Policy trước, số HSYC sau):
+          </div>
+          <div style={{ fontSize: 14, lineHeight: 1.9 }}>
+            <div>🆕 Mới nộp: <b>{diff.added.length}</b> · ✅ Mới phát hành: <b>{diff.becameIssued.length}</b> · ⏳ Chuyển sang pending: <b>{diff.becamePending.length}</b></div>
+            <div>🔀 Đổi trạng thái khác: <b>{diff.statusChanged.length}</b> · 🗑️ Không còn trong bản mới: <b>{diff.removed.length}</b> · Giữ nguyên: <b>{fmtInt(diff.unchanged)}</b></div>
+          </div>
+          <button className="btn-ghost" style={{ marginTop: 8, width: '100%' }} onClick={() => setShowChanges((v) => !v)}>
+            {showChanges ? 'Thu gọn danh sách' : 'Xem danh sách chi tiết'}
+          </button>
+          {showChanges && (
+            <div style={{ marginTop: 8 }}>
+              {diff.added.length > 0 && (<>
+                <div style={{ fontWeight: 800, margin: '8px 0 4px' }}>🆕 Mới nộp ({diff.added.length})</div>
+                {diff.added.map((c) => renderChangeRow(c))}
+              </>)}
+              {diff.becameIssued.length > 0 && (<>
+                <div style={{ fontWeight: 800, margin: '8px 0 4px' }}>✅ Mới phát hành ({diff.becameIssued.length})</div>
+                {diff.becameIssued.map((c) => renderChangeRow(c))}
+              </>)}
+              {diff.becamePending.length > 0 && (<>
+                <div style={{ fontWeight: 800, margin: '8px 0 4px' }}>⏳ Chuyển sang pending ({diff.becamePending.length})</div>
+                {diff.becamePending.map((c) => renderChangeRow(c))}
+              </>)}
+              {diff.statusChanged.length > 0 && (<>
+                <div style={{ fontWeight: 800, margin: '8px 0 4px' }}>🔀 Đổi trạng thái khác ({diff.statusChanged.length})</div>
+                {diff.statusChanged.map(({ c, from, to }) => renderChangeRow(c, `${STATUS_LABELS[from] || from} → ${STATUS_LABELS[to] || to}`))}
+              </>)}
+              {diff.removed.length > 0 && (<>
+                <div style={{ fontWeight: 800, margin: '8px 0 4px' }}>🗑️ Không còn trong bản mới ({diff.removed.length})</div>
+                {diff.removed.map((c) => renderChangeRow(c))}
+              </>)}
+              {diff.added.length + diff.becameIssued.length + diff.becamePending.length + diff.statusChanged.length + diff.removed.length === 0 && (
+                <div className="muted">Không có thay đổi nào giữa 2 bản.</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Chuyen muc ── */}
       <div className="chips-row">
@@ -398,7 +376,7 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
               <button key={f.code} className={`fchip sm ${statusFilter === f.code ? 'active' : ''}`} onClick={() => setStatusFilter(f.code)}>{f.label}</button>
             ))}
           </div>
-          <div className="muted" style={{ marginBottom: 8 }}>{filteredAll.length} hồ sơ · bấm vào thẻ để xem hành trình + điều chỉnh</div>
+          <div className="muted" style={{ marginBottom: 8 }}>{filteredAll.length} hồ sơ · bấm vào thẻ để xem hành trình hồ sơ</div>
           {filteredAll.length === 0 && <div className="card empty"><div className="e-ic">🔍</div>Không có hồ sơ nào khớp bộ lọc.</div>}
           {filteredAll.slice(0, 200).map(renderCard)}
           {filteredAll.length > 200 && <div className="muted" style={{ textAlign: 'center' }}>Đang hiện 200 hồ sơ đầu — hãy lọc thêm để thu hẹp.</div>}
@@ -414,20 +392,6 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
           {summary.pending.map(renderCard)}
         </div>
       )}
-
-      {/* ── Lich su dieu chinh ── */}
-      <div className="card">
-        <h2>🕘 Lịch sử điều chỉnh</h2>
-        {audit.length === 0 && <div className="muted">Chưa có điều chỉnh nào. Mở 1 hồ sơ ở mục Tất cả hồ sơ để điều chỉnh trạng thái / IP / ghi chú.</div>}
-        {audit.slice(0, 20).map((a, i) => (
-          <div className="audit-row" key={`${a.ts}-${i}`}>
-            <div>
-              <b>{maskSensitive(a.proposalNum, canSeeFull)}</b> — {renderAuditChanges(a.changes)}
-            </div>
-            <div className="a-ts">{a.by || 'Admin'} · {new Date(a.ts).toLocaleString('vi-VN')}</div>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }

@@ -274,12 +274,17 @@ export async function fetchUserProfile(uid) {
  * Luu profile: LUON ghi cache tren may; ghi Firestore best-effort.
  * Tra { ok: true, cloud: boolean, profile } — cloud=false khi Rules chua
  * cho ghi user_profiles hoac loi mang, UI se bao ro cho nguoi dung.
+ * status ('pending'|'approved'|'blocked' — duyet tai khoan): chi ghi khi
+ * duoc truyen vao; khong truyen thi GIU status da co trong cache (user sua
+ * ten khong duoc ghi de mat trang thai duyet).
  */
 export async function saveUserProfile(uid, profile) {
+  const prev = loadCachedProfile(uid)
   const clean = {
     email: profile?.email || '',
     displayName: profile?.displayName || '',
     msdl: profile?.msdl ? String(profile.msdl).trim() : '',
+    status: profile?.status || prev?.status || '',
     updatedAt: new Date().toISOString(),
   }
   cacheProfile(uid, clean)
@@ -294,6 +299,55 @@ export async function saveUserProfile(uid, profile) {
     }
   }
   return { ok: true, cloud, profile: clean }
+}
+
+/**
+ * Doc TOAN BO user_profiles (cho panel Duyet tai khoan cua Admin chinh).
+ * Tra { ok: true, list } — list sap xep: pending truoc, roi approved, blocked;
+ * trong nhom thi theo email. Loi (chua dang nhap Admin / Rules chua publish
+ * ban cho Admin doc tat ca) -> { ok: false, error }.
+ */
+export async function fetchAllProfiles() {
+  const fs = getFirebaseFs()
+  if (!fs) return { ok: false, error: 'no-config' }
+  try {
+    const snap = await getDocs(collection(fs, 'user_profiles'))
+    const list = []
+    snap.forEach((d) => {
+      const p = d.data() || {}
+      list.push({
+        uid: d.id,
+        email: p.email || '',
+        displayName: p.displayName || '',
+        msdl: p.msdl || '',
+        status: p.status || '',
+        updatedAt: p.updatedAt || '',
+      })
+    })
+    const rank = (s) => (s === 'pending' ? 0 : s === 'blocked' ? 2 : 1)
+    list.sort((a, b) => rank(a.status) - rank(b.status) || String(a.email || a.msdl).localeCompare(String(b.email || b.msdl)))
+    return { ok: true, list }
+  } catch (e) {
+    console.warn('[store] fetchAllProfiles:', e)
+    return { ok: false, error: e?.code || 'remote-error' }
+  }
+}
+
+/**
+ * Admin chinh dat trang thai duyet cho 1 tai khoan: ghi merge
+ * user_profiles/{uid} { status, statusUpdatedAt } — khong dong cac truong khac.
+ * Tra true neu ghi may thanh cong, false neu loi.
+ */
+export async function adminSetProfileStatus(uid, status) {
+  const fs = getFirebaseFs()
+  if (!fs || !uid) return false
+  try {
+    await setDoc(doc(fs, 'user_profiles', uid), { status, statusUpdatedAt: new Date().toISOString() }, { merge: true })
+    return true
+  } catch (e) {
+    console.warn('[store] adminSetProfileStatus:', e)
+    return false
+  }
 }
 
 /** Best-effort ghi Firestore: case_adjustments/{proposalNum} + audit_log. Khong bao gio throw. */

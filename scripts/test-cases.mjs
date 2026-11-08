@@ -2,16 +2,17 @@
 //  - buildCases: tong ho so duy nhat, dem theo trang thai goc
 //  - journalForDay('2026-10-25'): so nop hom do phai = 4 (khop heatmap da kiem chung)
 //  - pending: phai hoa giai voi PS ~ 50 cua analyzeSoSanLuong
-//  - vong dieu chinh: PS -> IF (doi IP) thay doi trang thai hieu luc + tong;
-//    roi mo phong snapshot goc bat kip gia tri da chinh -> adjustmentStale = true,
-//    ghi de dung lai (gia tri hieu luc = gia tri goc).
+//  - Co che MOI (Lan chot chieu 08/11 — bo chinh tay, cap nhat bang file moi):
+//    caseKey khoa theo PolicyNumber cho IF/PS; policyNum bo sung tu sheet
+//    Pending khi Proposal thieu; diffCases doi chieu 2 ban (kich ban tong hop
+//    tu du lieu that: bo 5 dong proposal + doi 1 ho so IF -> PS).
 // Chay: node scripts/test-cases.mjs
 import * as XLSX from 'xlsx'
 import { readFileSync } from 'node:fs'
 import assert from 'node:assert'
 import { parseWorkbook } from '../src/lib/parseDaily.js'
 import { analyzeSoSanLuong } from '../src/lib/analyze.js'
-import { buildCases, journalForDay, summarizeCases } from '../src/lib/cases.js'
+import { buildCases, caseKey, diffCases, journalForDay, summarizeCases } from '../src/lib/cases.js'
 
 const path = process.env.HOME + '/workspace/user/files/Daily_Sales_25.10.xlsx'
 const wb = XLSX.read(readFileSync(path), { type: 'buffer', cellDates: false })
@@ -29,7 +30,7 @@ const snapshot = {
 }
 
 console.log('=== buildCases — Daily_Sales_25.10.xlsx, snapshot', SNAP_ID, '===')
-const cases = buildCases(snapshot, {})
+const cases = buildCases(snapshot)
 console.log(`Tong ho so duy nhat (proposal ∪ pending ∪ pipeline): ${cases.length}`)
 const byBase = { IF: 0, PS: 0, PIPELINE: 0, OTHER: 0 }
 cases.forEach((c) => { byBase[c.baseStatus] = (byBase[c.baseStatus] || 0) + 1 })
@@ -87,37 +88,74 @@ console.log('  Ho so nop 25/10:', journal.submitted.map((c) => `${c.proposalNum.
 assert.strictEqual(journal.submitted.length, 4, 'So ho so nop (Proposal) ngay 2026-10-25 phai = 4 (khop heatmap da kiem chung)')
 assert.strictEqual(journal.submittedPipeline.length, 4, 'Ngay 25/10 co them 4 ho so Pipeline nop moi (tach rieng khoi so Nop cua heatmap)')
 
-// ── Vong 1: dieu chinh 1 ho so PS -> IF, IP moi ──
-const target = cases.find((c) => c.baseStatus === 'PS')
-assert.ok(target, 'Phai co it nhat 1 ho so PS de test dieu chinh')
-const NEW_IP = 999
-const before = summarizeCases(cases)
-const adjMap = { [target.proposalNum]: { status: 'IF', ipNet: NEW_IP, note: 'Test: bo sung ho so kham', updatedAt: '2026-10-25T10:00:00.000Z', updatedBy: 'Test' } }
-const casesAdj = buildCases(snapshot, adjMap)
-const adjCase = casesAdj.find((c) => c.proposalNum === target.proposalNum)
-const after = summarizeCases(casesAdj)
-console.log(`\nDieu chinh ho so ••••${target.proposalNum.slice(-2)} (${target.agName}): PS -> IF, IP Net ${target.ipNet} -> ${NEW_IP}`)
-console.log(`  effectiveStatus=${adjCase.effectiveStatus} · effectiveIpNet=${adjCase.effectiveIpNet} · adjusted=${adjCase.adjusted} · stale=${adjCase.adjustmentStale}`)
-console.log(`  Tong: PS ${before.byStatus.PS.n} -> ${after.byStatus.PS.n} · IF ${before.byStatus.IF.n} -> ${after.byStatus.IF.n} · IP Net IF ${Math.round(before.byStatus.IF.ipNet)} -> ${Math.round(after.byStatus.IF.ipNet)} tr`)
-assert.strictEqual(adjCase.effectiveStatus, 'IF')
-assert.strictEqual(adjCase.effectiveIpNet, NEW_IP)
-assert.strictEqual(adjCase.adjusted, true)
-assert.strictEqual(adjCase.adjustmentStale, false)
-assert.strictEqual(after.byStatus.PS.n, before.byStatus.PS.n - 1)
-assert.strictEqual(after.byStatus.IF.n, before.byStatus.IF.n + 1)
-assert.ok(Math.abs(after.byStatus.IF.ipNet - (before.byStatus.IF.ipNet + NEW_IP)) < 1e-9, 'Tong IP Net IF phai tang dung bang IP moi cua ho so da chinh')
+// ── Co che moi: khong con lop dieu chinh — effective* luon = base* ──
+assert.ok(cases.every((c) => c.effectiveStatus === c.baseStatus && c.effectiveIpNet === c.ipNet
+  && c.adjusted === false && c.adjustmentStale === false && c.adjustment === null && c.adjNote === ''),
+  'Khong dieu chinh tay: effectiveStatus/effectiveIpNet phai = base, adjusted phai = false')
 
-// ── Vong 2: snapshot goc bat kip (Proposal da la IF voi IP = gia tri da chinh) -> stale ──
-const caughtUpData = {
-  ...snapshot.data,
-  proposalRows: snapshot.data.proposalRows.map((p) =>
-    p.proposalNum === target.proposalNum ? { ...p, status: 'IF', statusGroup: 'IF', ipNet: NEW_IP } : p),
+// ── caseKey: IF/PS co PolicyNumber -> khoa 'PN:'; con lai 'HS:' ──
+const ifWithPolicy = cases.find((c) => c.baseStatus === 'IF' && c.policyNum)
+const psWithPolicy = cases.find((c) => c.baseStatus === 'PS' && c.policyNum)
+const pipeCase = cases.find((c) => c.baseStatus === 'PIPELINE')
+console.log(`\ncaseKey: IF co Policy -> ${ifWithPolicy ? caseKey(ifWithPolicy).slice(0, 12) + '…' : '(khong co)'} · PS co Policy -> ${psWithPolicy ? caseKey(psWithPolicy).slice(0, 12) + '…' : '(khong co)'} · PIPELINE -> ${pipeCase ? caseKey(pipeCase).slice(0, 12) + '…' : '(khong co)'}`)
+assert.ok(ifWithPolicy, 'Phai co ho so IF co PolicyNum trong file that')
+assert.ok(caseKey(ifWithPolicy).startsWith('PN:'), 'Ho so IF co PolicyNum: caseKey phai bat dau PN:')
+if (psWithPolicy) assert.ok(caseKey(psWithPolicy).startsWith('PN:'), 'Ho so PS co PolicyNum: caseKey phai bat dau PN:')
+if (pipeCase) assert.ok(caseKey(pipeCase).startsWith('HS:'), 'Ho so PIPELINE: caseKey phai theo HSYC (HS:)')
+assert.strictEqual(caseKey({ baseStatus: 'OTHER', policyNum: 'POL123', proposalNum: 'HSYC9' }), 'HS:HSYC9', 'OTHER du co PolicyNum van khoa theo HSYC')
+
+// ── policyNum bo sung tu sheet Pending khi dong Proposal thieu ──
+const pendByNum = new Map(parsed.pendingRows.filter((r) => r.policyNum).map((r) => [String(r.proposalNum), r.policyNum]))
+const filledFromPending = cases.filter((c) => {
+  const prow = parsed.proposalRows.find((p) => String(p.proposalNum) === c.proposalNum)
+  return pendByNum.has(c.proposalNum) && (!prow || !prow.policyNum) && c.policyNum === pendByNum.get(c.proposalNum)
+})
+console.log(`Ho so duoc bo sung PolicyNum tu sheet Pending: ${filledFromPending.length}`)
+for (const c of filledFromPending) {
+  assert.strictEqual(c.policyNum, pendByNum.get(c.proposalNum), 'PolicyNum bo sung phai khop sheet Pending')
 }
-const casesStale = buildCases({ id: SNAP_ID, data: caughtUpData }, adjMap)
-const staleCase = casesStale.find((c) => c.proposalNum === target.proposalNum)
-console.log(`\nMo phong he thong bat kip: baseStatus=${staleCase.baseStatus} · baseIpNet=${staleCase.ipNet} -> stale=${staleCase.adjustmentStale} · effectiveStatus=${staleCase.effectiveStatus} · effectiveIpNet=${staleCase.effectiveIpNet}`)
-assert.strictEqual(staleCase.adjustmentStale, true, 'Dieu chinh phai thanh stale khi snapshot goc khop gia tri da chinh')
-assert.strictEqual(staleCase.effectiveStatus, staleCase.baseStatus, 'Khi stale, trang thai hieu luc phai lay tu goc (khong ghi de)')
-assert.strictEqual(staleCase.effectiveIpNet, staleCase.ipNet, 'Khi stale, IP hieu luc phai lay tu goc')
+
+// ── diffCases: kich ban tong hop tu du lieu that ──
+// prev = snapshot 25.10 nhung LOAI 5 dong Proposal (cua 5 ho so duy nhat, giu
+// lai dong trung neu co) + DOI 1 ho so IF (co dong duy nhat) sang PS.
+// next = snapshot goc. Ky vong: added = 5 ho so bi loai; ho so doi trang thai
+// IF -> PS o prev, o next la IF => becameIssued = 1 (chinh ho so do); con lai
+// giu nguyen; removed/becamePending/statusChanged = 0.
+const firstRowNums = []
+const seenNums = new Set()
+for (const p of parsed.proposalRows) {
+  const k = String(p.proposalNum)
+  if (!seenNums.has(k)) { seenNums.add(k); firstRowNums.push(k) }
+}
+// Chi chon ho so CHI co o sheet Proposal (khong co o Pending/Pipeline) —
+// loai dong Proposal cua ho so con xuat hien o 2 sheet kia thi case van con
+// trong prev (build tu sheet con lai) nen diff se khong dem la "added".
+const otherSheetNums = new Set([
+  ...parsed.pendingRows.map((r) => String(r.proposalNum)),
+  ...parsed.pipelineRows.map((r) => String(r.proposalNum)),
+])
+const removedNums = firstRowNums.filter((n) => !otherSheetNums.has(n)).slice(0, 5)
+assert.strictEqual(removedNums.length, 5, 'Phai tim du 5 ho so chi co o Proposal de loai trong kich ban diff')
+const flipNum = firstRowNums.find((n) => !removedNums.includes(n)
+  && parsed.proposalRows.filter((p) => String(p.proposalNum) === n).length === 1
+  && cases.find((c) => c.proposalNum === n)?.baseStatus === 'IF')
+assert.ok(flipNum, 'Phai tim duoc 1 ho so IF dong duy nhat de doi trang thai trong kich ban diff')
+const prevData = {
+  ...snapshot.data,
+  proposalRows: parsed.proposalRows
+    .filter((p) => !removedNums.includes(String(p.proposalNum)))
+    .map((p) => (String(p.proposalNum) === flipNum ? { ...p, status: 'PS', statusGroup: 'PS' } : p)),
+}
+const prevCases = buildCases({ id: '2026-10-24', data: prevData })
+const diff = diffCases(prevCases, cases)
+console.log(`\ndiffCases kich ban: added=${diff.added.length} · removed=${diff.removed.length} · becameIssued=${diff.becameIssued.length} · becamePending=${diff.becamePending.length} · statusChanged=${diff.statusChanged.length} · unchanged=${diff.unchanged}`)
+console.log(`  added (HSYC): ${diff.added.map((c) => c.proposalNum).sort().join(', ')} · becameIssued: ${diff.becameIssued.map((c) => c.proposalNum).join(', ')}`)
+assert.deepStrictEqual(diff.added.map((c) => c.proposalNum).sort(), [...removedNums].sort(), 'added phai = dung 5 ho so bi loai khoi prev')
+assert.strictEqual(diff.removed.length, 0, 'Kich ban nay khong co ho so bien mat (removed = 0)')
+assert.strictEqual(diff.becameIssued.length, 1, 'Chi 1 ho so chuyen PS(prev) -> IF(next)')
+assert.strictEqual(diff.becameIssued[0].proposalNum, flipNum, 'Ho so becameIssued phai la ho so da doi trang thai')
+assert.strictEqual(diff.becamePending.length, 0, 'Khong co ho so nao chuyen sang PS o ban moi')
+assert.strictEqual(diff.statusChanged.length, 0, 'Khong co doi trang thai khac')
+assert.strictEqual(diff.unchanged, prevCases.length - 1, 'Con lai giu nguyen = tong prev tru ho so doi trang thai')
 
 console.log('\n✅ TAT CA ASSERT DAT')

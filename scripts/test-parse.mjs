@@ -3,6 +3,7 @@
 // Chay: node scripts/test-parse.mjs
 import * as XLSX from 'xlsx'
 import { readFileSync } from 'node:fs'
+import assert from 'node:assert'
 import { parseWorkbook } from '../src/lib/parseDaily.js'
 import { analyzeSoSanLuong } from '../src/lib/analyze.js'
 
@@ -24,6 +25,21 @@ function summarize(label, path, snapDate) {
   console.log(`Pending rows: ${p.pendingRows.length}`)
   console.log(`Pipeline rows: ${p.pipelineRows.length}`)
   console.log(`Tong FYP (agents): ${Math.round(fypTotal * 10) / 10} tr`)
+  // APE Sub/Net tren Proposal + PolicyNum tren Pending/Pipeline (dot chieu 08/11)
+  const apeSubTotal = p.proposalRows.reduce((s, r) => s + (Number(r.apeSub) || 0), 0)
+  const pendWithPolicy = p.pendingRows.filter((r) => r.policyNum).length
+  const pipeWithPolicy = p.pipelineRows.filter((r) => r.policyNum).length
+  console.log(`Tong APE Sub (Proposal): ${Math.round(apeSubTotal * 10) / 10} tr · Pending co PolicyNum: ${pendWithPolicy}/${p.pendingRows.length} · Pipeline co PolicyNum: ${pipeWithPolicy}/${p.pipelineRows.length}`)
+  assert.ok(p.proposalRows.every((r) => typeof r.apeSub === 'number' && typeof r.apeNet === 'number'), 'proposalRows phai co apeSub/apeNet la so')
+  assert.ok(p.pendingRows.every((r) => typeof r.policyNum === 'string') && p.pipelineRows.every((r) => typeof r.policyNum === 'string'), 'pendingRows/pipelineRows phai co truong policyNum (string)')
+  if (label.includes('25.10')) {
+    assert.ok(apeSubTotal > 0, 'Tong APE Sub file 25.10 phai > 0')
+    assert.ok(pendWithPolicy > 0, 'Pending file 25.10 phai co dong co PolicyNum')
+    // LUU Y du lieu that 25.10: sheet Pipeline CO cot PolicyNum nhung TRONG
+    // toan bo (29/29 dong tho) — ho so chua len phi chua co so Policy.
+    // Chi assert truong ton tai, khong assert > 0 cho Pipeline o file nay.
+    assert.strictEqual(pipeWithPolicy, 0, 'Pipeline file 25.10: cot PolicyNum ton tai nhung chua co gia tri (khop du lieu tho)')
+  }
   if (snapDate) {
     const [y, m] = snapDate.split('-').map(Number)
     const doc = { id: snapDate, data: { agents: p.agents, units: p.units, proposalRows: p.proposalRows, pendingRows: p.pendingRows, pipelineRows: p.pipelineRows } }
