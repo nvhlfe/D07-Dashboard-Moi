@@ -69,11 +69,16 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
       }
     })
     const heatMax = Math.max(0, ...heat)
+    const heatCountMax = Math.max(0, ...heatCount)
+    // Snapshot nap TRUOC ban cap nhat APE chua co apeSub -> heatMax = 0 du co
+    // ho so nop that. Khi do UI tam hien nhip theo SO HO SO (heatCount) kem
+    // ghi chu ro, thay vi de o trong nhin nhu khong hien thi.
+    const heatHasApe = heatMax > 0
     const pendingOld = (analysis.pendingAll || []).filter((c) => (c.ageDays ?? 0) > 7)
     const tvvActive = agentsList.filter((a) => (Number(a.fyp) || 0) > 0 || (a.cIF || 0) + (a.cPS || 0) + (a.cOther || 0) > 0).length
     return {
       year, month, daysInMonth, analysis, prevAnalysis, prevSnap,
-      fypTotal, top, heat, heatCount, heatMax, pendingOld, tvvActive, tvvTotal: agentsList.length,
+      fypTotal, top, heat, heatCount, heatMax, heatCountMax, heatHasApe, pendingOld, tvvActive, tvvTotal: agentsList.length,
       agentsObj,
       snapDay: Number(newest.id.split('-')[2]),
     }
@@ -93,7 +98,7 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
     )
   }
 
-  const { year, month, daysInMonth, analysis, prevAnalysis, fypTotal, top, heat, heatCount, heatMax, pendingOld } = view
+  const { year, month, daysInMonth, analysis, prevAnalysis, fypTotal, top, heat, heatCount, heatMax, heatCountMax, heatHasApe, pendingOld } = view
   const t = analysis.totals
   const target = getTarget(year, month)
 
@@ -309,15 +314,21 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
             const ape = heat[d] || 0
             const n = heatCount[d] || 0
-            const lvl = ape <= 0 || heatMax <= 0 ? '' : ape <= heatMax / 3 ? 'l1' : ape <= (2 * heatMax) / 3 ? 'l2' : 'l3'
+            const lvl = heatHasApe
+              ? (ape <= 0 || heatMax <= 0 ? '' : ape <= heatMax / 3 ? 'l1' : ape <= (2 * heatMax) / 3 ? 'l2' : 'l3')
+              : (n <= 0 || heatCountMax <= 0 ? '' : n <= heatCountMax / 3 ? 'l1' : n <= (2 * heatCountMax) / 3 ? 'l2' : 'l3')
             return (
-              <div key={d} className={`heat-cell ${lvl} ${d > view.snapDay ? 'future' : ''}`} title={`Ngày ${d}: APE nộp ${fmtTr(ape)} tr · ${n} hồ sơ`}>
-                <span>{d}</span><span className="hc-count">{ape > 0 ? `${fmtTr(ape)} tr` : ''}</span>
+              <div key={d} className={`heat-cell ${lvl} ${d > view.snapDay ? 'future' : ''}`} title={heatHasApe ? `Ngày ${d}: APE nộp ${fmtTr(ape)} tr · ${n} hồ sơ` : `Ngày ${d}: ${n} hồ sơ nộp`}>
+                <span>{d}</span><span className="hc-count">{heatHasApe ? (ape > 0 ? `${fmtTr(ape)} tr` : '') : (n > 0 ? `${n} HS` : '')}</span>
               </div>
             )
           })}
         </div>
-        <div className="muted" style={{ marginTop: 8 }}>Số trong ô = tổng APE nộp trong ngày (triệu đồng, theo cột APE Sub trên Proposal) · chạm/rê vào ô để xem kèm số hồ sơ.</div>
+        {heatHasApe ? (
+          <div className="muted" style={{ marginTop: 8 }}>Số trong ô = tổng APE nộp trong ngày (triệu đồng, theo cột APE Sub trên Proposal) · chạm/rê vào ô để xem kèm số hồ sơ.</div>
+        ) : (
+          <div className="muted" style={{ marginTop: 8 }}>Bản dữ liệu đang xem được nạp trước bản cập nhật APE nên nhịp nộp tạm hiện theo <b>số hồ sơ</b> — nạp lại file Daily Sales ở tab Nạp là nhịp sẽ hiện theo APE.</div>
+        )}
       </div>
     </div>
   )
