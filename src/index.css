@@ -1,40 +1,81 @@
-/* Dashboard D07 Moi — giao dien SANG, mobile-first, 1 cot, khong bang vuot ngang. */
+/* Dashboard Prudential Quan 7 — giao dien SANG, mobile-first, 1 cot,
+   khong bang vuot ngang. Palette thuong hieu: navy Prudential lam chu dao,
+   do Prudential chi lam diem nhan tiet che; mau TRANG THAI du lieu giu
+   nguyen thoi quen nhin so: phat hanh tim #7c3aed · pending hong #ec4899 ·
+   chua len phi xanh #06b6d4. */
 :root {
-  --bg: #f6f7fb;
+  --navy: #0f2e52;
+  --navy-dark: #0b2a4a;
+  --navy-deep: #081f38;
+  --navy-soft: #e8eef7;
+  --brand-red: #e4002b;
+  --bg: #f4f6fa;
   --card: #ffffff;
-  --text: #1e293b;
-  --text2: #475569;
-  --text3: #94a3b8;
-  --border: #e8ecf4;
-  --primary: #4361ee;
-  --violet: #7209b7;
+  --text: #16283c;
+  --text2: #51606f;
+  --text3: #8b98a5;
+  --border: #e3e8f0;
+  --line: #e3e8f0;
+  --line2: #eef2f7;
+  --primary: #1d4e89;
+  --primary-dark: #173e6e;
+  --violet: #7c3aed;
   --green: #059669;
   --amber: #d97706;
   --red: #dc2626;
   --pink: #db2777;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --shadow-card: 0 1px 2px rgba(11, 42, 74, 0.05), 0 4px 14px rgba(11, 42, 74, 0.05);
+  --shadow-pop: 0 12px 36px rgba(11, 42, 74, 0.18);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { -webkit-text-size-adjust: 100%; }
 body {
-  font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* Chi font he thong — KHONG nap font tu CDN (mang noi bo chan domain ngoai). */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
   font-size: 15px;
   line-height: 1.5;
 }
+/* So tien / chi so: chu so thang cot khi xep canh nhau */
+.k-val, .big-num, .ms-num, .bv-total-num, .bv-ref b, .case-ip, .case-num,
+.top-row .ip, .cd-big, .cd-small-num, .bv-pend-val, .hist-row .h-count {
+  font-variant-numeric: tabular-nums;
+}
+/* Phan hoi khi bam (mobile): thu nhe + vong focus ro cho dieu huong ban phim */
+.btn-primary, .btn-ghost, .btn-mini, .fchip, .nav-btn, .memo-card { transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
+.btn-primary:active, .btn-ghost:active, .btn-mini:active, .fchip:active, .nav-btn:active { transform: scale(0.98); }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid rgba(29, 78, 137, 0.55); outline-offset: 2px;
+}
 button { font-family: inherit; }
 input, select, textarea { font-family: inherit; }
 
 .app-shell { max-width: 560px; margin: 0 auto; padding: 0 12px 96px; }
-.app-header { padding: 18px 4px 10px; }
-.app-header h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.3px; }
-.app-header .sub { font-size: 13px; color: var(--text2); margin-top: 2px; }
-.app-slogan { font-size: 12.5px; font-weight: 600; color: var(--primary); margin-top: 1px; }
+.app-header { padding: 18px 4px 12px; }
+.brand-row { display: flex; align-items: flex-start; gap: 12px; }
+/* Logo D07 that (public/logo-d07.png — bieu tuong kim cuong + song do,
+   da cat bo dong slogan vi header da co slogan dang text). Anh nen TRANG
+   con header nam tren nen app --bg (xam xanh nhat) nen boc khung trang
+   bo goc + vien mong de khong lo vet hinh chu nhat. */
+.logo-img {
+  flex-shrink: 0; height: 46px; width: auto; display: block;
+  background: #fff; border: 1px solid var(--border); border-radius: 10px;
+  padding: 3px 6px; box-shadow: var(--shadow-card);
+}
+.brand-text { flex: 1; min-width: 0; }
+.app-header h1 { font-size: 23px; font-weight: 800; letter-spacing: -0.4px; color: var(--navy-dark); line-height: 1.2; }
+.app-header .sub { font-size: 12.5px; color: var(--text3); margin-top: 3px; }
+.app-slogan { font-size: 12.5px; font-weight: 600; color: var(--primary); margin-top: 2px; }
 
 /* Thanh dieu huong duoi day — co dinh, nut >= 44px */
 .bottom-nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
-  background: rgba(255,255,255,0.97); border-top: 1px solid var(--border);
+  background: rgba(255,255,255,0.9); border-top: 1px solid var(--border);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  box-shadow: 0 -4px 18px rgba(11, 42, 74, 0.06);
   padding-bottom: env(safe-area-inset-bottom);
 }
 .bottom-nav .inner {
@@ -44,34 +85,40 @@ input, select, textarea { font-family: inherit; }
 }
 .bv-you {
   display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
-  background: var(--primary); color: #fff; font-size: 10.5px; font-weight: 700; vertical-align: 2px;
+  background: var(--navy); color: #fff; font-size: 10.5px; font-weight: 700; vertical-align: 2px;
 }
 .nav-btn {
-  min-height: 56px; border: none; background: none; cursor: pointer;
+  position: relative; min-height: 52px; border: none; background: none; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  font-size: 11px; font-weight: 600; color: var(--text3); padding: 8px 2px; white-space: nowrap;
+  font-size: 11px; font-weight: 600; color: var(--text3); padding: 7px 2px; margin: 5px 4px;
+  border-radius: 12px; white-space: nowrap;
 }
 .nav-btn .ic { font-size: 20px; line-height: 1; }
-.nav-btn.active { color: var(--primary); }
+.nav-btn.active { color: var(--navy-dark); background: var(--navy-soft); font-weight: 700; }
+.nav-btn.active::before {
+  content: ''; position: absolute; top: 5px; left: 50%; transform: translateX(-50%);
+  width: 5px; height: 5px; border-radius: 50%; background: var(--brand-red);
+}
 
 .card {
-  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-  padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow-card);
 }
-.card h2 { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+.card h2 { font-size: 15.5px; font-weight: 700; margin-bottom: 10px; color: var(--navy-dark); letter-spacing: -0.1px; }
 .card h3 { font-size: 13px; font-weight: 700; color: var(--text2); margin: 12px 0 6px; }
 
-/* The hero: vien gradient, nen sang */
+/* The hero: vien gradient navy thuong hieu, nen sang */
 .hero {
-  border-radius: 18px; padding: 2px; margin-bottom: 12px;
-  background: linear-gradient(120deg, #f472b6, #a78bfa, #38bdf8);
+  border-radius: 18px; padding: 2px; margin-bottom: 14px;
+  background: linear-gradient(120deg, var(--navy-dark), #1d4e89 55%, #2f6fb4);
+  box-shadow: 0 6px 18px rgba(11, 42, 74, 0.14);
 }
 .hero-inner { background: #fff; border-radius: 16px; padding: 16px; text-align: center; }
 .hero .cd-row { display: flex; align-items: stretch; justify-content: center; gap: 8px; }
 .hero .cd-main { flex: 1.2; }
 .hero .cd-side { flex: 1; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
 .hero .cd-label { font-size: 12px; color: var(--text2); font-weight: 600; }
-.hero .cd-big { font-size: 52px; font-weight: 800; color: var(--pink); line-height: 1.05; }
+.hero .cd-big { font-size: 52px; font-weight: 800; color: var(--navy-dark); line-height: 1.05; }
 .hero .cd-small-num { font-size: 22px; font-weight: 800; color: var(--primary); line-height: 1.1; }
 .hero .cd-small-label { font-size: 11px; color: var(--text2); font-weight: 600; }
 .hero .cd-need { font-size: 13px; color: var(--text); font-weight: 700; margin-top: 4px; }
@@ -81,33 +128,40 @@ input, select, textarea { font-family: inherit; }
 .hero .quote-hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
 
 /* Tien do FYP */
-.progress-track { background: #eef2ff; border-radius: 999px; height: 14px; overflow: hidden; margin: 8px 0; }
+.progress-track { background: #e6ebf2; border-radius: 999px; height: 12px; overflow: hidden; margin: 8px 0; }
 .progress-fill { background: linear-gradient(90deg, var(--primary), var(--violet)); height: 100%; border-radius: 999px; }
-.big-num { font-size: 26px; font-weight: 800; }
+.big-num { font-size: 27px; font-weight: 800; color: var(--navy-dark); }
 .chip {
   display: inline-block; padding: 8px 12px; border-radius: 999px; font-size: 13px; font-weight: 600;
   background: #fef3c7; color: #92400e; border: 1px dashed #f59e0b; cursor: pointer;
 }
 
-/* KPI 2x2 */
-.kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+/* KPI 2x2 — moi the co o icon pastel rieng ben trai */
+.kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
 .kpi {
-  background: var(--card); border: 1px solid var(--border); border-top: 4px solid var(--primary);
-  border-radius: 14px; padding: 12px; box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 13px 12px; box-shadow: var(--shadow-card);
+  display: flex; align-items: flex-start; gap: 11px;
 }
-.kpi .k-label { font-size: 12px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.4px; }
-.kpi .k-val { font-size: 22px; font-weight: 800; margin-top: 2px; }
+.kpi .k-ic {
+  flex-shrink: 0; width: 42px; height: 42px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center; font-size: 20px;
+  background: var(--navy-soft);
+}
+.kpi .k-body { flex: 1; min-width: 0; }
+.kpi .k-label { font-size: 11.5px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
+.kpi .k-val { font-size: 23px; font-weight: 800; margin-top: 1px; color: var(--navy-dark); line-height: 1.15; }
 .kpi .k-sub { font-size: 12px; color: var(--text3); font-weight: 600; }
-.kpi.blue { border-top-color: #2563eb; } .kpi.pink { border-top-color: var(--pink); }
-.kpi.violet { border-top-color: var(--violet); } .kpi.green { border-top-color: var(--green); }
+.kpi.blue .k-ic { background: #dbeafe; } .kpi.green .k-ic { background: #dcfce7; }
+.kpi.violet .k-ic { background: #ede9fe; } .kpi.pink .k-ic { background: #fce7f3; }
 
 /* Delta */
 .delta { font-size: 13px; font-weight: 600; }
 .delta .up { color: var(--green); } .delta .down { color: var(--red); } .delta .flat { color: var(--text3); }
 
-/* Thanh xep chong */
-.stack-bar { display: flex; height: 22px; border-radius: 8px; overflow: hidden; background: #eef2f7; margin: 8px 0; }
-.stack-bar .seg-issued { background: #22c55e; } .stack-bar .seg-pending { background: #f59e0b; } .stack-bar .seg-pipe { background: #38bdf8; }
+/* Thanh xep chong — mau trang thai chuan: phat hanh tim / pending hong / chua len phi xanh */
+.stack-bar { display: flex; height: 22px; border-radius: 10px; overflow: hidden; background: var(--line2); margin: 8px 0; }
+.stack-bar .seg-issued { background: #7c3aed; } .stack-bar .seg-pending { background: #ec4899; } .stack-bar .seg-pipe { background: #06b6d4; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--text2); }
 .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; }
 
@@ -132,7 +186,7 @@ input, select, textarea { font-family: inherit; }
 .heat-cell.l3 { background: #16a34a; color: #fff; } .heat-cell.future { opacity: 0.35; }
 
 /* Canh bao */
-.warn-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; font-size: 13.5px; }
+.warn-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 13px 15px; margin-bottom: 14px; font-size: 13.5px; }
 .warn-box .w-title { font-weight: 800; color: #92400e; margin-bottom: 4px; }
 
 /* Trang thai rong / placeholder */
@@ -142,26 +196,33 @@ input, select, textarea { font-family: inherit; }
 .empty .e-ic { font-size: 40px; margin-bottom: 8px; }
 .btn-primary {
   min-height: 48px; padding: 12px 18px; border: none; border-radius: 12px; cursor: pointer;
-  background: linear-gradient(135deg, var(--primary), var(--violet)); color: #fff; font-weight: 700; font-size: 15px; width: 100%;
+  background: var(--navy); color: #fff; font-weight: 700; font-size: 15px; width: 100%;
+  box-shadow: 0 4px 12px rgba(11, 42, 74, 0.22);
 }
-.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary:hover { background: var(--navy-dark); }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 .btn-ghost {
-  min-height: 44px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer;
-  background: #fff; color: var(--primary); font-weight: 600; font-size: 14px;
+  min-height: 44px; padding: 10px 14px; border: 1px solid #d4dce6; border-radius: 10px; cursor: pointer;
+  background: #fff; color: var(--navy); font-weight: 600; font-size: 14px;
 }
+.btn-ghost:hover { background: var(--navy-soft); border-color: #b9c8dd; }
 
 /* Form nap du lieu */
 .dropzone {
-  border: 2px dashed #c7d2fe; border-radius: 14px; padding: 22px 14px; text-align: center;
-  background: #eef2ff; cursor: pointer; transition: background 0.15s;
+  border: 2px dashed #b9c8dd; border-radius: 14px; padding: 22px 14px; text-align: center;
+  background: #eef3fa; cursor: pointer; transition: background 0.15s;
 }
-.dropzone.drag { background: #e0e7ff; border-color: var(--primary); }
+.dropzone.drag { background: var(--navy-soft); border-color: var(--primary); }
 .dropzone .dz-ic { font-size: 34px; }
 .field { margin-bottom: 12px; }
 .field label { display: block; font-size: 12.5px; font-weight: 700; color: var(--text2); margin-bottom: 5px; }
 .field input, .field textarea, .field select {
   width: 100%; min-height: 44px; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px;
   font-size: 14px; outline: none; background: #fff; color: var(--text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.field input:focus, .field textarea:focus, .field select:focus {
+  border-color: var(--primary); box-shadow: 0 0 0 3px rgba(29, 78, 137, 0.15); outline: none;
 }
 .field textarea { font-family: monospace; font-size: 12px; }
 .msg { border-radius: 10px; padding: 10px 12px; font-size: 13.5px; margin-top: 10px; white-space: pre-line; }
@@ -186,23 +247,25 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
   min-height: 44px; padding: 9px 14px; border-radius: 999px; border: 1.5px solid var(--border);
   background: #fff; color: var(--text2); font-size: 13.5px; font-weight: 700; cursor: pointer;
 }
-.fchip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.fchip:hover { border-color: #b9c8dd; }
+.fchip.active { background: var(--navy); border-color: var(--navy); color: #fff; }
 .fchip.sm { min-height: 38px; padding: 6px 12px; font-size: 12.5px; }
 .mini-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
-.mini-stat { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 8px; text-align: center; }
-.mini-stat .ms-num { font-size: 20px; font-weight: 800; }
+.mini-stat { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 8px; text-align: center; box-shadow: var(--shadow-card); }
+.mini-stat .ms-num { font-size: 20px; font-weight: 800; color: var(--navy-dark); }
 .mini-stat .ms-label { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.3px; }
-.case-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }
+.case-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow-card); }
+.case-card:hover { border-color: #d4dce6; }
 .case-head { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; min-height: 44px; }
 .case-main { flex: 1; min-width: 0; }
 .case-num { font-weight: 800; font-size: 14px; letter-spacing: 0.2px; }
 .case-who { font-size: 13px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .case-meta { font-size: 12px; color: var(--text3); margin-top: 2px; }
-.case-ip { font-weight: 800; color: var(--primary); white-space: nowrap; font-size: 14px; }
+.case-ip { font-weight: 800; color: var(--navy-dark); white-space: nowrap; font-size: 14px; }
 .pill { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
-.pill-if { background: #dcfce7; color: #166534; }
-.pill-ps { background: #fef3c7; color: #92400e; }
-.pill-pipe { background: #e0f2fe; color: #075985; }
+.pill-if { background: #ede9fe; color: #5b21b6; }
+.pill-ps { background: #fce7f3; color: #be185d; }
+.pill-pipe { background: #cffafe; color: #155e75; }
 .pill-other { background: #f1f5f9; color: #475569; }
 .badge-adj { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #ede9fe; color: #5b21b6; margin-left: 6px; }
 .badge-stale { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #ecfdf5; color: #065f46; margin-left: 6px; }
@@ -232,16 +295,16 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
 }
 .btn-mini.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
 .modal-overlay {
-  position: fixed; inset: 0; z-index: 90; background: rgba(15,23,42,0.48);
+  position: fixed; inset: 0; z-index: 90; background: rgba(8, 31, 56, 0.52);
   display: flex; align-items: flex-end; justify-content: center;
 }
 .modal-sheet {
   background: #fff; width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto;
-  border-radius: 18px 18px 0 0; padding: 20px 16px calc(18px + env(safe-area-inset-bottom));
-  box-shadow: 0 -6px 30px rgba(15,23,42,0.25);
+  border-radius: 22px 22px 0 0; padding: 20px 16px calc(18px + env(safe-area-inset-bottom));
+  box-shadow: var(--shadow-pop);
 }
-.modal-title { font-size: 17px; font-weight: 800; margin-bottom: 8px; }
-.my-card { border: 1.5px solid #c7d2fe; background: linear-gradient(180deg, #eef2ff, #ffffff); }
+.modal-title { font-size: 17px; font-weight: 800; margin-bottom: 8px; color: var(--navy-dark); }
+.my-card { border: 1.5px solid #b9c8dd; background: linear-gradient(180deg, #eef3fa, #ffffff); }
 .my-line { font-size: 13.5px; margin-top: 6px; }
 .lock-note {
   border: 1px dashed #f59e0b; background: #fffbeb; color: #92400e;
@@ -249,7 +312,7 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
 }
 
 /* ── Doi ngu: the Unit xo TVV + luot Act / MOC uoc tinh ── */
-.unit-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; margin-bottom: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
+.unit-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; margin-bottom: 10px; overflow: hidden; box-shadow: var(--shadow-card); }
 .unit-head {
   width: 100%; min-height: 56px; display: flex; align-items: flex-start; gap: 8px;
   background: none; border: none; cursor: pointer; text-align: left; padding: 12px 14px; color: inherit;
@@ -294,11 +357,14 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
   position: relative; flex: 0 0 auto; width: 46px; height: 46px;
   border-radius: 50%; display: flex; align-items: center; justify-content: center;
   font-size: 16px; font-weight: 800; border: 2px solid transparent;
+  box-shadow: 0 1px 3px rgba(11, 42, 74, 0.1);
 }
-.bv-av-dia { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
-.bv-av-pla { background: #e2e8f0; border-color: #cbd5e1; color: #475569; }
-.bv-av-gold { background: #fef3c7; border-color: #fcd34d; color: #b45309; }
-.bv-av-oth { background: #f1f5f9; border-color: #e2e8f0; color: #475569; }
+.bv-av-dia { background: linear-gradient(135deg, #bfdbfe, #eff6ff); border-color: #93c5fd; color: #1d4ed8; }
+.bv-av-pla { background: linear-gradient(135deg, #e2e8f0, #f8fafc); border-color: #cbd5e1; color: #475569; }
+.bv-av-gold { background: linear-gradient(135deg, #fde68a, #fef3c7); border-color: #fbbf24; color: #92400e; }
+.bv-av-oth { background: linear-gradient(135deg, #eef2f7, #f8fafc); border-color: #e2e8f0; color: #64748b; }
+/* Hang cua chinh minh (nhan "Ban"): nen nhan navy nhat + vien trong */
+.bv-mine { background: linear-gradient(135deg, var(--navy-soft), #ffffff 78%); box-shadow: inset 0 0 0 1px #c9d6ea; }
 .bv-medal { position: absolute; right: -5px; bottom: -5px; font-size: 15px; line-height: 1; }
 .bv-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .bv-name { font-size: 15px; font-weight: 800; color: var(--text); line-height: 1.25; }
@@ -307,7 +373,7 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
 .bv-seg-dia { color: #2563eb; }
 .bv-seg-pla { color: #64748b; }
 .bv-seg-gold { color: #d97706; }
-.bv-bar { display: flex; height: 8px; border-radius: 99px; overflow: hidden; background: var(--line2); margin-top: 6px; }
+.bv-bar { display: flex; height: 9px; border-radius: 99px; overflow: hidden; background: var(--line2); margin-top: 6px; }
 .bv-seg-issued { background: #7c3aed; min-width: 4px; }
 .bv-seg-pending { background: #ec4899; min-width: 4px; }
 .bv-seg-pipeline { background: #06b6d4; min-width: 4px; }
@@ -334,12 +400,14 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
 /* ── Sales Report — nhom theo ngay nop + vien trai trang thai ──── */
 .day-head {
   position: sticky; top: 0; z-index: 3;
-  background: var(--bg); padding: 8px 2px; margin: 4px 0 2px;
-  font-size: 13.5px; font-weight: 800; color: var(--text2);
+  background: rgba(244, 246, 250, 0.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 2px; margin: 4px 0 8px;
+  font-size: 13.5px; font-weight: 800; color: var(--navy-dark);
 }
-.case-card.st-if { border-left: 4px solid #22c55e; }
-.case-card.st-ps { border-left: 4px solid #f59e0b; }
-.case-card.st-pipe { border-left: 4px solid #38bdf8; }
+.case-card.st-if { border-left: 4px solid #7c3aed; }
+.case-card.st-ps { border-left: 4px solid #ec4899; }
+.case-card.st-pipe { border-left: 4px solid #06b6d4; }
 .case-card.st-other { border-left: 4px solid #cbd5e1; }
 
 /* ── Bieu do SVG tu ve (Charts.jsx): nhip nop theo ngay + hanh trinh nam ── */
@@ -363,7 +431,7 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
   width: min(1080px, calc(100vw - 16px));
 }
 .memo-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.memo-title { font-size: 19px; font-weight: 800; letter-spacing: -0.2px; }
+.memo-title { font-size: 19px; font-weight: 800; letter-spacing: -0.2px; color: var(--navy-dark); }
 .memo-head-btns { display: flex; gap: 8px; align-items: center; }
 .memo-head-btns a.btn-mini { text-decoration: none; display: inline-flex; align-items: center; }
 .memo-detail-name { display: flex; align-items: center; gap: 7px; font-size: 15px; min-width: 0; flex-wrap: wrap; }
@@ -372,9 +440,9 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
 .memo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
 .memo-card {
   position: relative; background: var(--card); border: 1px solid var(--border); border-radius: 14px;
-  padding: 12px; cursor: pointer; box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+  padding: 12px; cursor: pointer; box-shadow: var(--shadow-card);
 }
-.memo-card:hover { border-color: #c7d2fe; }
+.memo-card:hover { border-color: #b9c8dd; box-shadow: var(--shadow-pop); transform: translateY(-1px); }
 .memo-del {
   position: absolute; top: 6px; right: 6px; z-index: 2;
   width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border);
@@ -393,16 +461,17 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
 .memo-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
 .memo-chip {
   display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px;
-  border-radius: 999px; background: #ede9fe; color: #6d28d9; white-space: nowrap;
+  border-radius: 999px; background: var(--navy-soft); color: var(--navy); white-space: nowrap;
 }
-.memo-chip.pin { background: #ede9fe; color: #6d28d9; }
+.memo-chip.pin { background: #fdeef1; color: #b3001f; }
 .memo-card-date { font-size: 12px; color: var(--text3); font-weight: 600; margin-top: 8px; }
 .memo-thumb {
   display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; object-position: top;
-  border: 1px solid var(--border); border-radius: 9px; margin-top: 8px; background: #f8fafc;
+  border: 1px solid var(--border); border-radius: 10px; margin-top: 8px; background: #f8fafc;
 }
 .memo-thumb-empty {
-  display: flex; align-items: center; justify-content: center; font-size: 40px; color: var(--text3);
+  display: flex; align-items: center; justify-content: center; font-size: 44px; color: var(--text3);
+  background: linear-gradient(135deg, var(--navy-soft), #f8fafc);
 }
 .memo-card-file {
   font-size: 12px; color: var(--text2); margin-top: 6px;
@@ -424,7 +493,7 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
 .memo-sec-label.warn { color: #b45309; }
 .memo-bullets { list-style: none; }
 .memo-bullets li { position: relative; font-size: 13.5px; line-height: 1.5; padding-left: 15px; margin-bottom: 5px; }
-.memo-bullets li::before { content: '•'; position: absolute; left: 2px; color: var(--violet); font-weight: 800; }
+.memo-bullets li::before { content: '•'; position: absolute; left: 2px; color: var(--primary); font-weight: 800; }
 .memo-pages { min-width: 0; }
 .memo-page {
   display: block; width: 100%; height: auto; background: #fff;
@@ -442,6 +511,29 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
   .memo-pages { grid-column: 1; grid-row: 1; }
   .memo-summary { grid-column: 2; grid-row: 1; position: sticky; top: 12px; }
 }
+
+/* ── Trang ca nhan TVV (CaNhan.jsx) + avatar ───────────────────── */
+.me-head { display: flex; align-items: center; gap: 14px; }
+.me-avatar {
+  flex: 0 0 auto; width: 84px; height: 84px; border-radius: 50%;
+  object-fit: cover; border: 2px solid var(--border); box-shadow: var(--shadow-card);
+}
+.me-avatar-fallback {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; font-weight: 800;
+}
+.me-head-info { flex: 1 1 auto; min-width: 0; }
+.me-name { font-size: 19px; font-weight: 800; color: var(--navy-dark); line-height: 1.25; }
+.me-sub { font-size: 13px; color: var(--text2); font-weight: 600; margin-top: 2px; }
+/* Avatar nho o khoi "Cua toi" tren Trang Chu (HomNay) */
+.my-avatar {
+  width: 36px; height: 36px; border-radius: 50%; object-fit: cover;
+  vertical-align: -11px; margin-right: 8px;
+  border: 2px solid #fff; box-shadow: 0 1px 4px rgba(11, 42, 74, 0.25);
+}
+/* Avatar anh that trong vong tron avatar cua Bang Vang (DoiNgu) —
+   chi hang cua chinh minh moi co (profile nguoi khac khong doc duoc) */
+.bv-avatar-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
 
 /* Form dang memo (Admin chinh) */
 .memo-form .field textarea { font-family: inherit; font-size: 14px; min-height: 44px; }

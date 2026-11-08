@@ -9,15 +9,17 @@
 // Thu vien 📌 Memo · Thi dua · Tai lieu (Firestore `memos` + Firebase
 // Storage) mo tu nut "📌 Memo" tren header, thay vung noi dung tab khi mo.
 // ─────────────────────────────────────────────────────────────
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import HomNay from './components/HomNay.jsx'
 import NapDuLieu from './components/NapDuLieu.jsx'
 import SalesReport from './components/SalesReport.jsx'
 import DoiNgu from './components/DoiNgu.jsx'
 import MemoThuVien from './components/MemoThuVien.jsx'
+import CaNhan from './components/CaNhan.jsx'
 import { loadLocalSnapshots, fetchFirestoreSnapshots, mergeSnapshots, getFbConfig, fetchUserProfile, saveUserProfile, fetchAllProfiles, adminSetProfileStatus, adminSetSalesReport } from './lib/store'
 import { useAuth } from './lib/auth'
 import { emailToMsdl, isMsdlAccount, isSuperAdmin, msdlToEmail, canViewSalesReport } from './lib/firebaseConfig'
+import { LOGO_D07 } from './lib/logoData'
 
 const fmtDateVN = (iso) => {
   if (!iso) return ''
@@ -38,6 +40,7 @@ const NAV = [
   { id: 'home', label: 'Trang Chủ', icon: '🏠' },
   { id: 'sales', label: 'Sales Report', icon: '📋' },
   { id: 'team', label: 'Tinh Anh', icon: '👥' },
+  { id: 'me', label: 'Của tôi', icon: '👤' },
   { id: 'memo', label: 'Memo', icon: '📌' },
   { id: 'nap', label: 'Nạp', icon: '📥' },
 ]
@@ -219,6 +222,11 @@ export default function App() {
   // Sales Report: chi Admin chinh hoac tai khoan duoc cap quyen moi xem duoc
   const canSR = canViewSalesReport(user, profile)
 
+  // Tab "Cua toi" (trang ca nhan TVV): chi hien khi dang nhap bang tai
+  // khoan MSDL (TVV) va KHONG phai Admin chinh. Tai khoan email thuong /
+  // Admin chinh khong co trang ca nhan nay.
+  const showMeTab = !!user && msdlAccount && !superAdmin
+
   // ── Rules hien thi tab (Lan chot 08/11/2026) ──
   // Tab Nap: CHI Admin chinh thay. Tab Sales Report: chi Admin chinh +
   // tai khoan duoc cap quyen (canViewSalesReport) thay — con lai AN HAN
@@ -226,13 +234,15 @@ export default function App() {
   const visibleNav = NAV.filter((n) => {
     if (n.id === 'nap') return superAdmin
     if (n.id === 'sales') return canSR
+    if (n.id === 'me') return showMeTab
     return true
   })
   // Dang o tab bi an (vd vua bi thu hoi quyen / dang xuat) -> ve Trang Chu.
   useEffect(() => {
     if (tab === 'nap' && !superAdmin) setTab('home')
     else if (tab === 'sales' && !canSR && (!user || profile)) setTab('home')
-  }, [tab, superAdmin, canSR, user, profile])
+    else if (tab === 'me' && !showMeTab) setTab('home')
+  }, [tab, superAdmin, canSR, user, profile, showMeTab])
 
   // ── Cong duyet tai khoan ──
   // Super admin luon qua. Nguoi thuong: status lay tu profile; tai khoan
@@ -242,6 +252,23 @@ export default function App() {
     : (profile?.status || (msdlAccount ? 'pending' : 'approved'))
   // Tai khoan MSDL ma profile chua tai xong: cho kiem tra, khong nhap nhay du lieu
   const gateChecking = !!user && !superAdmin && msdlAccount && profile === null
+
+  // ── Tu nhay trang ca nhan khi TVV dang nhap ──
+  // Trang thai dang nhap chuyen chua -> da dang nhap (uid moi xuat hien)
+  // va user la TVV MSDL DA DUOC DUYET thi nhay sang tab 'me' DUNG 1 LAN
+  // cho lan dang nhap do (ref ghi uid da nhay — profile tai lai hay
+  // rerender deu khong nhay lai). Dang xuat thi xoa ref de lan dang nhap
+  // sau nhay lai. Admin chinh + tai khoan email thuong giu o Trang Chu.
+  const jumpedUidRef = useRef('')
+  useEffect(() => {
+    if (!user) { jumpedUidRef.current = ''; return }
+    if (jumpedUidRef.current === user.uid) return
+    if (profile === null) return // chua biet trang thai duyet — cho profile tai xong
+    if (showMeTab && effectiveStatus === 'approved') {
+      jumpedUidRef.current = user.uid
+      setTab('me')
+    }
+  }, [user, profile, showMeTab, effectiveStatus])
 
   // 1 dong trong panel Admin: thong tin + nut hanh dong theo trang thai
   const renderAdminRow = (p) => {
@@ -281,12 +308,17 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <h1>Prudential Quận 7</h1>
-        <div className="app-slogan">Cùng Học Hỏi – Cùng Phát Triển – Cùng Thành Công</div>
-        <div className="sub">
-          {newest
-            ? <>Cập nhật đến {fmtDateVN(newest.id)} · nguồn: {source}</>
-            : 'Dashboard mới — gọn & thiết thực'}
+        <div className="brand-row">
+          <img src={LOGO_D07} alt="Prudential Quận 7" className="logo-img" />
+          <div className="brand-text">
+            <h1>Prudential Quận 7</h1>
+            <div className="app-slogan">Cùng Học Hỏi – Cùng Phát Triển – Cùng Thành Công</div>
+            <div className="sub">
+              {newest
+                ? <>Cập nhật đến {fmtDateVN(newest.id)} · nguồn: {source}</>
+                : 'Dashboard mới — gọn & thiết thực'}
+            </div>
+          </div>
         </div>
         <div className="header-acct">
           {authLoading ? (
@@ -361,6 +393,10 @@ export default function App() {
               <DoiNgu snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} user={user}
                 profile={profile} isSuperAdmin={superAdmin}
                 onOpenLogin={() => { setLoginErr(''); setShowLogin(true) }} />
+            )}
+            {tab === 'me' && showMeTab && (
+              <CaNhan snaps={snaps} loading={loading} user={user} profile={profile}
+                onProfileUpdate={setProfile} />
             )}
             {tab === 'memo' && (
               <MemoThuVien user={user} isSuperAdmin={superAdmin}

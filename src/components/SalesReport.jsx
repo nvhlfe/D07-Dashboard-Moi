@@ -280,9 +280,9 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
           {gaBar.pipeline > 0 ? <div className="seg-pipe" style={{ width: `${gaPct(gaBar.pipeline)}%` }} /> : null}
         </div>
         <div className="legend">
-          <span><span className="dot" style={{ background: '#22c55e' }} />Phát hành {fmtTr(gaBar.issued)} tr</span>
-          <span><span className="dot" style={{ background: '#f59e0b' }} />Pending {fmtTr(gaBar.pending)} tr</span>
-          <span><span className="dot" style={{ background: '#38bdf8' }} />Chưa lên phí {fmtTr(gaBar.pipeline)} tr</span>
+          <span><span className="dot" style={{ background: '#7c3aed' }} />Phát hành {fmtTr(gaBar.issued)} tr</span>
+          <span><span className="dot" style={{ background: '#ec4899' }} />Pending {fmtTr(gaBar.pending)} tr</span>
+          <span><span className="dot" style={{ background: '#06b6d4' }} />Chưa lên phí {fmtTr(gaBar.pipeline)} tr</span>
         </div>
         <div style={{ fontSize: 13.5, marginTop: 6 }}>
           Tỷ lệ phát hành theo giá trị: <b>{issueRate !== null ? fmtPct1(issueRate) : '—'}</b>

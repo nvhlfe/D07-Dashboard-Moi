@@ -202,7 +202,7 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
         </div>
       ) : (
         <div className="card my-card">
-          <h2>🙋 Của tôi — {myAgent?.agName || myAnAgent?.name || profile?.displayName || 'TVV'} {myAgent?.unit || myAnAgent?.unit ? <span className="muted">· {myAgent?.unit || myAnAgent?.unit}</span> : null} {(myAgent?.agSeg || myAnAgent?.agSeg) ? <span className="muted">· Phân loại: {myAgent?.agSeg || myAnAgent?.agSeg}</span> : null}</h2>
+          <h2>🙋 Của tôi — {profile?.avatarUrl ? <img className="my-avatar" src={profile.avatarUrl} alt="" /> : null}{myAgent?.agName || myAnAgent?.name || profile?.displayName || 'TVV'} {myAgent?.unit || myAnAgent?.unit ? <span className="muted">· {myAgent?.unit || myAnAgent?.unit}</span> : null} {(myAgent?.agSeg || myAnAgent?.agSeg) ? <span className="muted">· Phân loại: {myAgent?.agSeg || myAnAgent?.agSeg}</span> : null}</h2>
           {!myAgent && myCases.length === 0 ? (
             <div className="my-line">Chưa thấy mã <b>{myMsdl}</b> trong dữ liệu tháng {month}/{year}. Kiểm tra lại Mã TVV ở mục Tài khoản (mã phải khớp mã số đại lý trong file Daily Sales).</div>
           ) : (
@@ -248,10 +248,10 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
 
       {/* ── 4 KPI ── */}
       <div className="kpi-grid">
-        <div className="kpi blue"><div className="k-label">Nộp</div><div className="k-val">{fmtTr(nopTr)} tr</div><div className="k-sub">{fmtInt(t.nopN)} hồ sơ</div></div>
-        <div className="kpi green"><div className="k-label">Phát hành</div><div className="k-val">{fmtTr(t.netIp)} tr</div><div className="k-sub">{fmtInt(t.netN)} hợp đồng</div></div>
-        <div className="kpi violet"><div className="k-label">Pending</div><div className="k-val">{fmtTr(t.pendIp)} tr</div><div className="k-sub">{fmtInt(t.pendN)} hồ sơ</div></div>
-        <div className="kpi pink"><div className="k-label">Chưa lên phí</div><div className="k-val">{fmtTr(t.pipeApe)} tr</div><div className="k-sub">{fmtInt(t.pipeN)} hồ sơ</div></div>
+        <div className="kpi blue"><span className="k-ic">📥</span><div className="k-body"><div className="k-label">Nộp</div><div className="k-val">{fmtTr(nopTr)} tr</div><div className="k-sub">{fmtInt(t.nopN)} hồ sơ</div></div></div>
+        <div className="kpi green"><span className="k-ic">✅</span><div className="k-body"><div className="k-label">Phát hành</div><div className="k-val">{fmtTr(t.netIp)} tr</div><div className="k-sub">{fmtInt(t.netN)} hợp đồng</div></div></div>
+        <div className="kpi violet"><span className="k-ic">⏳</span><div className="k-body"><div className="k-label">Pending</div><div className="k-val">{fmtTr(t.pendIp)} tr</div><div className="k-sub">{fmtInt(t.pendN)} hồ sơ</div></div></div>
+        <div className="kpi pink"><span className="k-ic">💸</span><div className="k-body"><div className="k-label">Chưa lên phí</div><div className="k-val">{fmtTr(t.pipeApe)} tr</div><div className="k-sub">{fmtInt(t.pipeN)} hồ sơ</div></div></div>
       </div>
 
       {/* ── Delta so voi snapshot truoc ── */}
@@ -273,9 +273,9 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
           <div className="seg-pipe" style={{ width: `${segPct(t.pipeApe)}%` }} />
         </div>
         <div className="legend">
-          <span><span className="dot" style={{ background: '#22c55e' }} />Đã phát hành {fmtTr(t.netIp)} tr</span>
-          <span><span className="dot" style={{ background: '#f59e0b' }} />Pending {fmtTr(t.pendIp)} tr</span>
-          <span><span className="dot" style={{ background: '#38bdf8' }} />Chưa lên phí {fmtTr(t.pipeApe)} tr</span>
+          <span><span className="dot" style={{ background: '#7c3aed' }} />Đã phát hành {fmtTr(t.netIp)} tr</span>
+          <span><span className="dot" style={{ background: '#ec4899' }} />Pending {fmtTr(t.pendIp)} tr</span>
+          <span><span className="dot" style={{ background: '#06b6d4' }} />Chưa lên phí {fmtTr(t.pipeApe)} tr</span>
         </div>
         <div style={{ marginTop: 8, fontSize: 14 }}>
           Tỷ lệ phát hành: <b>{t.rate !== null && t.rate !== undefined ? `${Math.round(t.rate * 100)}%` : '—'}</b>

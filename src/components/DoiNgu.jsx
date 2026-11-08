@@ -160,10 +160,12 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
     const bar = a.bar
     const pctOf = (v) => (bar.total > 0 ? (v / bar.total) * 100 : 0)
     return (
-      <div className={`bv-row ${rank <= 3 ? ROW_BG[rank - 1] : ''}`} key={a.msdl}>
+      <div className={`bv-row ${rank <= 3 ? ROW_BG[rank - 1] : ''}${isMine(a) ? ' bv-mine' : ''}`} key={a.msdl}>
         <button type="button" className="bv-head" onClick={() => handleRowClick(a)} aria-expanded={open}>
           <span className={`bv-avatar ${AVATAR_CLASS[sk]}`}>
-            {initials(a.agName)}
+            {isMine(a) && profile?.avatarUrl
+              ? <img className="bv-avatar-img" src={profile.avatarUrl} alt="" />
+              : initials(a.agName)}
             {rank <= 3 ? <span className="bv-medal">{MEDALS[rank - 1]}</span> : null}
           </span>
           <span className="bv-main">

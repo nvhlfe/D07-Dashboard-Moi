@@ -19,7 +19,7 @@ const fmtTr = (n) => {
 const C_ISSUED = '#7c3aed'
 const C_PENDING = '#ec4899'
 const C_PIPELINE = '#06b6d4'
-const C_GRID = '#e8ecf4'
+const C_GRID = '#e3e8f0'
 const C_AXIS = '#cbd5e1'
 const C_LABEL = '#94a3b8'
 const C_ORANGE = '#f97316'
@@ -108,10 +108,10 @@ export function DailyStackChart({ days, yyyyMm, daysInMonth, selected, onSelect 
         })
         return (
           <g key={d}>
-            {isSel && <rect x={mL + slot * (d - 1)} y={mT} width={slot} height={plotH} fill="rgba(67,97,238,0.08)" />}
+            {isSel && <rect x={mL + slot * (d - 1)} y={mT} width={slot} height={plotH} fill="rgba(15,46,82,0.07)" />}
             {drawn}
             {isSel && acc > 0 && (
-              <rect x={x - 1.5} y={baseY - acc - 1.5} width={barW + 3} height={acc + 1.5} fill="none" stroke="#4361ee" strokeWidth={1.4} />
+              <rect x={x - 1.5} y={baseY - acc - 1.5} width={barW + 3} height={acc + 1.5} fill="none" stroke="#0f2e52" strokeWidth={1.4} />
             )}
             <rect
               x={mL + slot * (d - 1)} y={mT} width={slot} height={plotH}
@@ -129,7 +129,7 @@ export function DailyStackChart({ days, yyyyMm, daysInMonth, selected, onSelect 
         return (
           <text
             key={d} x={cx} y={H - 6} textAnchor="middle" fontSize={12.5}
-            fontWeight={isSel ? 800 : 600} fill={isSel ? '#4361ee' : C_LABEL}
+            fontWeight={isSel ? 800 : 600} fill={isSel ? '#0f2e52' : C_LABEL}
           >
             {d}
           </text>

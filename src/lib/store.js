@@ -291,6 +291,11 @@ export async function saveUserProfile(uid, profile) {
     msdl: profile?.msdl ? String(profile.msdl).trim() : '',
     status: profile?.status || prev?.status || '',
     canSalesReport: profile?.canSalesReport !== undefined ? profile.canSalesReport === true : prev?.canSalesReport === true,
+    // Avatar (URL tren Storage + moc doi): chi doi khi duoc truyen vao,
+    // khong truyen thi GIU ban da co trong cache — sua ten/MSDL o form
+    // Tai khoan khong duoc ghi de mat anh dai dien.
+    avatarUrl: profile?.avatarUrl !== undefined ? (profile.avatarUrl || '') : (prev?.avatarUrl || ''),
+    avatarUpdatedAt: profile?.avatarUpdatedAt !== undefined ? (profile.avatarUpdatedAt || '') : (prev?.avatarUpdatedAt || ''),
     updatedAt: new Date().toISOString(),
   }
   cacheProfile(uid, clean)
@@ -298,14 +303,22 @@ export async function saveUserProfile(uid, profile) {
   let cloud = false
   if (fs && uid) {
     try {
-      // Giu quyen Sales Report da cap tren may: cache may nay co the chua
-      // co truong nay trong khi ban may da co — doc ban may hien tai truoc
-      // khi ghi de, tranh lam mat quyen Admin da cap.
+      // Giu quyen Sales Report + avatar da co tren may: cache may nay co
+      // the chua co cac truong nay trong khi ban may da co — doc ban may
+      // hien tai truoc khi ghi de, tranh lam mat quyen Admin da cap /
+      // anh dai dien da tai len tu thiet bi khac.
       try {
         const cur = await getDoc(doc(fs, 'user_profiles', uid))
-        if (cur.exists() && cur.data()?.canSalesReport === true && !clean.canSalesReport) {
-          clean.canSalesReport = true
-          cacheProfile(uid, clean)
+        if (cur.exists()) {
+          const cd = cur.data() || {}
+          let restored = false
+          if (cd.canSalesReport === true && !clean.canSalesReport) { clean.canSalesReport = true; restored = true }
+          if (cd.avatarUrl && !clean.avatarUrl) {
+            clean.avatarUrl = cd.avatarUrl
+            clean.avatarUpdatedAt = cd.avatarUpdatedAt || clean.avatarUpdatedAt
+            restored = true
+          }
+          if (restored) cacheProfile(uid, clean)
         }
       } catch { /* bo qua — ghi tiep bang ban local */ }
       await setDoc(doc(fs, 'user_profiles', uid), clean)
@@ -496,6 +509,90 @@ export async function deleteMemoEverywhere(memo) {
     }
   }
   return { ok: docOk && errors.length === 0, docOk, errors }
+}
+
+// ── Avatar TVV ───────────────────────────────────────────────
+// Anh dai dien cua tung TVV: nen phia client (canvas cat vuong giua,
+// toi da 256x256, JPEG ~0.85) roi tai len Storage `avatars/{uid}.jpg`;
+// URL luu vao user_profiles (truong avatarUrl — saveUserProfile da giu
+// truong nay nhu status/canSalesReport). Dieu kien chay that: Lan publish
+// storage.rules ban co match /avatars (chi chinh user ghi file cua minh).
+// Chua publish -> tra loi TIENG VIET, app khong crash.
+/** Nen anh avatar: ve vao canvas 256x256 kieu cover (cat vuong giua). */
+function compressAvatarImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      try {
+        const size = 256
+        const canvas = document.createElement('canvas')
+        canvas.width = size
+        canvas.height = size
+        const ctx = canvas.getContext('2d')
+        const scale = Math.max(size / img.naturalWidth, size / img.naturalHeight)
+        const w = img.naturalWidth * scale
+        const h = img.naturalHeight * scale
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h)
+        URL.revokeObjectURL(url)
+        canvas.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error('canvas-blob'))),
+          'image/jpeg',
+          0.85,
+        )
+      } catch (err) {
+        URL.revokeObjectURL(url)
+        reject(err)
+      }
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image-load')) }
+    img.src = url
+  })
+}
+
+function avatarErrMsg(e) {
+  const code = e?.code || ''
+  if (code.includes('permission-denied') || code.includes('unauthorized')) {
+    return `Chưa có quyền tải ảnh lên kho lưu trữ. ${MEMO_ERR_HINT}`
+  }
+  return `Đổi ảnh không thành công. ${MEMO_ERR_HINT}`
+}
+
+/**
+ * Tai avatar moi cua user: nen -> Storage avatars/{uid}.jpg -> ghi
+ * avatarUrl vao user_profiles cua CHINH user (giu nguyen status /
+ * canSalesReport / cac truong khac qua saveUserProfile).
+ * Tra { ok, avatarUrl, profile, cloud } hoac { ok: false, error }.
+ */
+export async function uploadAvatar(uid, file) {
+  if (!uid) return { ok: false, error: 'Bạn chưa đăng nhập.' }
+  if (!file) return { ok: false, error: 'Chưa chọn ảnh.' }
+  if (!String(file.type || '').startsWith('image/')) {
+    return { ok: false, error: 'File đã chọn không phải ảnh — vui lòng chọn file ảnh (JPG/PNG…).' }
+  }
+  const st = getFirebaseStorage()
+  if (!st) return { ok: false, error: `Chưa kết nối được kho lưu trữ (Storage). ${MEMO_ERR_HINT}` }
+  try {
+    const blob = await compressAvatarImage(file)
+    const path = `avatars/${uid}.jpg`
+    const r = storageRef(st, path)
+    await uploadBytes(r, blob, { contentType: 'image/jpeg' })
+    const avatarUrl = await getDownloadURL(r)
+    // Giu nguyen cac truong profile khac: uu tien cache may, cache trong
+    // (may moi dang nhap) thi doc ban may truoc khi ghi.
+    let prev = loadCachedProfile(uid)
+    if (!prev) prev = (await fetchUserProfile(uid)) || {}
+    const saved = await saveUserProfile(uid, {
+      ...prev,
+      email: prev.email || '',
+      avatarUrl,
+      avatarUpdatedAt: new Date().toISOString(),
+    })
+    return { ok: true, avatarUrl, profile: saved.profile, cloud: saved.cloud }
+  } catch (e) {
+    console.warn('[store] uploadAvatar:', e)
+    return { ok: false, error: avatarErrMsg(e) }
+  }
 }
 
 /** Best-effort ghi Firestore: case_adjustments/{proposalNum} + audit_log. Khong bao gio throw. */
