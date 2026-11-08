@@ -12,7 +12,7 @@ import HomNay from './components/HomNay.jsx'
 import NapDuLieu from './components/NapDuLieu.jsx'
 import SalesReport from './components/SalesReport.jsx'
 import DoiNgu from './components/DoiNgu.jsx'
-import { loadLocalSnapshots, fetchFirestoreSnapshots, getFbConfig, fetchUserProfile, saveUserProfile, fetchAllProfiles, adminSetProfileStatus } from './lib/store'
+import { loadLocalSnapshots, fetchFirestoreSnapshots, mergeSnapshots, getFbConfig, fetchUserProfile, saveUserProfile, fetchAllProfiles, adminSetProfileStatus } from './lib/store'
 import { useAuth } from './lib/auth'
 import { emailToMsdl, isMsdlAccount, isSuperAdmin, msdlToEmail } from './lib/firebaseConfig'
 
@@ -94,7 +94,17 @@ export default function App() {
     setLoading(false)
     if (getFbConfig()) {
       const remote = await fetchFirestoreSnapshots()
-      if (remote && remote.length) { setSnaps(remote); setSource('Firebase') }
+      if (remote) {
+        // GOP ban tren may + ban tren may (khong thay the): ban vua nap o
+        // may nay chua dong bo duoc van duoc dung, ban cu tren may khong
+        // de duoc ban moi cung ngay.
+        const merged = mergeSnapshots(local, remote)
+        if (merged.length) {
+          setSnaps(merged)
+          const newestEntry = merged[merged.length - 1]
+          setSource(newestEntry._from === 'remote' ? 'Firebase' : 'máy này')
+        }
+      }
     }
   }, [])
 

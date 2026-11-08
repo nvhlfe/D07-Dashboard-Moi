@@ -29,9 +29,13 @@ export function loadLocalSnapshots() {
     return Object.values(obj)
       .filter((s) => s && s.date && s.data)
       .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-      .map((s) => ({ id: s.date, data: s.data }))
+      .map((s) => ({ id: s.date, data: s.data, savedAt: s.savedAt || null }))
   } catch { return [] }
 }
+
+// mergeSnapshots nam o module thuan rieng (snapMerge.js) de test bang node
+// duoc; re-export tai day cho cac noi dang import tu store.
+export { mergeSnapshots } from './snapMerge.js'
 
 export function saveLocalSnapshot(date, fileName, data) {
   let obj = {}
@@ -181,7 +185,7 @@ export async function fetchFirestoreSnapshots() {
     const out = []
     for (const id of [...wanted].sort()) {
       const d = await getDoc(doc(fs, 'daily_sales_tvv', id))
-      if (d.exists()) out.push({ id, data: d.data() })
+      if (d.exists()) out.push({ id, data: d.data(), savedAt: d.data().updatedAt || null })
     }
     return out
   } catch (e) {
