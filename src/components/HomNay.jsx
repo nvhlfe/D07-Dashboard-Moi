@@ -9,6 +9,7 @@ import { analyzeSoSanLuong, inMonth } from '../lib/analyze'
 import { buildCases } from '../lib/cases'
 import { QUOTES, quoteIndexForDate } from '../lib/quotes'
 import { getTarget } from '../lib/store'
+import { isSuperAdmin } from '../lib/firebaseConfig'
 
 const fmtTr = (n) => {
   const v = Number(n) || 0
@@ -174,8 +175,8 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
         </div>
       </div>
 
-      {/* ── Cua toi (ca nhan hoa theo ma TVV) ── */}
-      {!user ? (
+      {/* ── Cua toi (ca nhan hoa theo ma TVV) — Admin chinh khong can khoi nay ── */}
+      {!isSuperAdmin(user) && (!user ? (
         <div className="card my-card">
           <h2>🙋 Của tôi</h2>
           <div className="my-line">Đăng nhập để xem số của riêng bạn trên mọi thiết bị — FYP, số hồ sơ và hạng phát hành của chính mình, khỏi phải lục cả danh sách GA.</div>
@@ -208,7 +209,7 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
             </>
           )}
         </div>
-      )}
+      ))}
 
       {/* ── Tien do FYP ── */}
       <div className="card">
