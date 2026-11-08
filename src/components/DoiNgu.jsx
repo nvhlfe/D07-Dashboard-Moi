@@ -19,7 +19,7 @@ import React, { useMemo, useState } from 'react'
 import { buildCases } from '../lib/cases'
 import { buildTeam, rankAgents } from '../lib/team'
 import { maskSensitive } from '../lib/analyze'
-import { isSuperAdmin } from '../lib/firebaseConfig'
+import { isSuperAdmin, emailToMsdl } from '../lib/firebaseConfig'
 
 const fmtTr = (n) => {
   const v = Number(n) || 0
@@ -65,12 +65,25 @@ const initials = (name) => {
   return (parts[parts.length - 2].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
 }
 
-export default function DoiNgu({ snaps, loading, onGoNap, user }) {
+export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuperAdmin: adminProp, onOpenLogin }) {
   // Admin chinh xem so Policy DAY DU trong phan pending; con lai che 2 so cuoi.
-  const canSeeFull = isSuperAdmin(user)
+  const isAdmin = typeof adminProp === 'boolean' ? adminProp : isSuperAdmin(user)
+  const canSeeFull = isAdmin
   const [sortKey, setSortKey] = useState('ipNet')
   const [search, setSearch] = useState('')
   const [openRows, setOpenRows] = useState(() => new Set())
+  // Thong bao khi bam vao TVV ma minh khong co quyen mo chi tiet:
+  // 'login' = chua dang nhap, 'own' = da dang nhap nhung khong phai chinh minh.
+  const [gateNotice, setGateNotice] = useState('')
+
+  // ── Rules mo chi tiet TVV (Lan chot 08/11/2026) ──
+  // Chua dang nhap: chi xem danh sach tong quan, khong mo duoc ai.
+  // Da dang nhap (khong phai Admin): chi mo duoc CHINH MINH theo MSDL
+  // (profile.msdl, hoac suy tu email <msdl>@d07.local cua tai khoan MSDL).
+  // Admin chinh: mo duoc tat ca.
+  const viewerMsdl = String((profile && profile.msdl) || emailToMsdl(user && user.email) || '').trim().toUpperCase()
+  const isMine = (a) => !!viewerMsdl && String(a.msdl || '').trim().toUpperCase() === viewerMsdl
+  const canOpenRow = (a) => isAdmin || (!!user && isMine(a))
 
   const newest = snaps && snaps.length ? snaps[snaps.length - 1] : null
 
@@ -95,8 +108,14 @@ export default function DoiNgu({ snaps, loading, onGoNap, user }) {
       <div className="card empty">
         <div className="e-ic">📭</div>
         <div style={{ fontWeight: 700, marginBottom: 6 }}>Chưa có dữ liệu Daily Sales</div>
-        <p style={{ marginBottom: 14 }}>Hãy nạp file Daily Sales đầu tiên ở tab Nạp — đội ngũ tháng sẽ hiện ngay tại đây.</p>
-        <button className="btn-primary" onClick={onGoNap}>📥 Đến tab Nạp dữ liệu</button>
+        {isAdmin ? (
+          <>
+            <p style={{ marginBottom: 14 }}>Hãy nạp file Daily Sales đầu tiên ở tab Nạp — đội ngũ tháng sẽ hiện ngay tại đây.</p>
+            <button className="btn-primary" onClick={onGoNap}>📥 Đến tab Nạp dữ liệu</button>
+          </>
+        ) : (
+          <p>Dữ liệu sẽ hiện tại đây sau khi Admin chính nạp file Daily Sales.</p>
+        )}
       </div>
     )
   }
@@ -128,6 +147,13 @@ export default function DoiNgu({ snaps, loading, onGoNap, user }) {
     })
   }
 
+  // Bam vao 1 hang TVV: co quyen thi mo/dong chi tiet, khong thi hien
+  // thong bao gate tuong ung (chua dang nhap / khong phai chinh minh).
+  const handleRowClick = (a) => {
+    if (canOpenRow(a)) { setGateNotice(''); toggleRow(a.msdl); return }
+    setGateNotice(user ? 'own' : 'login')
+  }
+
   const renderRow = ({ a, rank }) => {
     const open = openRows.has(a.msdl)
     const sk = segKey(a.agSeg)
@@ -135,7 +161,7 @@ export default function DoiNgu({ snaps, loading, onGoNap, user }) {
     const pctOf = (v) => (bar.total > 0 ? (v / bar.total) * 100 : 0)
     return (
       <div className={`bv-row ${rank <= 3 ? ROW_BG[rank - 1] : ''}`} key={a.msdl}>
-        <button type="button" className="bv-head" onClick={() => toggleRow(a.msdl)} aria-expanded={open}>
+        <button type="button" className="bv-head" onClick={() => handleRowClick(a)} aria-expanded={open}>
           <span className={`bv-avatar ${AVATAR_CLASS[sk]}`}>
             {initials(a.agName)}
             {rank <= 3 ? <span className="bv-medal">{MEDALS[rank - 1]}</span> : null}
@@ -144,6 +170,7 @@ export default function DoiNgu({ snaps, loading, onGoNap, user }) {
             <span className="bv-name">
               {rank > 3 ? <span className="bv-rank">{rank}</span> : null}
               {a.agName || '—'}
+              {isMine(a) ? <span className="bv-you">Bạn</span> : null}
             </span>
             <span className="bv-sub">
               {a.unit || '—'}
@@ -217,7 +244,7 @@ export default function DoiNgu({ snaps, loading, onGoNap, user }) {
     <div>
       {/* ── Tong quan doi ngu thang ── */}
       <div className="card">
-        <h2>👥 Đội ngũ — tháng {month}/{year}</h2>
+        <h2>🌟 Tinh Anh — tháng {month}/{year}</h2>
         <div className="mini-stats" style={{ marginBottom: 0 }}>
           <div className="mini-stat"><div className="ms-num">{fmtInt(listed.length)}</div><div className="ms-label">TVV có số liệu tháng</div></div>
           <div className="mini-stat"><div className="ms-num">{fmtTr(totalIpNet)}</div><div className="ms-label">Tổng IP phát hành (tr)</div></div>
@@ -237,6 +264,20 @@ export default function DoiNgu({ snaps, loading, onGoNap, user }) {
         ))}
       </div>
 
+      {/* ── Thong bao gate khi bam TVV khong co quyen mo chi tiet ── */}
+      {gateNotice ? (
+        <div className="msg info" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {gateNotice === 'login' ? (
+            <>
+              <span>🔒 Đăng nhập để xem chi tiết của chính bạn.</span>
+              {onOpenLogin ? <button type="button" className="btn-mini primary" onClick={onOpenLogin}>Đăng nhập</button> : null}
+            </>
+          ) : (
+            <span>Bạn chỉ xem được chi tiết của chính mình (theo MSĐL).</span>
+          )}
+        </div>
+      ) : null}
+
       {/* ── Bang Vang TVV ── */}
       <div className="card bv-card">
         <h2>🏆 Bảng Vàng — tháng {month}/{year}</h2>
@@ -252,7 +293,8 @@ export default function DoiNgu({ snaps, loading, onGoNap, user }) {
       </div>
       <p className="muted" style={{ margin: '0 2px' }}>
         Thanh màu trên mỗi TVV: tím = giá trị đã phát hành · hồng = đang pending · xanh dương = chưa lên phí
-        (tính theo giá trị trưng bày của từng hồ sơ). Bấm vào 1 TVV để xem chỉ số tham khảo và hồ sơ pending của họ.
+        (tính theo giá trị trưng bày của từng hồ sơ). Chi tiết từng TVV (chỉ số tham khảo + hồ sơ pending)
+        chỉ Admin chính hoặc chính TVV đó — khi đã đăng nhập — mới mở xem được.
       </p>
     </div>
   )

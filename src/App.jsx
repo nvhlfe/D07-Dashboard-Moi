@@ -35,9 +35,9 @@ const effProfileStatus = (p) => {
 }
 
 const NAV = [
-  { id: 'home', label: 'Hôm nay', icon: '🏠' },
+  { id: 'home', label: 'Trang Chủ', icon: '🏠' },
   { id: 'sales', label: 'Sales Report', icon: '📋' },
-  { id: 'team', label: 'Đội ngũ', icon: '👥' },
+  { id: 'team', label: 'Tinh Anh', icon: '👥' },
   { id: 'memo', label: 'Memo', icon: '📌' },
   { id: 'nap', label: 'Nạp', icon: '📥' },
 ]
@@ -219,6 +219,21 @@ export default function App() {
   // Sales Report: chi Admin chinh hoac tai khoan duoc cap quyen moi xem duoc
   const canSR = canViewSalesReport(user, profile)
 
+  // ── Rules hien thi tab (Lan chot 08/11/2026) ──
+  // Tab Nap: CHI Admin chinh thay. Tab Sales Report: chi Admin chinh +
+  // tai khoan duoc cap quyen (canViewSalesReport) thay — con lai AN HAN
+  // khoi thanh dieu huong (khong con hien kem khoa nhu truoc).
+  const visibleNav = NAV.filter((n) => {
+    if (n.id === 'nap') return superAdmin
+    if (n.id === 'sales') return canSR
+    return true
+  })
+  // Dang o tab bi an (vd vua bi thu hoi quyen / dang xuat) -> ve Trang Chu.
+  useEffect(() => {
+    if (tab === 'nap' && !superAdmin) setTab('home')
+    else if (tab === 'sales' && !canSR && (!user || profile)) setTab('home')
+  }, [tab, superAdmin, canSR, user, profile])
+
   // ── Cong duyet tai khoan ──
   // Super admin luon qua. Nguoi thuong: status lay tu profile; tai khoan
   // MSDL khong co status = pending, tai khoan email cu = approved.
@@ -266,7 +281,8 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <h1>GA D07</h1>
+        <h1>Prudential Quận 7</h1>
+        <div className="app-slogan">Cùng Học Hỏi – Cùng Phát Triển – Cùng Thành Công</div>
         <div className="sub">
           {newest
             ? <>Cập nhật đến {fmtDateVN(newest.id)} · nguồn: {source}</>
@@ -312,7 +328,7 @@ export default function App() {
         <div className="card empty">
           <div className="e-ic">⛔</div>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>Tài khoản đã bị khoá — liên hệ Admin chính</div>
-          <p style={{ marginBottom: 14 }}>Tài khoản của bạn hiện không vào được dashboard. Vui lòng liên hệ Admin chính của GA D07 để được mở lại.</p>
+          <p style={{ marginBottom: 14 }}>Tài khoản của bạn hiện không vào được dashboard. Vui lòng liên hệ Admin chính của Prudential Quận 7 để được mở lại.</p>
           <button className="btn-primary" onClick={logout}>Đăng xuất</button>
         </div>
       ) : (
@@ -341,17 +357,24 @@ export default function App() {
                 )}
               </div>
             ))}
-            {tab === 'team' && <DoiNgu snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} user={user} />}
-            {tab === 'memo' && <MemoThuVien user={user} isSuperAdmin={superAdmin} />}
+            {tab === 'team' && (
+              <DoiNgu snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} user={user}
+                profile={profile} isSuperAdmin={superAdmin}
+                onOpenLogin={() => { setLoginErr(''); setShowLogin(true) }} />
+            )}
+            {tab === 'memo' && (
+              <MemoThuVien user={user} isSuperAdmin={superAdmin}
+                onOpenLogin={() => { setLoginErr(''); setShowLogin(true) }} />
+            )}
             {tab === 'nap' && <NapDuLieu onSaved={reload} user={user} snaps={snaps} />}
           </>
 
           <nav className="bottom-nav">
-            <div className="inner">
-              {NAV.map((n) => (
+            <div className="inner" style={{ gridTemplateColumns: `repeat(${visibleNav.length}, 1fr)` }}>
+              {visibleNav.map((n) => (
                 <button key={n.id} className={`nav-btn ${tab === n.id ? 'active' : ''}`} onClick={() => setTab(n.id)}>
                   <span className="ic">{n.icon}</span>
-                  <span>{n.label}{n.id === 'sales' && !canSR ? ' 🔒' : ''}</span>
+                  <span>{n.label}</span>
                 </button>
               ))}
             </div>
@@ -448,7 +471,7 @@ export default function App() {
               {msdlAccount ? <p className="muted" style={{ marginTop: 4 }}>MSĐL chính là tên đăng nhập của bạn nên không đổi tại đây.</p> : null}
             </div>
             <p className="muted" style={{ marginBottom: 10 }}>
-              Có mã TVV, màn hình Hôm nay sẽ hiện thẻ “Của tôi”: FYP/FYC của riêng bạn, số hồ sơ nộp/phát hành/pending và hạng phát hành trong GA.
+              Có mã TVV, màn hình Trang Chủ sẽ hiện thẻ “Của tôi”: FYP/FYC của riêng bạn, số hồ sơ nộp/phát hành/pending và hạng phát hành trong Quận 7.
             </p>
             <button className="btn-primary" disabled={acctBusy} onClick={handleSaveAccount}>
               {acctBusy ? 'Đang lưu…' : '💾 Lưu hồ sơ'}

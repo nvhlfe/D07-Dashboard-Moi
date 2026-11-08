@@ -2,12 +2,14 @@ rules_version = '2';
 
 // Firebase Storage — Dashboard D07 Mới.
 // File memo (PDF gốc + ảnh từng trang) nằm dưới memos/{memoId}/...
-// User đã đăng nhập đọc được; chỉ Admin chính (admin@d07.com) ghi/xoá.
-// Lan cần publish file này ở Firebase Console (Storage → Rules).
+// AI CŨNG ĐỌC ĐƯỢC (kể cả chưa đăng nhập — Lan chốt 08/11/2026: ai cũng
+// xem được memo; việc "đăng nhập mới tải được" do giao diện app kiểm
+// soát, không khoá ở tầng Storage); chỉ Admin chính (admin@d07.com)
+// ghi/xoá. Lan cần publish file này ở Firebase Console (Storage → Rules).
 service firebase.storage {
   match /b/{bucket}/o {
     match /memos/{allPaths=**} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow write: if request.auth != null
                     && request.auth.token.email == 'admin@d07.com';
     }

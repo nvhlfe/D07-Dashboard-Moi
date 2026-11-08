@@ -26,7 +26,7 @@ const shortFileName = (name, max = 30) => {
 
 const emptyForm = () => ({ title: '', note: '', summary: '', warnings: '', pinned: false, audience: ['tvv'] })
 
-export default function MemoThuVien({ user, isSuperAdmin, onClose }) {
+export default function MemoThuVien({ user, isSuperAdmin, onClose, onOpenLogin }) {
   const [memos, setMemos] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadErr, setLoadErr] = useState('')
@@ -163,8 +163,13 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose }) {
             {selected.pageCount ? <span className="muted"> · {selected.pageCount} trang</span> : null}
           </div>
           <div className="memo-head-btns">
+            {/* Ai cung XEM duoc memo; chi tai khoan DA DANG NHAP moi TAI
+                duoc file (Lan chot 08/11/2026). Chua dang nhap -> nut mo
+                form dang nhap thay cho link tai. */}
             {selected.pdfUrl
-              ? <a className="btn-mini" href={selected.pdfUrl} target="_blank" rel="noreferrer">⬇ Tải về</a>
+              ? (user
+                ? <a className="btn-mini" href={selected.pdfUrl} target="_blank" rel="noreferrer">⬇ Tải về</a>
+                : <button type="button" className="btn-mini" onClick={() => { if (onOpenLogin) onOpenLogin() }}>🔒 Đăng nhập để tải về</button>)
               : null}
             <button type="button" className="btn-mini" onClick={() => setSelected(null)}>✕ Đóng</button>
           </div>
@@ -215,7 +220,7 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose }) {
                       src={selected.pdfUrl}
                       title={selected.fileName || selected.title || 'Tài liệu PDF'}
                     />
-                    <p className="muted memo-pdf-hint">Nếu khung trên không hiện nội dung (một số điện thoại Android), bấm nút <b>⬇ Tải về</b> ở trên để mở file PDF trực tiếp.</p>
+                    <p className="muted memo-pdf-hint">Nếu khung trên không hiện nội dung (một số điện thoại Android), bấm nút <b>Tải về</b> ở trên để mở file PDF trực tiếp{user ? '' : ' (cần đăng nhập)'}.</p>
                   </>
                 )
                 : <div className="card empty"><div className="e-ic">📄</div>Memo này chưa có file đính kèm.</div>}
@@ -327,7 +332,7 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose }) {
         <div className="card empty">
           <div className="e-ic">📌</div>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>Chưa có memo nào</div>
-          <p>{isSuperAdmin ? 'Bấm “＋ Đăng memo (PDF)” ở trên để đăng tài liệu đầu tiên cho GA.' : 'Admin chính chưa đăng memo nào — quay lại sau nhé.'}</p>
+          <p>{isSuperAdmin ? 'Bấm “＋ Đăng memo (PDF)” ở trên để đăng tài liệu đầu tiên cho Quận 7.' : 'Admin chính chưa đăng memo nào — quay lại sau nhé.'}</p>
         </div>
       ) : visible.length === 0 ? (
         <div className="card empty">

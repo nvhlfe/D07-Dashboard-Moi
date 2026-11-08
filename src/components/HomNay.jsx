@@ -189,7 +189,7 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
       {!isSuperAdmin(user) && (!user ? (
         <div className="card my-card">
           <h2>🙋 Của tôi</h2>
-          <div className="my-line">Đăng nhập để xem số của riêng bạn trên mọi thiết bị — FYP, số hồ sơ và hạng phát hành của chính mình, khỏi phải lục cả danh sách GA.</div>
+          <div className="my-line">Đăng nhập để xem số của riêng bạn trên mọi thiết bị — FYP, số hồ sơ và hạng phát hành của chính mình, khỏi phải lục cả danh sách Quận 7.</div>
           <button className="btn-ghost" style={{ marginTop: 10 }} onClick={onOpenLogin}>🔐 Đăng nhập</button>
         </div>
       ) : !myMsdl ? (
@@ -214,7 +214,7 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
               </div>
               <div className="my-line">
                 Hồ sơ tháng này của tôi: nộp <b>{fmtInt(myCounts.nop)}</b> · phát hành <b>{fmtInt(myCounts.ph)}</b> · pending <b>{fmtInt(myCounts.pend)}</b>
-                {myRankIdx >= 0 ? <> · hạng được tính theo IP phát hành ròng toàn GA</> : null}
+                {myRankIdx >= 0 ? <> · hạng được tính theo IP phát hành ròng toàn Quận 7</> : null}
               </div>
             </>
           )}
@@ -325,7 +325,7 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
 
       {/* ── Hanh trinh nam: IP phat hanh + so hop dong theo thang ── */}
       <div className="card">
-        <h2>🗓️ Hành trình {year} — GA D07</h2>
+        <h2>🗓️ Hành trình {year} — Prudential Quận 7</h2>
         <div className="chart-sub">IP phát hành (triệu) ghi trên đầu cột · đường cam là số hợp đồng phát hành mỗi tháng (số ghi dưới tên tháng) · tháng {month} tạm tính đến {view.snapDay}/{month} · mỗi tháng lấy bản Daily mới nhất của tháng đó.</div>
         <div className="legend chart-legend">
           <span><span className="dot" style={{ background: '#7c3aed' }} />IP phát hành</span>
