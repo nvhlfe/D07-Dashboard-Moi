@@ -2,14 +2,16 @@
 // MemoThuVien — 📌 Memo · Thi dua · Tai lieu (theo mau D03).
 // Thu vien memo phan loai theo doi tuong (Tu van vien / Quan ly /
 // Khach hang / Chinh sach thu nhap), tim kiem khong dau, memo ghim
-// len dau. Xem chi tiet: anh tung trang PDF xep doc + panel
-// "Tom tat & diem can luu y".
-// Admin chinh dang memo bang PDF: app TU TACH tung trang thanh anh
-// JPEG ngay tren trinh duyet (lib/pdfSplit.js, nap bang dynamic
-// import) roi tai len Firebase Storage; metadata o Firestore `memos`.
+// len dau. Xem chi tiet: DOC FILE PDF TRUC TIEP trong khung nhung
+// + nut Tai ve, kem panel "Tom tat & diem can luu y".
+// Admin chinh dang memo: chi tai PDF goc len Firebase Storage,
+// metadata o Firestore `memos` (khong tach anh nua — Lan chot doi
+// sang doc truc tiep 08/11/2026 sau khi chunk tach anh bi 404 do
+// ban deploy moi thay the asset cu). Memo cu nao da co anh trang
+// (pages[]) van xem dang anh nhu truoc.
 // ─────────────────────────────────────────────────────────────
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { fetchMemos, uploadMemoAssets, createMemoDoc, deleteMemoEverywhere } from '../lib/store'
+import { fetchMemos, uploadMemoPdf, createMemoDoc, deleteMemoEverywhere } from '../lib/store'
 import { AUDIENCES, audienceLabel, filterMemos, sortMemos, summaryLines } from '../lib/memoLib'
 
 const FILTERS = [{ code: 'all', label: 'Tất cả' }, ...AUDIENCES]
@@ -73,21 +75,12 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose }) {
     setFormErr('')
     setNotice(null)
     if (!pdfFile) { setFormErr('Chưa chọn file PDF.'); return }
+    if (pdfFile.size > 25 * 1024 * 1024) { setFormErr('File PDF lớn hơn 25MB — hãy nén file rồi đăng lại.'); return }
     if (!form.title.trim()) { setFormErr('Chưa nhập tiêu đề memo.'); return }
     if (!form.audience.length) { setFormErr('Chọn ít nhất 1 nhóm đối tượng cho memo.'); return }
-    setBusy('Đang tách trang PDF…')
-    let split
-    try {
-      const mod = await import('../lib/pdfSplit.js')
-      split = await mod.pdfToPageImages(pdfFile, (done, total) => setBusy(`Đang tách trang ${done}/${total}…`))
-    } catch (err) {
-      setBusy('')
-      setFormErr(err?.message || 'Không tách được file PDF này.')
-      return
-    }
     const memoId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
-    setBusy('Đang tải file lên kho lưu trữ…')
-    const up = await uploadMemoAssets(memoId, pdfFile, split.pageBlobs, (done, total) => setBusy(`Đang tải lên trang ${done}/${total}…`))
+    setBusy('Đang tải file PDF lên kho lưu trữ…')
+    const up = await uploadMemoPdf(memoId, pdfFile)
     if (!up.ok) { setBusy(''); setFormErr(up.error || 'Tải file lên không thành công.'); return }
     const now = new Date()
     const p2 = (n) => String(n).padStart(2, '0')
@@ -100,11 +93,11 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose }) {
       audience: form.audience,
       pinned: !!form.pinned,
       fileName: pdfFile.name,
-      pageCount: split.pageCount,
-      pages: up.pages,
+      pageCount: 0,
+      pages: [],
       pdfUrl: up.pdfUrl,
       pdfPath: up.pdfPath,
-      pagePaths: up.pagePaths,
+      pagePaths: [],
       displayDate: `${p2(now.getDate())}/${p2(now.getMonth() + 1)}`,
       createdAt: now.getTime(),
       createdBy: user?.email || '',
@@ -114,7 +107,7 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose }) {
     setShowForm(false)
     setForm(emptyForm())
     setPdfFile(null)
-    setNotice({ type: 'success', text: `✓ Đã đăng memo “${form.title.trim()}” (${split.pageCount} trang).` })
+    setNotice({ type: 'success', text: `✓ Đã đăng memo “${form.title.trim()}”.` })
     await reload()
   }
 
@@ -203,7 +196,7 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose }) {
                   </>
                 )}
                 {sumLines.length === 0 && warnLines.length === 0 && (
-                  <p className="muted">Memo này chưa có tóm tắt — xem nội dung đầy đủ ở các trang bên dưới.</p>
+                  <p className="muted">Memo này chưa có tóm tắt — xem nội dung đầy đủ trong khung PDF bên cạnh.</p>
                 )}
               </div>
             )}
@@ -214,7 +207,18 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose }) {
               ? selected.pages.map((url, i) => (
                 <img key={i} className="memo-page" src={url} alt={`Trang ${i + 1}`} loading="lazy" />
               ))
-              : <div className="card empty"><div className="e-ic">📄</div>Memo này chưa có ảnh trang — mở file PDF bằng nút ⬇ Tải về ở trên.</div>}
+              : selected.pdfUrl
+                ? (
+                  <>
+                    <iframe
+                      className="memo-pdf-frame"
+                      src={selected.pdfUrl}
+                      title={selected.fileName || selected.title || 'Tài liệu PDF'}
+                    />
+                    <p className="muted memo-pdf-hint">Nếu khung trên không hiện nội dung (một số điện thoại Android), bấm nút <b>⬇ Tải về</b> ở trên để mở file PDF trực tiếp.</p>
+                  </>
+                )
+                : <div className="card empty"><div className="e-ic">📄</div>Memo này chưa có file đính kèm.</div>}
           </div>
         </div>
       </div>
@@ -258,7 +262,7 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose }) {
         <div className="card memo-form">
           <h2>＋ Đăng memo mới</h2>
           <div className="field">
-            <label>File PDF (tối đa 25MB · 30 trang) — app tự tách từng trang thành ảnh</label>
+            <label>File PDF (tối đa 25MB) — xem trực tiếp trong app, có nút tải về</label>
             <input type="file" accept="application/pdf,.pdf" onChange={handlePickFile} />
             {pdfFile ? <div className="muted" style={{ marginTop: 4 }}>{pdfFile.name} · {(pdfFile.size / 1024 / 1024).toFixed(2)}MB</div> : null}
           </div>

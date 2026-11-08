@@ -1,5 +1,5 @@
-// Test lib/memoLib.js (logic thuan thu vien Memo) + kiem tra pdfjs-dist
-// da duoc cai lam dependency (module pdfSplit chi chay tren trinh duyet —
+// Test lib/memoLib.js (logic thuan thu vien Memo) + kiem tra luong xem
+// PDF truc tiep (khong con pdfjs-dist/pdfSplit —
 // node khong co canvas nen KHONG render PDF o day).
 // Chay: node scripts/test-memo.mjs
 import { readFileSync } from 'node:fs'
@@ -60,11 +60,16 @@ assert.deepStrictEqual(summaryLines(null), [])
 assert.deepStrictEqual(summaryLines('\n \n'), [])
 console.log('Bo dong rong + trim — dung')
 
-// ── pdfjs-dist da cai (pdfSplit nap bang dynamic import tren trinh duyet) ──
-console.log('\n=== pdfjs-dist dependency ===')
+// ── Xem PDF truc tiep: KHONG con phu thuoc pdfjs-dist / pdfSplit ──
+// (Lan chot doi tu tach anh sang doc PDF truc tiep 08/11/2026 — chunk
+// tach anh bi 404 sau khi ban deploy moi thay the asset cu.)
+console.log('\n=== doc PDF truc tiep (khong pdfjs) ===')
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
-assert.ok(pkg.dependencies && pkg.dependencies['pdfjs-dist'], 'package.json phai co dependency pdfjs-dist')
-console.log(`pdfjs-dist = ${pkg.dependencies['pdfjs-dist']} (da khai bao trong package.json)`)
-console.log('Luu y: render PDF -> anh can canvas cua trinh duyet nen khong test tu dong bang node duoc.')
+assert.ok(!pkg.dependencies || !pkg.dependencies['pdfjs-dist'], 'package.json KHONG con dependency pdfjs-dist')
+const memoSrc = readFileSync(new URL('../src/components/MemoThuVien.jsx', import.meta.url), 'utf8')
+assert.ok(!memoSrc.includes('pdfSplit'), 'MemoThuVien khong con tham chieu pdfSplit')
+assert.ok(memoSrc.includes('uploadMemoPdf'), 'MemoThuVien dang bang uploadMemoPdf (chi tai PDF goc)')
+assert.ok(memoSrc.includes('memo-pdf-frame'), 'Man hinh chi tiet co khung xem PDF truc tiep')
+console.log('Da go pdfjs-dist + pdfSplit; dang/xem memo bang PDF goc truc tiep')
 
 console.log('\n✅ TAT CA ASSERT DAT (test-memo)')

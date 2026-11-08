@@ -386,8 +386,9 @@ export async function adminSetSalesReport(uid, allowed) {
 
 // ── Thu vien Memo · Thi dua · Tai lieu ───────────────────────
 // Firestore collection `memos` (metadata + URL) + Firebase Storage
-// `memos/{memoId}/original.pdf` va `memos/{memoId}/page-{n}.jpg`
-// (anh tung trang tach tu PDF ngay tren trinh duyet — lib/pdfSplit.js).
+// `memos/{memoId}/original.pdf`. Xem memo = DOC PDF TRUC TIEP trong
+// khung nhung + nut Tai ve (doi tu phuong an tach anh sang truc tiep
+// theo yeu cau cua Lan 08/11/2026 — bo han phu thuoc chunk pdfSplit).
 // Dieu kien chay that: Lan bat Storage tren Firebase Console + publish
 // firestore.rules & storage.rules. Chua publish -> cac ham duoi day tra
 // loi TIENG VIET, app khong crash (UI hien ghi chu huong dan).
@@ -428,11 +429,11 @@ export async function fetchMemos() {
 }
 
 /**
- * Tai PDF goc + anh tung trang len Storage.
- * onProgress(done, total) bao sau moi trang (PDF goc tai truoc, khong dem).
- * Tra { ok, pdfUrl, pdfPath, pages: [url], pagePaths: [path] } hoac { ok: false, error }.
+ * Tai PDF goc len Storage (xem truc tiep, khong tach anh nua).
+ * Tra { ok, pdfUrl, pdfPath, pages: [], pagePaths: [] } hoac { ok: false, error }.
+ * (pages/pagePaths giu rong de cung khuon du lieu voi memo kieu cu.)
  */
-export async function uploadMemoAssets(memoId, pdfFile, pageBlobs, onProgress) {
+export async function uploadMemoPdf(memoId, pdfFile) {
   const st = getFirebaseStorage()
   if (!st) return { ok: false, error: `Chưa kết nối được kho lưu trữ (Storage). ${MEMO_ERR_HINT}` }
   try {
@@ -440,20 +441,9 @@ export async function uploadMemoAssets(memoId, pdfFile, pageBlobs, onProgress) {
     const pdfRef = storageRef(st, pdfPath)
     await uploadBytes(pdfRef, pdfFile, { contentType: 'application/pdf' })
     const pdfUrl = await getDownloadURL(pdfRef)
-    const pages = []
-    const pagePaths = []
-    const total = Array.isArray(pageBlobs) ? pageBlobs.length : 0
-    for (let i = 0; i < total; i++) {
-      const p = `memos/${memoId}/page-${i + 1}.jpg`
-      const r = storageRef(st, p)
-      await uploadBytes(r, pageBlobs[i], { contentType: 'image/jpeg' })
-      pages.push(await getDownloadURL(r))
-      pagePaths.push(p)
-      if (typeof onProgress === 'function') onProgress(i + 1, total)
-    }
-    return { ok: true, pdfUrl, pdfPath, pages, pagePaths }
+    return { ok: true, pdfUrl, pdfPath, pages: [], pagePaths: [] }
   } catch (e) {
-    console.warn('[store] uploadMemoAssets:', e)
+    console.warn('[store] uploadMemoPdf:', e)
     return { ok: false, error: memoErrMsg(e, 'Tải file memo lên không thành công.') }
   }
 }
