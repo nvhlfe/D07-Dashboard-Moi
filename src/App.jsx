@@ -1,8 +1,8 @@
 // ─────────────────────────────────────────────────────────────
 // App — Dashboard D07 Moi.
 // Shell mobile-first: 1 cot, max-width 560px, thanh dieu huong 4 nut co dinh
-// duoi day (nut >= 44px). Man hinh dung that: Hom Nay + Sales Report + Nap du lieu.
-// Doi ngu: the placeholder trung thuc, lam o dot sau theo SPEC v3.
+// duoi day (nut >= 44px). 4 man hinh dung that theo SPEC v3: Hom Nay +
+// Sales Report + Doi Ngu + Nap du lieu.
 // Tai khoan: dang nhap Firebase Auth; Admin chinh (admin@d07.com) xem so ho
 // so DAY DU o Sales Report, thanh vien thuong bi che con 2 so cuoi.
 // Ho so ca nhan (ten hien thi + ma TVV) luu user_profiles/{uid} + cache may.
@@ -11,6 +11,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import HomNay from './components/HomNay.jsx'
 import NapDuLieu from './components/NapDuLieu.jsx'
 import SalesReport from './components/SalesReport.jsx'
+import DoiNgu from './components/DoiNgu.jsx'
 import { loadLocalSnapshots, fetchFirestoreSnapshots, getFbConfig, fetchUserProfile, saveUserProfile, fetchAllProfiles, adminSetProfileStatus } from './lib/store'
 import { useAuth } from './lib/auth'
 import { emailToMsdl, isMsdlAccount, isSuperAdmin, msdlToEmail } from './lib/firebaseConfig'
@@ -36,16 +37,6 @@ const NAV = [
   { id: 'team', label: 'Đội ngũ', icon: '👥' },
   { id: 'nap', label: 'Nạp', icon: '📥' },
 ]
-
-function Placeholder({ icon, title, desc }) {
-  return (
-    <div className="card empty">
-      <div className="e-ic">{icon}</div>
-      <div style={{ fontWeight: 700, marginBottom: 6 }}>{title}</div>
-      <p>{desc}</p>
-    </div>
-  )
-}
 
 export default function App() {
   const [tab, setTab] = useState('home')
@@ -301,10 +292,7 @@ export default function App() {
               onOpenAccount={openAccount} />
           )}
           {tab === 'sales' && <SalesReport snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} user={user} />}
-          {tab === 'team' && (
-            <Placeholder icon="👥" title="Đội ngũ — Đang xây dựng, đợt sau"
-              desc="Đợt tiếp theo theo SPEC v3: danh sách Unit bấm xổ TVV, FYP từng người, Act/MOC tự tính từ Daily Sales. Hiện tại đã có Hôm nay + Sales Report + Nạp dữ liệu." />
-          )}
+          {tab === 'team' && <DoiNgu snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} />}
           {tab === 'nap' && <NapDuLieu onSaved={reload} user={user} snaps={snaps} />}
 
           <nav className="bottom-nav">
