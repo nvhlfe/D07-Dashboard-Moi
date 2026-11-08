@@ -29,6 +29,8 @@ console.log(`Logo: App dung LOGO_D07 nhung trong logoData.js, file ${logoDataSiz
 console.log('\n=== avatar TVV ===')
 assert.ok(store.includes('uploadAvatar'), 'store.js: phai co ham uploadAvatar')
 assert.ok(store.includes('avatars/'), 'store.js: avatar phai tai len Storage path avatars/')
+assert.ok(store.includes('avatars/${uid}/avatar.jpg'), 'store.js: path avatar phai la avatars/{uid}/avatar.jpg (rules Storage khong cho dang {uid}.jpg trong cung 1 segment)')
+assert.ok(storageRules.includes('/avatars/{userId}/avatar.jpg'), 'storage.rules: match phai la /avatars/{userId}/avatar.jpg')
 assert.ok(store.includes('avatarUrl'), 'store.js: phai ghi truong avatarUrl vao user_profiles')
 assert.ok(storageRules.includes('/avatars/'), 'storage.rules: phai co match avatars')
 assert.ok(storageRules.includes('request.auth.uid == userId'), 'storage.rules: chi chinh user moi ghi avatar cua minh')

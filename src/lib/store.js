@@ -513,7 +513,7 @@ export async function deleteMemoEverywhere(memo) {
 
 // ── Avatar TVV ───────────────────────────────────────────────
 // Anh dai dien cua tung TVV: nen phia client (canvas cat vuong giua,
-// toi da 256x256, JPEG ~0.85) roi tai len Storage `avatars/{uid}.jpg`;
+// toi da 256x256, JPEG ~0.85) roi tai len Storage `avatars/{uid}/avatar.jpg`;
 // URL luu vao user_profiles (truong avatarUrl — saveUserProfile da giu
 // truong nay nhu status/canSalesReport). Dieu kien chay that: Lan publish
 // storage.rules ban co match /avatars (chi chinh user ghi file cua minh).
@@ -559,7 +559,7 @@ function avatarErrMsg(e) {
 }
 
 /**
- * Tai avatar moi cua user: nen -> Storage avatars/{uid}.jpg -> ghi
+ * Tai avatar moi cua user: nen -> Storage avatars/{uid}/avatar.jpg -> ghi
  * avatarUrl vao user_profiles cua CHINH user (giu nguyen status /
  * canSalesReport / cac truong khac qua saveUserProfile).
  * Tra { ok, avatarUrl, profile, cloud } hoac { ok: false, error }.
@@ -574,7 +574,7 @@ export async function uploadAvatar(uid, file) {
   if (!st) return { ok: false, error: `Chưa kết nối được kho lưu trữ (Storage). ${MEMO_ERR_HINT}` }
   try {
     const blob = await compressAvatarImage(file)
-    const path = `avatars/${uid}.jpg`
+    const path = `avatars/${uid}/avatar.jpg`
     const r = storageRef(st, path)
     await uploadBytes(r, blob, { contentType: 'image/jpeg' })
     const avatarUrl = await getDownloadURL(r)
