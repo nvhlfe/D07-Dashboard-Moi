@@ -7,7 +7,7 @@ globalThis.localStorage = {
   removeItem: (k) => store.delete(k),
 }
 
-const { EMBEDDED_FIREBASE_CONFIG, resolveFirebaseConfig, isSuperAdmin } = await import('../src/lib/firebaseConfig.js')
+const { EMBEDDED_FIREBASE_CONFIG, resolveFirebaseConfig, isSuperAdmin, msdlToEmail, emailToMsdl, isMsdlAccount, resolveLoginEmail } = await import('../src/lib/firebaseConfig.js')
 
 const assert = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); process.exit(1) } console.log('ok -', msg) }
 
@@ -35,5 +35,15 @@ assert(isSuperAdmin({ email: 'Admin@D07.com' }) === true, 'email Admin chinh kho
 assert(isSuperAdmin({ email: 'tvv@d07.com' }) === false, 'email thuong khong phai Admin chinh')
 assert(isSuperAdmin(null) === false, 'chua dang nhap -> khong phai Admin chinh')
 assert(isSuperAdmin({}) === false, 'user khong email -> khong phai Admin chinh')
+
+// 6) Tai khoan TVV bang MSDL
+assert(msdlToEmail(' 12345678 ') === '12345678@d07.local', 'msdlToEmail: ma so -> email noi bo')
+assert(emailToMsdl('12345678@d07.local') === '12345678', 'emailToMsdl: trich lai MSDL')
+assert(emailToMsdl('admin@d07.com') === '', 'emailToMsdl: email quan tri -> rong')
+assert(isMsdlAccount({ email: '87654321@d07.local' }) === true, 'isMsdlAccount: dung tai khoan MSDL')
+assert(isMsdlAccount({ email: 'admin@d07.com' }) === false, 'isMsdlAccount: email thuong -> false')
+assert(isMsdlAccount(null) === false, 'isMsdlAccount: chua dang nhap -> false')
+assert(resolveLoginEmail('12345678') === '12345678@d07.local', 'resolveLoginEmail: nhap MSDL -> email noi bo')
+assert(resolveLoginEmail('Admin@D07.com') === 'Admin@D07.com', 'resolveLoginEmail: nhap email -> giu nguyen')
 
 console.log('✅ TAT CA ASSERT DAT (test-config)')

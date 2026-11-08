@@ -30,3 +30,29 @@ export function resolveFirebaseConfig() {
 export function isSuperAdmin(user) {
   return !!user && !!user.email && SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase());
 }
+
+// ── Tai khoan TVV tu dang ky: ten dang nhap la MSDL (ma so dai ly) ──
+// Firebase Auth chi nhan email nen MSDL duoc anh xa thanh email noi bo
+// dang "<msdl>@d07.local" (khong phai hop thu that — TVV quen mat khau thi
+// Admin xoa tai khoan tren Firebase Console de TVV tao lai).
+export const MSDL_EMAIL_DOMAIN = 'd07.local';
+
+export function msdlToEmail(msdl) {
+  return `${String(msdl || '').trim().toLowerCase()}@${MSDL_EMAIL_DOMAIN}`;
+}
+
+export function emailToMsdl(email) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e.endsWith(`@${MSDL_EMAIL_DOMAIN}`)) return '';
+  return e.slice(0, e.length - MSDL_EMAIL_DOMAIN.length - 1).toUpperCase();
+}
+
+export function isMsdlAccount(user) {
+  return !!emailToMsdl(user?.email);
+}
+
+// O dang nhap chap nhan ca email (tai khoan quan tri/cu) lan MSDL (TVV).
+export function resolveLoginEmail(identifier) {
+  const s = String(identifier || '').trim();
+  return s.includes('@') ? s : msdlToEmail(s);
+}
