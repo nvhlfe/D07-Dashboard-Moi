@@ -59,6 +59,15 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    // Thư viện Memo · Thi đua · Tài liệu (Dashboard D07 Mới): metadata memo,
+    // file nằm ở Firebase Storage (xem storage.rules). User đã đăng nhập đọc
+    // được; chỉ Admin chính (admin@d07.com) tạo/sửa/xoá.
+    match /memos/{memoId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null
+                    && request.auth.token.email == 'admin@d07.com';
+    }
+
     // Mặc định: từ chối tất cả những gì không khớp rule ở trên
     match /{document=**} {
       allow read, write: if false;

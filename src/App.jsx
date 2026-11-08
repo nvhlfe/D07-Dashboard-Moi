@@ -6,12 +6,15 @@
 // Tai khoan: dang nhap Firebase Auth; Admin chinh (admin@d07.com) xem so ho
 // so DAY DU o Sales Report, thanh vien thuong bi che con 2 so cuoi.
 // Ho so ca nhan (ten hien thi + ma TVV) luu user_profiles/{uid} + cache may.
+// Thu vien 📌 Memo · Thi dua · Tai lieu (Firestore `memos` + Firebase
+// Storage) mo tu nut "📌 Memo" tren header, thay vung noi dung tab khi mo.
 // ─────────────────────────────────────────────────────────────
 import React, { useCallback, useEffect, useState } from 'react'
 import HomNay from './components/HomNay.jsx'
 import NapDuLieu from './components/NapDuLieu.jsx'
 import SalesReport from './components/SalesReport.jsx'
 import DoiNgu from './components/DoiNgu.jsx'
+import MemoThuVien from './components/MemoThuVien.jsx'
 import { loadLocalSnapshots, fetchFirestoreSnapshots, mergeSnapshots, getFbConfig, fetchUserProfile, saveUserProfile, fetchAllProfiles, adminSetProfileStatus } from './lib/store'
 import { useAuth } from './lib/auth'
 import { emailToMsdl, isMsdlAccount, isSuperAdmin, msdlToEmail } from './lib/firebaseConfig'
@@ -40,6 +43,7 @@ const NAV = [
 
 export default function App() {
   const [tab, setTab] = useState('home')
+  const [showMemo, setShowMemo] = useState(false)
   const [snaps, setSnaps] = useState([])
   const [loading, setLoading] = useState(true)
   const [source, setSource] = useState('máy này')
@@ -262,6 +266,7 @@ export default function App() {
                   🛂 Duyệt TK{pendingCount > 0 ? ` (${pendingCount})` : ''}
                 </button>
               )}
+              <button className="btn-mini" onClick={() => setShowMemo(true)}>📌 Memo</button>
               <button className="btn-mini" onClick={openAccount}>Tài khoản</button>
               <button className="btn-mini" onClick={logout}>Đăng xuất</button>
             </>
@@ -295,20 +300,26 @@ export default function App() {
         </div>
       ) : (
         <>
-          {tab === 'home' && (
-            <HomNay snaps={snaps} loading={loading} onGoNap={() => setTab('nap')}
-              user={user} profile={profile}
-              onOpenLogin={() => { setLoginErr(''); setShowLogin(true) }}
-              onOpenAccount={openAccount} />
+          {showMemo ? (
+            <MemoThuVien user={user} isSuperAdmin={superAdmin} onClose={() => setShowMemo(false)} />
+          ) : (
+            <>
+              {tab === 'home' && (
+                <HomNay snaps={snaps} loading={loading} onGoNap={() => setTab('nap')}
+                  user={user} profile={profile}
+                  onOpenLogin={() => { setLoginErr(''); setShowLogin(true) }}
+                  onOpenAccount={openAccount} />
+              )}
+              {tab === 'sales' && <SalesReport snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} user={user} />}
+              {tab === 'team' && <DoiNgu snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} user={user} />}
+              {tab === 'nap' && <NapDuLieu onSaved={reload} user={user} snaps={snaps} />}
+            </>
           )}
-          {tab === 'sales' && <SalesReport snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} user={user} />}
-          {tab === 'team' && <DoiNgu snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} user={user} />}
-          {tab === 'nap' && <NapDuLieu onSaved={reload} user={user} snaps={snaps} />}
 
           <nav className="bottom-nav">
             <div className="inner">
               {NAV.map((n) => (
-                <button key={n.id} className={`nav-btn ${tab === n.id ? 'active' : ''}`} onClick={() => setTab(n.id)}>
+                <button key={n.id} className={`nav-btn ${!showMemo && tab === n.id ? 'active' : ''}`} onClick={() => { setShowMemo(false); setTab(n.id) }}>
                   <span className="ic">{n.icon}</span>
                   <span>{n.label}</span>
                 </button>

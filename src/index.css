@@ -347,3 +347,94 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
   margin-top: 8px; font-size: 13.5px; background: #f8fafc;
   border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px;
 }
+
+/* ── Memo · Thi đua · Tài liệu (MemoThuVien.jsx) ────────────────── */
+/* Thu vien memo phai rong hon cot 560px cua app (xem dang luoi + chi tiet
+   2 cot tren desktop) nen dung ky thuat "breakout" can giua theo viewport. */
+.memo-breakout {
+  position: relative; left: 50%; transform: translateX(-50%);
+  width: min(1080px, calc(100vw - 16px));
+}
+.memo-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.memo-title { font-size: 19px; font-weight: 800; letter-spacing: -0.2px; }
+.memo-head-btns { display: flex; gap: 8px; align-items: center; }
+.memo-head-btns a.btn-mini { text-decoration: none; display: inline-flex; align-items: center; }
+.memo-detail-name { display: flex; align-items: center; gap: 7px; font-size: 15px; min-width: 0; flex-wrap: wrap; }
+.memo-file-ic { font-size: 18px; }
+
+.memo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.memo-card {
+  position: relative; background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 12px; cursor: pointer; box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+}
+.memo-card:hover { border-color: #c7d2fe; }
+.memo-del {
+  position: absolute; top: 6px; right: 6px; z-index: 2;
+  width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border);
+  background: rgba(255,255,255,0.94); cursor: pointer; font-size: 14px; line-height: 1;
+}
+.memo-del:disabled { opacity: 0.5; cursor: wait; }
+.memo-card-title {
+  font-size: 14px; font-weight: 800; line-height: 1.35; padding-right: 30px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.memo-pin-ic { margin-right: 5px; }
+.memo-card-note {
+  font-size: 12.5px; color: var(--text2); margin-top: 4px; line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.memo-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.memo-chip {
+  display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px;
+  border-radius: 999px; background: #ede9fe; color: #6d28d9; white-space: nowrap;
+}
+.memo-chip.pin { background: #ede9fe; color: #6d28d9; }
+.memo-card-date { font-size: 12px; color: var(--text3); font-weight: 600; margin-top: 8px; }
+.memo-thumb {
+  display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; object-position: top;
+  border: 1px solid var(--border); border-radius: 9px; margin-top: 8px; background: #f8fafc;
+}
+.memo-thumb-empty {
+  display: flex; align-items: center; justify-content: center; font-size: 40px; color: var(--text3);
+}
+.memo-card-file {
+  font-size: 12px; color: var(--text2); margin-top: 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Chi tiet: mobile panel tom tat o tren, anh duoi; desktop >=900px 2 cot */
+.memo-detail-grid { display: block; }
+.memo-summary { padding: 0; overflow: hidden; }
+.memo-summary-head {
+  width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: none; border: none; cursor: pointer; padding: 12px 16px;
+  font-size: 15px; font-weight: 800; color: var(--text); text-align: left; font-family: inherit;
+}
+.memo-caret { color: var(--text3); font-size: 14px; }
+.memo-summary-body { padding: 0 16px 16px; }
+.memo-summary-title { font-size: 14.5px; font-weight: 800; margin-bottom: 8px; }
+.memo-sec-label { font-size: 12px; font-weight: 800; letter-spacing: 0.5px; color: var(--text2); margin: 12px 0 6px; }
+.memo-sec-label.warn { color: #b45309; }
+.memo-bullets { list-style: none; }
+.memo-bullets li { position: relative; font-size: 13.5px; line-height: 1.5; padding-left: 15px; margin-bottom: 5px; }
+.memo-bullets li::before { content: '•'; position: absolute; left: 2px; color: var(--violet); font-weight: 800; }
+.memo-pages { min-width: 0; }
+.memo-page {
+  display: block; width: 100%; height: auto; background: #fff;
+  border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.05);
+}
+@media (min-width: 900px) {
+  .memo-detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+  .memo-pages { grid-column: 1; grid-row: 1; }
+  .memo-summary { grid-column: 2; grid-row: 1; position: sticky; top: 12px; }
+}
+
+/* Form dang memo (Admin chinh) */
+.memo-form .field textarea { font-family: inherit; font-size: 14px; min-height: 44px; }
+.memo-checks { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.memo-check {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px;
+  font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer;
+}
+.memo-check input { width: 19px; height: 19px; accent-color: var(--primary); flex-shrink: 0; }

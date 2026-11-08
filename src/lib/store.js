@@ -8,7 +8,8 @@
 // App LUON chay duoc chi bang localStorage (offline/demo) khi chua co Firebase.
 // ─────────────────────────────────────────────────────────────
 import { initializeApp, getApps } from 'firebase/app'
-import { getFirestore, doc, collection, setDoc, getDoc, getDocs, addDoc } from 'firebase/firestore'
+import { getFirestore, doc, collection, setDoc, getDoc, getDocs, addDoc, deleteDoc, query, orderBy } from 'firebase/firestore'
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { resolveFirebaseConfig } from './firebaseConfig'
 
 export const SNAP_KEY = 'd07moi_snapshots'
@@ -352,6 +353,130 @@ export async function adminSetProfileStatus(uid, status) {
     console.warn('[store] adminSetProfileStatus:', e)
     return false
   }
+}
+
+// ── Thu vien Memo · Thi dua · Tai lieu ───────────────────────
+// Firestore collection `memos` (metadata + URL) + Firebase Storage
+// `memos/{memoId}/original.pdf` va `memos/{memoId}/page-{n}.jpg`
+// (anh tung trang tach tu PDF ngay tren trinh duyet — lib/pdfSplit.js).
+// Dieu kien chay that: Lan bat Storage tren Firebase Console + publish
+// firestore.rules & storage.rules. Chua publish -> cac ham duoi day tra
+// loi TIENG VIET, app khong crash (UI hien ghi chu huong dan).
+export function getFirebaseStorage() {
+  const app = getFirebaseApp()
+  if (!app) return null
+  try { return getStorage(app) } catch (e) {
+    console.error('[store] getStorage failed:', e)
+    return null
+  }
+}
+
+const MEMO_ERR_HINT = 'Có thể kho lưu trữ (Storage) / Rules chưa được bật ở Firebase Console — Admin chính cần bật Storage và publish firestore.rules + storage.rules rồi thử lại.'
+function memoErrMsg(e, fallback) {
+  const code = e?.code || ''
+  if (code.includes('permission-denied') || code.includes('unauthorized')) {
+    return `Chưa có quyền với thư viện memo. ${MEMO_ERR_HINT}`
+  }
+  if (code.includes('storage/object-not-found') || code.includes('not-found')) {
+    return 'Không tìm thấy file trên kho lưu trữ — file có thể đã bị xoá ở nơi khác.'
+  }
+  return `${fallback} ${MEMO_ERR_HINT}`
+}
+
+/** Doc danh sach memo (moi nhat truoc theo createdAt). Loi -> { memos: [], error }. */
+export async function fetchMemos() {
+  const fs = getFirebaseFs()
+  if (!fs) return { memos: [], error: 'no-config' }
+  try {
+    const snap = await getDocs(query(collection(fs, 'memos'), orderBy('createdAt', 'desc')))
+    const memos = []
+    snap.forEach((d) => memos.push({ id: d.id, ...(d.data() || {}) }))
+    return { memos, error: '' }
+  } catch (e) {
+    console.warn('[store] fetchMemos:', e)
+    return { memos: [], error: memoErrMsg(e, 'Chưa đọc được thư viện memo.') }
+  }
+}
+
+/**
+ * Tai PDF goc + anh tung trang len Storage.
+ * onProgress(done, total) bao sau moi trang (PDF goc tai truoc, khong dem).
+ * Tra { ok, pdfUrl, pdfPath, pages: [url], pagePaths: [path] } hoac { ok: false, error }.
+ */
+export async function uploadMemoAssets(memoId, pdfFile, pageBlobs, onProgress) {
+  const st = getFirebaseStorage()
+  if (!st) return { ok: false, error: `Chưa kết nối được kho lưu trữ (Storage). ${MEMO_ERR_HINT}` }
+  try {
+    const pdfPath = `memos/${memoId}/original.pdf`
+    const pdfRef = storageRef(st, pdfPath)
+    await uploadBytes(pdfRef, pdfFile, { contentType: 'application/pdf' })
+    const pdfUrl = await getDownloadURL(pdfRef)
+    const pages = []
+    const pagePaths = []
+    const total = Array.isArray(pageBlobs) ? pageBlobs.length : 0
+    for (let i = 0; i < total; i++) {
+      const p = `memos/${memoId}/page-${i + 1}.jpg`
+      const r = storageRef(st, p)
+      await uploadBytes(r, pageBlobs[i], { contentType: 'image/jpeg' })
+      pages.push(await getDownloadURL(r))
+      pagePaths.push(p)
+      if (typeof onProgress === 'function') onProgress(i + 1, total)
+    }
+    return { ok: true, pdfUrl, pdfPath, pages, pagePaths }
+  } catch (e) {
+    console.warn('[store] uploadMemoAssets:', e)
+    return { ok: false, error: memoErrMsg(e, 'Tải file memo lên không thành công.') }
+  }
+}
+
+/** Tao doc Firestore memos/{id} (id do UI tu sinh) — tra { ok, id } hoac { ok: false, error }. */
+export async function createMemoDoc(data) {
+  const fs = getFirebaseFs()
+  if (!fs) return { ok: false, error: `Chưa kết nối được Firebase. ${MEMO_ERR_HINT}` }
+  try {
+    const { id, ...body } = data || {}
+    if (id) {
+      await setDoc(doc(fs, 'memos', id), body)
+      return { ok: true, id }
+    }
+    const ref = await addDoc(collection(fs, 'memos'), body)
+    return { ok: true, id: ref.id }
+  } catch (e) {
+    console.warn('[store] createMemoDoc:', e)
+    return { ok: false, error: memoErrMsg(e, 'Lưu thông tin memo không thành công.') }
+  }
+}
+
+/**
+ * Xoa memo o ca 3 noi: doc Firestore + PDF goc + tung anh trang tren Storage.
+ * Loi tung phan van tiep tuc cac phan con lai; tra { ok, errors: [msg] } —
+ * ok = true chi khi xoa sach (doc Firestore la phan bat buoc).
+ */
+export async function deleteMemoEverywhere(memo) {
+  const errors = []
+  const fs = getFirebaseFs()
+  let docOk = false
+  if (fs && memo?.id) {
+    try { await deleteDoc(doc(fs, 'memos', memo.id)); docOk = true } catch (e) {
+      console.warn('[store] deleteMemo doc:', e)
+      errors.push(memoErrMsg(e, 'Xoá thông tin memo không thành công.'))
+    }
+  } else {
+    errors.push('Chưa kết nối được Firebase để xoá memo.')
+  }
+  const st = getFirebaseStorage()
+  if (st) {
+    const paths = [memo?.pdfPath, ...(Array.isArray(memo?.pagePaths) ? memo.pagePaths : [])].filter(Boolean)
+    for (const p of paths) {
+      try { await deleteObject(storageRef(st, p)) } catch (e) {
+        if (!String(e?.code || '').includes('object-not-found')) {
+          console.warn('[store] deleteMemo file:', p, e)
+          errors.push(`Chưa xoá được file ${p} trên kho lưu trữ.`)
+        }
+      }
+    }
+  }
+  return { ok: docOk && errors.length === 0, docOk, errors }
 }
 
 /** Best-effort ghi Firestore: case_adjustments/{proposalNum} + audit_log. Khong bao gio throw. */
