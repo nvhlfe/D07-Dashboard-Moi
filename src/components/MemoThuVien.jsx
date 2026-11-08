@@ -226,7 +226,7 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose }) {
     <div className="memo-breakout">
       <div className="memo-head">
         <div className="memo-title">📌 Memo · Thi đua · Tài liệu</div>
-        <button type="button" className="btn-mini" onClick={onClose}>✕ Đóng</button>
+        {onClose && <button type="button" className="btn-mini" onClick={onClose}>✕ Đóng</button>}
       </div>
 
       <div className="search-row">

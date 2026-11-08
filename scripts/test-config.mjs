@@ -7,7 +7,7 @@ globalThis.localStorage = {
   removeItem: (k) => store.delete(k),
 }
 
-const { EMBEDDED_FIREBASE_CONFIG, resolveFirebaseConfig, isSuperAdmin, msdlToEmail, emailToMsdl, isMsdlAccount, resolveLoginEmail } = await import('../src/lib/firebaseConfig.js')
+const { EMBEDDED_FIREBASE_CONFIG, resolveFirebaseConfig, isSuperAdmin, msdlToEmail, emailToMsdl, isMsdlAccount, resolveLoginEmail, canViewSalesReport } = await import('../src/lib/firebaseConfig.js')
 
 const assert = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); process.exit(1) } console.log('ok -', msg) }
 
@@ -45,5 +45,13 @@ assert(isMsdlAccount({ email: 'admin@d07.com' }) === false, 'isMsdlAccount: emai
 assert(isMsdlAccount(null) === false, 'isMsdlAccount: chua dang nhap -> false')
 assert(resolveLoginEmail('12345678') === '12345678@d07.local', 'resolveLoginEmail: nhap MSDL -> email noi bo')
 assert(resolveLoginEmail('Admin@D07.com') === 'Admin@D07.com', 'resolveLoginEmail: nhap email -> giu nguyen')
+
+// 7) Quyen xem Sales Report: Admin chinh luon duoc; TVV chi khi duoc cap quyen
+assert(canViewSalesReport({ email: 'admin@d07.com' }, null) === true, 'canViewSalesReport: Admin chinh -> true')
+assert(canViewSalesReport({ email: 'tvv@d07.com' }, { canSalesReport: true }) === true, 'canViewSalesReport: duoc cap quyen -> true')
+assert(canViewSalesReport({ email: 'tvv@d07.com' }, { canSalesReport: false }) === false, 'canViewSalesReport: bi thu hoi -> false')
+assert(canViewSalesReport({ email: 'tvv@d07.com' }, {}) === false, 'canViewSalesReport: chua cap -> false')
+assert(canViewSalesReport({ email: 'tvv@d07.com' }, null) === false, 'canViewSalesReport: khong ho so -> false')
+assert(canViewSalesReport(null, { canSalesReport: true }) === false, 'canViewSalesReport: chua dang nhap -> false')
 
 console.log('✅ TAT CA ASSERT DAT (test-config)')

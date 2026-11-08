@@ -56,3 +56,13 @@ export function resolveLoginEmail(identifier) {
   const s = String(identifier || '').trim();
   return s.includes('@') ? s : msdlToEmail(s);
 }
+
+// ── Quyen xem Sales Report ──
+// Mac dinh chi Admin chinh xem duoc Sales Report. Admin chinh cap quyen
+// cho tung tai khoan bang truong canSalesReport=true trong user_profiles
+// (nut bat/tat nam trong panel Duyet TK cua Admin chinh).
+export function canViewSalesReport(user, profile) {
+  if (!user) return false;
+  if (isSuperAdmin(user)) return true;
+  return !!profile && profile.canSalesReport === true;
+}

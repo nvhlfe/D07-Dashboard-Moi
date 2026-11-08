@@ -15,9 +15,9 @@ import NapDuLieu from './components/NapDuLieu.jsx'
 import SalesReport from './components/SalesReport.jsx'
 import DoiNgu from './components/DoiNgu.jsx'
 import MemoThuVien from './components/MemoThuVien.jsx'
-import { loadLocalSnapshots, fetchFirestoreSnapshots, mergeSnapshots, getFbConfig, fetchUserProfile, saveUserProfile, fetchAllProfiles, adminSetProfileStatus } from './lib/store'
+import { loadLocalSnapshots, fetchFirestoreSnapshots, mergeSnapshots, getFbConfig, fetchUserProfile, saveUserProfile, fetchAllProfiles, adminSetProfileStatus, adminSetSalesReport } from './lib/store'
 import { useAuth } from './lib/auth'
-import { emailToMsdl, isMsdlAccount, isSuperAdmin, msdlToEmail } from './lib/firebaseConfig'
+import { emailToMsdl, isMsdlAccount, isSuperAdmin, msdlToEmail, canViewSalesReport } from './lib/firebaseConfig'
 
 const fmtDateVN = (iso) => {
   if (!iso) return ''
@@ -38,12 +38,12 @@ const NAV = [
   { id: 'home', label: 'Hôm nay', icon: '🏠' },
   { id: 'sales', label: 'Sales Report', icon: '📋' },
   { id: 'team', label: 'Đội ngũ', icon: '👥' },
+  { id: 'memo', label: 'Memo', icon: '📌' },
   { id: 'nap', label: 'Nạp', icon: '📥' },
 ]
 
 export default function App() {
   const [tab, setTab] = useState('home')
-  const [showMemo, setShowMemo] = useState(false)
   const [snaps, setSnaps] = useState([])
   const [loading, setLoading] = useState(true)
   const [source, setSource] = useState('máy này')
@@ -85,6 +85,19 @@ export default function App() {
     setAdminBusyUid('')
     if (ok) {
       setAdminMsg(status === 'approved' ? '✓ Đã duyệt tài khoản.' : status === 'blocked' ? '⛔ Đã khoá tài khoản.' : '↩️ Đã thu hồi — tài khoản quay về chờ duyệt.')
+      await loadAdminList()
+    } else {
+      setAdminMsg('Không ghi được lên mây — kiểm tra mạng / Rules rồi thử lại.')
+    }
+  }
+
+  // Admin chinh: cap / thu hoi quyen xem Sales Report cho 1 tai khoan
+  const handleAdminSalesReport = async (uid, allowed) => {
+    setAdminBusyUid(uid)
+    const ok = await adminSetSalesReport(uid, allowed)
+    setAdminBusyUid('')
+    if (ok) {
+      setAdminMsg(allowed ? '✓ Đã cấp quyền xem Sales Report.' : '✓ Đã thu hồi quyền xem Sales Report.')
       await loadAdminList()
     } else {
       setAdminMsg('Không ghi được lên mây — kiểm tra mạng / Rules rồi thử lại.')
@@ -203,6 +216,8 @@ export default function App() {
     || (isMsdlAccount(user) ? `TVV ${emailToMsdl(user.email)}` : (user?.email ? user.email.split('@')[0] : ''))
   const superAdmin = isSuperAdmin(user)
   const msdlAccount = isMsdlAccount(user)
+  // Sales Report: chi Admin chinh hoac tai khoan duoc cap quyen moi xem duoc
+  const canSR = canViewSalesReport(user, profile)
 
   // ── Cong duyet tai khoan ──
   // Super admin luon qua. Nguoi thuong: status lay tu profile; tai khoan
@@ -233,6 +248,9 @@ export default function App() {
           )}
           {st === 'approved' && (
             <>
+              <button className={`btn-mini ${p.canSalesReport ? 'primary' : ''}`} disabled={busy} onClick={() => handleAdminSalesReport(p.uid, !p.canSalesReport)}>
+                📊 SR: {p.canSalesReport ? 'Đang bật' : 'Đang tắt'}
+              </button>
               <button className="btn-mini" disabled={busy} onClick={() => handleAdminStatus(p.uid, 'pending')}>Thu hồi</button>
               <button className="btn-mini" disabled={busy} onClick={() => handleAdminStatus(p.uid, 'blocked')}>Khoá</button>
             </>
@@ -266,7 +284,6 @@ export default function App() {
                   🛂 Duyệt TK{pendingCount > 0 ? ` (${pendingCount})` : ''}
                 </button>
               )}
-              <button className="btn-mini" onClick={() => setShowMemo(true)}>📌 Memo</button>
               <button className="btn-mini" onClick={openAccount}>Tài khoản</button>
               <button className="btn-mini" onClick={logout}>Đăng xuất</button>
             </>
@@ -300,28 +317,41 @@ export default function App() {
         </div>
       ) : (
         <>
-          {showMemo ? (
-            <MemoThuVien user={user} isSuperAdmin={superAdmin} onClose={() => setShowMemo(false)} />
-          ) : (
-            <>
-              {tab === 'home' && (
-                <HomNay snaps={snaps} loading={loading} onGoNap={() => setTab('nap')}
-                  user={user} profile={profile}
-                  onOpenLogin={() => { setLoginErr(''); setShowLogin(true) }}
-                  onOpenAccount={openAccount} />
-              )}
-              {tab === 'sales' && <SalesReport snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} user={user} />}
-              {tab === 'team' && <DoiNgu snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} user={user} />}
-              {tab === 'nap' && <NapDuLieu onSaved={reload} user={user} snaps={snaps} />}
-            </>
-          )}
+          <>
+            {tab === 'home' && (
+              <HomNay snaps={snaps} loading={loading} onGoNap={() => setTab('nap')}
+                user={user} profile={profile}
+                onOpenLogin={() => { setLoginErr(''); setShowLogin(true) }}
+                onOpenAccount={openAccount} />
+            )}
+            {tab === 'sales' && (canSR ? (
+              <SalesReport snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} user={user} />
+            ) : (
+              <div className="card empty">
+                <div className="e-ic">🔒</div>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>Sales Report — mục có cấp quyền</div>
+                <p style={{ marginBottom: 14 }}>
+                  Mục này chỉ dành cho Admin chính hoặc tài khoản được Admin chính cấp quyền xem.
+                  {user
+                    ? ' Tài khoản của bạn chưa được cấp quyền — vui lòng liên hệ Admin chính để được bật.'
+                    : ' Vui lòng đăng nhập bằng tài khoản đã được cấp quyền.'}
+                </p>
+                {!user && (
+                  <button className="btn-primary" onClick={() => { setLoginErr(''); setShowLogin(true) }}>Đăng nhập</button>
+                )}
+              </div>
+            ))}
+            {tab === 'team' && <DoiNgu snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} user={user} />}
+            {tab === 'memo' && <MemoThuVien user={user} isSuperAdmin={superAdmin} />}
+            {tab === 'nap' && <NapDuLieu onSaved={reload} user={user} snaps={snaps} />}
+          </>
 
           <nav className="bottom-nav">
             <div className="inner">
               {NAV.map((n) => (
-                <button key={n.id} className={`nav-btn ${!showMemo && tab === n.id ? 'active' : ''}`} onClick={() => { setShowMemo(false); setTab(n.id) }}>
+                <button key={n.id} className={`nav-btn ${tab === n.id ? 'active' : ''}`} onClick={() => setTab(n.id)}>
                   <span className="ic">{n.icon}</span>
-                  <span>{n.label}</span>
+                  <span>{n.label}{n.id === 'sales' && !canSR ? ' 🔒' : ''}</span>
                 </button>
               ))}
             </div>

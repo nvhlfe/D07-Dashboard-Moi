@@ -290,6 +290,7 @@ export async function saveUserProfile(uid, profile) {
     displayName: profile?.displayName || '',
     msdl: profile?.msdl ? String(profile.msdl).trim() : '',
     status: profile?.status || prev?.status || '',
+    canSalesReport: profile?.canSalesReport !== undefined ? profile.canSalesReport === true : prev?.canSalesReport === true,
     updatedAt: new Date().toISOString(),
   }
   cacheProfile(uid, clean)
@@ -297,6 +298,16 @@ export async function saveUserProfile(uid, profile) {
   let cloud = false
   if (fs && uid) {
     try {
+      // Giu quyen Sales Report da cap tren may: cache may nay co the chua
+      // co truong nay trong khi ban may da co — doc ban may hien tai truoc
+      // khi ghi de, tranh lam mat quyen Admin da cap.
+      try {
+        const cur = await getDoc(doc(fs, 'user_profiles', uid))
+        if (cur.exists() && cur.data()?.canSalesReport === true && !clean.canSalesReport) {
+          clean.canSalesReport = true
+          cacheProfile(uid, clean)
+        }
+      } catch { /* bo qua — ghi tiep bang ban local */ }
       await setDoc(doc(fs, 'user_profiles', uid), clean)
       cloud = true
     } catch (e) {
@@ -326,6 +337,7 @@ export async function fetchAllProfiles() {
         displayName: p.displayName || '',
         msdl: p.msdl || '',
         status: p.status || '',
+        canSalesReport: p.canSalesReport === true,
         updatedAt: p.updatedAt || '',
       })
     })
@@ -351,6 +363,23 @@ export async function adminSetProfileStatus(uid, status) {
     return true
   } catch (e) {
     console.warn('[store] adminSetProfileStatus:', e)
+    return false
+  }
+}
+
+/**
+ * Admin chinh cap / thu hoi quyen xem Sales Report cho 1 tai khoan:
+ * ghi merge user_profiles/{uid} { canSalesReport } — khong dong truong khac.
+ * Tra true neu ghi may thanh cong, false neu loi.
+ */
+export async function adminSetSalesReport(uid, allowed) {
+  const fs = getFirebaseFs()
+  if (!fs || !uid) return false
+  try {
+    await setDoc(doc(fs, 'user_profiles', uid), { canSalesReport: !!allowed, salesReportUpdatedAt: new Date().toISOString() }, { merge: true })
+    return true
+  } catch (e) {
+    console.warn('[store] adminSetSalesReport:', e)
     return false
   }
 }
