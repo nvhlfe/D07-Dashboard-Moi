@@ -88,10 +88,12 @@ assert.ok(memoSrc.includes('m.coverUrl || (Array.isArray(m.pages) && m.pages[0])
 assert.ok(memoSrc.includes('selected.coverUrl || selected.pages[0]'), 'Chi tiet hien bia = coverUrl || pages[0]')
 console.log('Thu vien + chi tiet: coverUrl uu tien truoc pages[0]')
 
-// Luong dang: sau khi upload PDF + tao doc thi moi tao bia tu File goc
+// Luong dang PDF: sau khi upload PDF + tao doc thi moi tao bia tu File
+// goc. Khoanh vung tim kiem TU vi tri upload PDF tro di (createMemoDoc
+// con xuat hien o nhanh dang bang anh nam truoc trong file).
 const iUpload = memoSrc.indexOf('uploadMemoPdf(memoId, pdfFile)')
-const iDoc = memoSrc.indexOf('createMemoDoc({')
-const iCoverRender = memoSrc.indexOf('renderPdfFirstPageToJpegBlob(pdfFile)')
+const iDoc = memoSrc.indexOf('createMemoDoc({', iUpload)
+const iCoverRender = memoSrc.indexOf('renderPdfFirstPageToJpegBlob(pdfFile)', iDoc)
 assert.ok(iUpload > -1 && iDoc > iUpload, 'Dang: upload PDF truoc, tao doc sau')
 assert.ok(iCoverRender > iDoc, 'Dang: tao bia SAU khi tao doc thanh cong')
 assert.ok(memoSrc.includes('uploadMemoCover(memoId, coverBlob)'), 'Dang: upload bia bang uploadMemoCover')
@@ -114,5 +116,35 @@ assert.ok(storeSrc.includes('export async function fetchMemoPdfBlob'), 'store co
 assert.ok(storeSrc.includes('getBlob'), 'fetchMemoPdfBlob dung getBlob cua Storage SDK')
 assert.ok(storeSrc.includes('memos/${memo.id}/cover.jpg'), 'deleteMemoEverywhere xoa ca memos/{id}/cover.jpg')
 console.log('store: uploadMemoCover/setMemoCoverUrl/fetchMemoPdfBlob + xoa memo don cover.jpg')
+
+// ── Dang memo bang NHIEU ANH (sourceType 'images') — Lan yeu cau
+// 09/11/2026 vi xem PDF hoi phuc tap: chon nhieu anh trang cung luc,
+// nen JPEG <=1200px phia client, tai tung anh page-{i}.jpg, doc luu
+// pages[] + coverUrl = anh dau, khong co pdfUrl (an nut Tai ve PDF).
+console.log('\n=== dang memo bang NHIEU ANH (sourceType images) ===')
+assert.ok(memoSrc.includes('📄 File PDF') && memoSrc.includes('🖼 Nhiều ảnh'), 'Form dang phai co 2 kieu nguon: File PDF / Nhieu anh (segmented)')
+assert.ok(memoSrc.includes("sourceType === 'images'"), 'Form + luong dang phai re nhanh theo sourceType images')
+assert.ok(memoSrc.includes('multiple onChange={handlePickImages}'), 'Input anh phai cho chon NHIEU file cung luc (multiple)')
+assert.ok(memoSrc.includes('accept="image/*"'), 'Input anh chi nhan file anh (accept image/*)')
+assert.ok(memoSrc.includes('MEMO_MAX_IMAGES = 30'), 'Gioi han toi da 30 anh/memo')
+assert.ok(memoSrc.includes('MEMO_MAX_IMAGE_BYTES = 15 * 1024 * 1024'), 'Gioi han moi anh toi da 15MB')
+assert.ok(memoSrc.includes('Ảnh “${tooBig.name}” lớn hơn 15MB'), 'Anh vuot 15MB phai bao ro TEN file')
+assert.ok(memoSrc.includes('Trang {i + 1}: {f.name}'), 'Form phai liet ke anh da chon kem so thu tu trang de Admin doi chieu')
+assert.ok(memoSrc.includes('compressMemoImage'), 'Phai co buoc nen anh phia trinh duyet truoc khi tai')
+assert.ok(memoSrc.includes('1200 / nw') && memoSrc.includes("canvas.toBlob((b) => resolve(b || null), 'image/jpeg', 0.8)"), 'Nen anh: canvas rong toi da 1200px, xuat JPEG quality 0.8')
+assert.ok(memoSrc.includes('Đang tải ảnh ${i + 1}/${n}'), 'Khi dang anh phai hien tien trinh "Dang tai anh i/n"')
+assert.ok(memoSrc.includes('uploadMemoPageImage(memoId, i + 1, blob)'), 'Tai tung anh theo thu tu trang bang uploadMemoPageImage')
+assert.ok(memoSrc.includes('cleanupMemoFiles(paths)'), 'Anh loi giua chung -> don cac file da lo tai (cleanupMemoFiles), khong tao doc')
+assert.ok(memoSrc.includes("sourceType: 'images'"), "Doc memo kieu anh phai ghi sourceType: 'images'")
+assert.ok(memoSrc.includes("sourceType: 'pdf'"), "Doc memo kieu PDF phai ghi sourceType: 'pdf' (doc cu khong co truong nay -> mac dinh pdf)")
+assert.ok(memoSrc.includes('coverUrl: urls[0]'), 'Memo anh: coverUrl = anh trang dau tien (pages[0])')
+assert.ok(memoSrc.includes('pages: urls') && memoSrc.includes('pageCount: n'), 'Memo anh: doc luu pages[] theo thu tu + pageCount = so anh')
+assert.ok(memoSrc.includes("pdfUrl: '',"), 'Memo anh: pdfUrl rong -> nut Tai ve PDF tu an (chi hien khi co pdfUrl)')
+assert.ok(storeSrc.includes('export async function uploadMemoPageImage'), 'store phai co uploadMemoPageImage')
+assert.ok(storeSrc.includes('memos/${memoId}/page-${index}.jpg'), 'uploadMemoPageImage ghi vao memos/{id}/page-{index}.jpg')
+assert.ok(storeSrc.includes('export async function cleanupMemoFiles'), 'store phai co cleanupMemoFiles (don file khi dang anh loi)')
+assert.ok(storeSrc.includes('listAll'), 'deleteMemoEverywhere phai liet ke toan bo file duoi memos/{id}/ bang listAll')
+assert.ok(storeSrc.includes('`memos/${memo.id}/page-${i}.jpg`'), 'deleteMemoEverywhere: du phong dung path page-{i}.jpg tu pageCount khi listAll khong chay')
+console.log('Form 2 kieu nguon; anh: <=30 file, <=15MB/file, nen 1200px JPEG 0.8, tai page-{i}.jpg theo thu tu, loi -> dung + don file; doc images co pages/coverUrl, khong pdfUrl; xoa memo don sach bang listAll + du phong')
 
 console.log('\n✅ TAT CA ASSERT DAT (test-memo)')

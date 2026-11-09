@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────
 import { initializeApp, getApps } from 'firebase/app'
 import { getFirestore, doc, collection, setDoc, getDoc, getDocs, addDoc, deleteDoc, query, orderBy } from 'firebase/firestore'
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject, getBlob } from 'firebase/storage'
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject, getBlob, listAll } from 'firebase/storage'
 import { resolveFirebaseConfig } from './firebaseConfig'
 
 export const SNAP_KEY = 'd07moi_snapshots'
@@ -505,6 +505,40 @@ export async function uploadMemoCover(memoId, blob) {
   }
 }
 
+/**
+ * Tai 1 anh trang memo (da nen JPEG phia trinh duyet) len Storage
+ * memos/{id}/page-{index}.jpg — index tu 1, dung thu tu trang cua memo
+ * dang bang NHIEU ANH (sourceType 'images'). Tra { ok, url, path }.
+ */
+export async function uploadMemoPageImage(memoId, index, blob) {
+  const st = getFirebaseStorage()
+  if (!st) return { ok: false, error: `Chưa kết nối được kho lưu trữ (Storage). ${MEMO_ERR_HINT}` }
+  if (!memoId || !blob || !(Number(index) >= 1)) return { ok: false, error: 'Thiếu dữ liệu để tải ảnh trang memo.' }
+  try {
+    const path = `memos/${memoId}/page-${index}.jpg`
+    const pageRef = storageRef(st, path)
+    await uploadBytes(pageRef, blob, { contentType: 'image/jpeg' })
+    const url = await getDownloadURL(pageRef)
+    return { ok: true, url, path }
+  } catch (e) {
+    console.warn('[store] uploadMemoPageImage:', e)
+    return { ok: false, error: memoErrMsg(e, 'Tải ảnh trang memo lên không thành công.') }
+  }
+}
+
+/**
+ * Don cac file DA tai len cua 1 memo (dung khi dang bang anh bi loi giua
+ * chung: huy cac trang da len truoc khi tao doc, tranh rac tren Storage).
+ * Bo qua moi loi tung file — day la thao tac don dep phu.
+ */
+export async function cleanupMemoFiles(paths) {
+  const st = getFirebaseStorage()
+  if (!st || !Array.isArray(paths)) return
+  for (const p of paths.filter(Boolean)) {
+    try { await deleteObject(storageRef(st, p)) } catch (e) { /* bo qua: chi la don dep */ }
+  }
+}
+
 /** Ghi/ghi de truong coverUrl vao doc memos/{id} (merge, giu nguyen cac truong khac). */
 export async function setMemoCoverUrl(memoId, coverUrl) {
   const fs = getFirebaseFs()
@@ -570,8 +604,34 @@ export async function deleteMemoEverywhere(memo) {
     errors.push('Chưa kết nối được Firebase để xoá memo.')
   }
   const st = getFirebaseStorage()
-  if (st) {
-    const paths = [memo?.pdfPath, ...(Array.isArray(memo?.pagePaths) ? memo.pagePaths : []), memo?.id ? `memos/${memo.id}/cover.jpg` : null].filter(Boolean)
+  if (st && memo?.id) {
+    // Tap duong dan du phong (khi listAll khong chay duoc): PDF goc +
+    // anh bia + tung anh trang — theo pagePaths da luu trong doc, cong
+    // dung path page-{i}.jpg tu pageCount/so trang (memo dang bang anh).
+    const paths = new Set([
+      memo?.pdfPath,
+      ...(Array.isArray(memo?.pagePaths) ? memo.pagePaths : []),
+      `memos/${memo.id}/cover.jpg`,
+    ].filter(Boolean))
+    const pageTotal = Math.max(
+      Number(memo?.pageCount) || 0,
+      Array.isArray(memo?.pages) ? memo.pages.length : 0,
+    )
+    for (let i = 1; i <= pageTotal; i += 1) paths.add(`memos/${memo.id}/page-${i}.jpg`)
+    // Uu tien: liet ke TOAN BO file duoi memos/{id}/ bang listAll cua
+    // Storage SDK (bat ke ten file: original.pdf, cover.jpg, page-*.jpg)
+    // roi xoa tung file. listAll loi (rules/quyen) -> van xoa theo tap
+    // du phong o tren, khong lam hong luong xoa.
+    try {
+      const listed = await listAll(storageRef(st, `memos/${memo.id}`))
+      listed.items.forEach((it) => paths.add(it.fullPath))
+      for (const pre of listed.prefixes) {
+        const sub = await listAll(pre)
+        sub.items.forEach((it) => paths.add(it.fullPath))
+      }
+    } catch (e) {
+      console.warn('[store] deleteMemo listAll:', e)
+    }
     for (const p of paths) {
       try { await deleteObject(storageRef(st, p)) } catch (e) {
         if (!String(e?.code || '').includes('object-not-found')) {

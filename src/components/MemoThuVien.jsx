@@ -4,17 +4,24 @@
 // Khach hang / Chinh sach thu nhap), tim kiem khong dau, memo ghim
 // len dau. Xem chi tiet: DOC FILE PDF TRUC TIEP trong khung nhung
 // + nut Tai ve, kem panel "Tom tat & diem can luu y".
-// Admin chinh dang memo: chi tai PDF goc len Firebase Storage,
-// metadata o Firestore `memos` (khong tach anh de XEM nua — Lan chot
-// doi sang doc truc tiep 08/11/2026 sau khi chunk tach anh bi 404 do
-// ban deploy moi thay the asset cu). Memo cu nao da co anh trang
-// (pages[]) van xem dang anh nhu truoc.
+// Admin chinh dang memo theo 1 trong 2 kieu nguon (sourceType):
+//  - 'pdf' (mac dinh, doc cu khong co truong nay cung hieu la 'pdf'):
+//    tai PDF goc len Firebase Storage, metadata o Firestore `memos`
+//    (khong tach anh de XEM nua — Lan chot doi sang doc truc tiep
+//    08/11/2026 sau khi chunk tach anh bi 404 do ban deploy moi thay
+//    the asset cu). Memo cu nao da co anh trang (pages[]) van xem
+//    dang anh nhu truoc.
+//  - 'images' (Lan yeu cau 09/11/2026 vi xem PDF hoi phuc tap): Admin
+//    chon NHIEU anh trang memo cung luc; anh duoc nen JPEG (rong toi
+//    da 1200px) ngay tren trinh duyet roi tai tung anh len
+//    memos/{id}/page-{i}.jpg; doc luu pages[] + coverUrl = anh dau,
+//    xem theo nhanh anh trang san co, khong co nut Tai ve PDF.
 // Anh BIA thu vien: tu dong render TRANG 1 thanh JPEG (coverUrl)
 // ngay khi dang (lib/pdfCover, pdfjs import TINH — khong lazy chunk);
 // memo da dang thieu bia thi Admin mo chi tiet se tu bo sung 1 lan.
 // ─────────────────────────────────────────────────────────────
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { fetchMemos, uploadMemoPdf, createMemoDoc, deleteMemoEverywhere, uploadMemoCover, setMemoCoverUrl, fetchMemoPdfBlob } from '../lib/store'
+import { fetchMemos, uploadMemoPdf, createMemoDoc, deleteMemoEverywhere, uploadMemoCover, setMemoCoverUrl, fetchMemoPdfBlob, uploadMemoPageImage, cleanupMemoFiles } from '../lib/store'
 import { renderPdfFirstPageToJpegBlob } from '../lib/pdfCover'
 import { AUDIENCES, audienceLabel, filterMemos, sortMemos, summaryLines } from '../lib/memoLib'
 
@@ -30,6 +37,44 @@ const shortFileName = (name, max = 30) => {
 
 const emptyForm = () => ({ title: '', note: '', summary: '', warnings: '', pinned: false, audience: ['tvv'] })
 
+// Gioi han dang bang NHIEU ANH: toi da 30 anh/memo, moi anh toi da 15MB
+// (kiem tra ngay khi chon file + bao ro ten file vuot).
+const MEMO_MAX_IMAGES = 30
+const MEMO_MAX_IMAGE_BYTES = 15 * 1024 * 1024
+
+// Nen 1 anh ngay tren trinh duyet truoc khi tai len: ve canvas be rong
+// toi da 1200px (giu ti le; anh nho hon thi giu nguyen kich thuoc),
+// lot nen trang (anh PNG trong suot khong thanh nen den), xuat JPEG
+// quality 0.8. Tra Blob JPEG hoac null khi khong doc/ve duoc anh.
+function compressMemoImage(file) {
+  return new Promise((resolve) => {
+    let url = ''
+    try { url = URL.createObjectURL(file) } catch { resolve(null); return }
+    const img = new Image()
+    img.onload = () => {
+      try {
+        const nw = img.naturalWidth || 0
+        const nh = img.naturalHeight || 0
+        if (!nw || !nh) { URL.revokeObjectURL(url); resolve(null); return }
+        const scale = Math.min(1, 1200 / nw)
+        const w = Math.max(1, Math.round(nw * scale))
+        const h = Math.max(1, Math.round(nh * scale))
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, w, h)
+        ctx.drawImage(img, 0, 0, w, h)
+        URL.revokeObjectURL(url)
+        canvas.toBlob((b) => resolve(b || null), 'image/jpeg', 0.8)
+      } catch { URL.revokeObjectURL(url); resolve(null) }
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null) }
+    img.src = url
+  })
+}
+
 export default function MemoThuVien({ user, isSuperAdmin, onClose, onOpenLogin }) {
   const [memos, setMemos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -41,6 +86,9 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose, onOpenLogin }
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [pdfFile, setPdfFile] = useState(null)
+  // Kieu nguon dang memo: 'pdf' (file PDF goc) | 'images' (nhieu anh trang)
+  const [sourceType, setSourceType] = useState('pdf')
+  const [imageFiles, setImageFiles] = useState([])
   const [busy, setBusy] = useState('')
   const [formErr, setFormErr] = useState('')
   const [notice, setNotice] = useState(null)
@@ -78,20 +126,105 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose, onOpenLogin }
     }
   }
 
+  const handlePickImages = (e) => {
+    const files = Array.from(e.target.files || [])
+    setFormErr('')
+    if (files.length > MEMO_MAX_IMAGES) {
+      setImageFiles([])
+      setFormErr(`Chọn tối đa ${MEMO_MAX_IMAGES} ảnh cho 1 memo (đang chọn ${files.length} ảnh).`)
+      return
+    }
+    const tooBig = files.find((f) => f.size > MEMO_MAX_IMAGE_BYTES)
+    if (tooBig) {
+      setImageFiles([])
+      setFormErr(`Ảnh “${tooBig.name}” lớn hơn 15MB — hãy giảm dung lượng ảnh rồi chọn lại.`)
+      return
+    }
+    // Thu tu trang = dung thu tu trong danh sach file da chon (FileList)
+    setImageFiles(files)
+    if (files.length) {
+      setForm((prev) => (prev.title.trim()
+        ? prev
+        : { ...prev, title: files[0].name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').trim() }))
+    }
+  }
+
+  // Dong form + reset sau khi dang thanh cong (ca 2 kieu nguon dung chung)
+  const finishSubmit = async (text) => {
+    setBusy('')
+    setShowForm(false)
+    setForm(emptyForm())
+    setPdfFile(null)
+    setImageFiles([])
+    setSourceType('pdf')
+    setNotice({ type: 'success', text })
+    await reload()
+  }
+
+  // Dang memo kieu NHIEU ANH: nen + tai tung anh theo thu tu trang.
+  // 1 anh loi (khong nen duoc / tai len loi) -> DUNG toan bo, don cac
+  // file da lo tai (cleanupMemoFiles), KHONG tao doc — tranh memo thieu
+  // trang am tham. Doc chi tao khi du anh da len het.
+  const submitImages = async (memoId, baseDoc) => {
+    const n = imageFiles.length
+    const urls = []
+    const paths = []
+    for (let i = 0; i < n; i += 1) {
+      const f = imageFiles[i]
+      setBusy(`Đang tải ảnh ${i + 1}/${n} (${f.name})…`)
+      const blob = await compressMemoImage(f)
+      if (!blob) {
+        await cleanupMemoFiles(paths)
+        setBusy('')
+        setFormErr(`Không đọc/nén được ảnh số ${i + 1} (“${f.name}”) — đã huỷ đăng và chưa tạo memo. Hãy thử lại với file ảnh khác.`)
+        return
+      }
+      const up = await uploadMemoPageImage(memoId, i + 1, blob)
+      if (!up.ok) {
+        await cleanupMemoFiles(paths)
+        setBusy('')
+        setFormErr(`Tải ảnh số ${i + 1} (“${f.name}”) lên không thành công — đã huỷ đăng và chưa tạo memo. ${up.error || ''}`.trim())
+        return
+      }
+      urls.push(up.url)
+      paths.push(up.path)
+    }
+    const created = await createMemoDoc({
+      ...baseDoc,
+      sourceType: 'images',
+      fileName: imageFiles[0].name,
+      pageCount: n,
+      pages: urls,
+      coverUrl: urls[0],
+      pdfUrl: '',
+      pdfPath: '',
+      pagePaths: paths,
+    })
+    if (!created.ok) {
+      await cleanupMemoFiles(paths)
+      setBusy('')
+      setFormErr(created.error || 'Lưu thông tin memo không thành công.')
+      return
+    }
+    await finishSubmit(`✓ Đã đăng memo “${baseDoc.title}” với ${n} ảnh trang.`)
+  }
+
   const handleSubmit = async () => {
     setFormErr('')
     setNotice(null)
-    if (!pdfFile) { setFormErr('Chưa chọn file PDF.'); return }
-    if (pdfFile.size > 25 * 1024 * 1024) { setFormErr('File PDF lớn hơn 25MB — hãy nén file rồi đăng lại.'); return }
+    if (sourceType === 'images') {
+      if (!imageFiles.length) { setFormErr('Chưa chọn ảnh nào cho memo.'); return }
+      if (imageFiles.length > MEMO_MAX_IMAGES) { setFormErr(`Chọn tối đa ${MEMO_MAX_IMAGES} ảnh cho 1 memo.`); return }
+    } else {
+      if (!pdfFile) { setFormErr('Chưa chọn file PDF.'); return }
+      if (pdfFile.size > 25 * 1024 * 1024) { setFormErr('File PDF lớn hơn 25MB — hãy nén file rồi đăng lại.'); return }
+    }
     if (!form.title.trim()) { setFormErr('Chưa nhập tiêu đề memo.'); return }
     if (!form.audience.length) { setFormErr('Chọn ít nhất 1 nhóm đối tượng cho memo.'); return }
     const memoId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
-    setBusy('Đang tải file PDF lên kho lưu trữ…')
-    const up = await uploadMemoPdf(memoId, pdfFile)
-    if (!up.ok) { setBusy(''); setFormErr(up.error || 'Tải file lên không thành công.'); return }
     const now = new Date()
     const p2 = (n) => String(n).padStart(2, '0')
-    const created = await createMemoDoc({
+    const baseDoc = {
       id: memoId,
       title: form.title.trim(),
       note: form.note.trim(),
@@ -99,15 +232,23 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose, onOpenLogin }
       warnings: form.warnings,
       audience: form.audience,
       pinned: !!form.pinned,
+      displayDate: `${p2(now.getDate())}/${p2(now.getMonth() + 1)}`,
+      createdAt: now.getTime(),
+      createdBy: user?.email || '',
+    }
+    if (sourceType === 'images') { await submitImages(memoId, baseDoc); return }
+    setBusy('Đang tải file PDF lên kho lưu trữ…')
+    const up = await uploadMemoPdf(memoId, pdfFile)
+    if (!up.ok) { setBusy(''); setFormErr(up.error || 'Tải file lên không thành công.'); return }
+    const created = await createMemoDoc({
+      ...baseDoc,
+      sourceType: 'pdf',
       fileName: pdfFile.name,
       pageCount: 0,
       pages: [],
       pdfUrl: up.pdfUrl,
       pdfPath: up.pdfPath,
       pagePaths: [],
-      displayDate: `${p2(now.getDate())}/${p2(now.getMonth() + 1)}`,
-      createdAt: now.getTime(),
-      createdBy: user?.email || '',
     })
     if (!created.ok) { setBusy(''); setFormErr(created.error || 'Lưu thông tin memo không thành công.'); return }
     // Tao anh bia tu TRANG 1 cua chinh File PDF vua dang (thao tac PHU:
@@ -124,17 +265,9 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose, onOpenLogin }
         }
       }
     } catch (e) { console.warn('[MemoThuVien] tao bia khi dang:', e) }
-    setBusy('')
-    setShowForm(false)
-    setForm(emptyForm())
-    setPdfFile(null)
-    setNotice({
-      type: 'success',
-      text: coverOk
-        ? `✓ Đã đăng memo “${form.title.trim()}” kèm ảnh bìa trang 1.`
-        : `✓ Đã đăng memo “${form.title.trim()}”, nhưng chưa tạo được ảnh bìa — mở memo ra xem bằng tài khoản Admin, hệ thống sẽ tự tạo lại bìa.`,
-    })
-    await reload()
+    await finishSubmit(coverOk
+      ? `✓ Đã đăng memo “${baseDoc.title}” kèm ảnh bìa trang 1.`
+      : `✓ Đã đăng memo “${baseDoc.title}”, nhưng chưa tạo được ảnh bìa — mở memo ra xem bằng tài khoản Admin, hệ thống sẽ tự tạo lại bìa.`)
   }
 
   const handleDelete = async (m) => {
@@ -325,8 +458,8 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose, onOpenLogin }
       </div>
 
       {isSuperAdmin && !showForm && (
-        <button type="button" className="btn-primary" style={{ marginBottom: 12 }} onClick={() => { setFormErr(''); setShowForm(true) }}>
-          ＋ Đăng memo (PDF)
+        <button type="button" className="btn-primary" style={{ marginBottom: 12 }} onClick={() => { setFormErr(''); setSourceType('pdf'); setPdfFile(null); setImageFiles([]); setShowForm(true) }}>
+          ＋ Đăng memo
         </button>
       )}
 
@@ -334,10 +467,31 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose, onOpenLogin }
         <div className="card memo-form">
           <h2>＋ Đăng memo mới</h2>
           <div className="field">
-            <label>File PDF (tối đa 25MB) — xem trực tiếp trong app, có nút tải về</label>
-            <input type="file" accept="application/pdf,.pdf" onChange={handlePickFile} />
-            {pdfFile ? <div className="muted" style={{ marginTop: 4 }}>{pdfFile.name} · {(pdfFile.size / 1024 / 1024).toFixed(2)}MB</div> : null}
+            <label>Kiểu đăng</label>
+            <div className="chips-row" style={{ marginTop: 2 }}>
+              <button type="button" className={`fchip ${sourceType === 'pdf' ? 'active' : ''}`} onClick={() => setSourceType('pdf')}>📄 File PDF</button>
+              <button type="button" className={`fchip ${sourceType === 'images' ? 'active' : ''}`} onClick={() => setSourceType('images')}>🖼 Nhiều ảnh</button>
+            </div>
           </div>
+          {sourceType === 'pdf' ? (
+            <div className="field">
+              <label>File PDF (tối đa 25MB) — xem trực tiếp trong app, có nút tải về</label>
+              <input type="file" accept="application/pdf,.pdf" onChange={handlePickFile} />
+              {pdfFile ? <div className="muted" style={{ marginTop: 4 }}>{pdfFile.name} · {(pdfFile.size / 1024 / 1024).toFixed(2)}MB</div> : null}
+            </div>
+          ) : (
+            <div className="field">
+              <label>Ảnh các trang memo — chọn nhiều ảnh cùng lúc (tối đa {MEMO_MAX_IMAGES} ảnh, mỗi ảnh ≤ 15MB). Thứ tự trang đúng theo thứ tự ảnh trong danh sách dưới đây; ảnh được nén nhẹ (≤1200px, JPEG) trước khi tải lên.</label>
+              <input type="file" accept="image/*" multiple onChange={handlePickImages} />
+              {imageFiles.length > 0 ? (
+                <ol className="memo-img-list">
+                  {imageFiles.map((f, i) => (
+                    <li key={`${f.name}-${f.size}-${i}`}>Trang {i + 1}: {f.name} · {(f.size / 1024 / 1024).toFixed(2)}MB</li>
+                  ))}
+                </ol>
+              ) : null}
+            </div>
+          )}
           <div className="field">
             <label>Tiêu đề</label>
             <input value={form.title} placeholder="VD: Memo 00211/AD/2026 - Thi đua ngắn hạn tháng 11"
@@ -399,7 +553,7 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose, onOpenLogin }
         <div className="card empty">
           <div className="e-ic">📌</div>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>Chưa có memo nào</div>
-          <p>{isSuperAdmin ? 'Bấm “＋ Đăng memo (PDF)” ở trên để đăng tài liệu đầu tiên cho Quận 7.' : 'Admin chính chưa đăng memo nào — quay lại sau nhé.'}</p>
+          <p>{isSuperAdmin ? 'Bấm “＋ Đăng memo” ở trên để đăng tài liệu đầu tiên cho Quận 7 (đăng bằng file PDF hoặc nhiều ảnh trang).' : 'Admin chính chưa đăng memo nào — quay lại sau nhé.'}</p>
         </div>
       ) : visible.length === 0 ? (
         <div className="card empty">

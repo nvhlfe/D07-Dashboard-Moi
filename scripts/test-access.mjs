@@ -180,23 +180,27 @@ assert.ok(doiNgu.includes('num-issued'), 'DoiNgu: so IP phat hanh phai to mau ti
 assert.ok(doiNgu.includes('num-pending'), 'DoiNgu: so pending phai to mau hong (num-pending)')
 console.log('Mau so: index.css co bo .num-* (FYP navy / FYC+Active xanh la / IP tim / Pending hong / Pipe ho phach / Thieu do); DoiNgu da ap dung')
 
-// ── Dot 09/11/2026: hang Bang Vang hien so FYC khi sap theo FYC + lam dep CSS he thong ──
-console.log('\n=== hang Bang Vang: dong FYC co dieu kien + CSS lam dep ===')
-// Viec A: chi khi sortKey === 'fyc' moi hien dong chip "FYC thang: X tr"
-assert.ok(doiNgu.includes("sortKey === 'fyc'"), "DoiNgu: dong FYC o hang Bang Vang phai co dieu kien sortKey === 'fyc' (sap theo tieu chi khac thi khong hien)")
-assert.ok(doiNgu.includes('FYC tháng: {a.fyc < FYC_FLOOR'), 'DoiNgu: dong FYC phai re nhanh theo moc FYC_FLOOR ngay sau nhan "FYC tháng:"')
-assert.ok(doiNgu.includes('<b className="num-fyc">{fmtTr(a.fyc)} tr</b>'), 'DoiNgu: nhanh FYC dat moc phai hien so bang num-fyc (xanh la): {fmtTr(a.fyc)} tr')
-assert.ok(doiNgu.includes('className="bv-fyc"') || doiNgu.includes('bv-fyc${'), 'DoiNgu: dong FYC phai dung class chip bv-fyc')
-assert.ok(doiNgu.includes('fmtTr(bar.total)'), 'DoiNgu: so TO ben phai hang van la TONG NOP (fmtTr(bar.total)) — khong doi thanh FYC')
-console.log('Hang Bang Vang: sap theo FYC -> co dong "FYC tháng: X tr"; so to van la tong nop')
-// Moc canh bao FYC toi thieu tren dong FYC (Lan chot 09/11/2026)
+// ── Dot 09/11/2026: hang Bang Vang — SO TO theo tieu chi sap xep + lam dep CSS he thong ──
+// Lan khoanh do so to (tong nop) o ban live e15080ad va chot: che do
+// FYC thang thi SO TO ben phai PHAI LA FYC thang; chip duoi chi con
+// canh bao thieu khi duoi moc. Che do khac giu nguyen tong nop.
+console.log('\n=== hang Bang Vang: so to theo che do FYC + CSS lam dep ===')
+assert.ok(doiNgu.includes("sortKey === 'fyc'"), "DoiNgu: khoi so to + chip canh bao phai re nhanh theo sortKey === 'fyc'")
+assert.ok(doiNgu.includes('}>{fmtTr(a.fyc)}</span>'), 'DoiNgu: che do FYC -> SO TO ben phai la FYC thang (fmtTr(a.fyc))')
+assert.ok(doiNgu.includes("a.fyc < FYC_FLOOR ? 'num-short' : 'num-fyc'"), 'DoiNgu: so to FYC phai to mau theo moc FYC_FLOOR (duoi moc -> num-short do; dat moc -> num-fyc xanh la)')
+assert.ok(doiNgu.includes('FYC tháng · {fmtCaseSub(a.caseSub)} HS'), 'DoiNgu: che do FYC -> dong phu duoi so to ghi "FYC tháng · N HS" (giu thong tin so ho so)')
+assert.ok(doiNgu.includes('fmtTr(bar.total)'), 'DoiNgu: che do sap khac (ipNet/barTotal) SO TO van la TONG NOP (fmtTr(bar.total)) — giu nguyen 100%')
+assert.ok(!doiNgu.includes('FYC tháng: {a.fyc < FYC_FLOOR'), 'DoiNgu: KHONG con dong chip trung so "FYC tháng: X tr" (so to da la FYC)')
+console.log('Hang Bang Vang: che do FYC -> so to = FYC thang + dong phu "FYC tháng · N HS"; che do khac -> so to = tong nop nhu cu')
+// Moc canh bao FYC toi thieu: chip chi con nhanh canh bao thieu (Lan chot 09/11/2026)
 assert.ok(team.includes('export const FYC_FLOOR = 5'), 'team.js: phai co hang FYC_FLOOR = 5 (moc FYC thang toi thieu, trieu dong)')
-assert.ok(doiNgu.includes('FYC_FLOOR'), 'DoiNgu: dong FYC phai dung hang FYC_FLOOR tu lib/team')
-assert.ok(doiNgu.includes('a.fyc < FYC_FLOOR'), 'DoiNgu: dieu kien canh bao phai la a.fyc < FYC_FLOOR')
-assert.ok(doiNgu.includes('<b className="num-short">{fmtTr(a.fyc)} tr</b>'), 'DoiNgu: FYC duoi moc phai to DO (num-short)')
+assert.ok(doiNgu.includes('FYC_FLOOR'), 'DoiNgu: phai dung hang FYC_FLOOR tu lib/team')
+assert.ok(doiNgu.includes("sortKey === 'fyc' && a.fyc < FYC_FLOOR"), 'DoiNgu: chip canh bao chi hien khi che do FYC VA fyc < FYC_FLOOR')
+assert.ok(doiNgu.includes('className="bv-fyc lack"'), 'DoiNgu: chip canh bao phai dung class bv-fyc lack (tong do)')
 assert.ok(doiNgu.includes('Thiếu {fmtTr(FYC_FLOOR - a.fyc)} tr (mốc {FYC_FLOOR}tr FYC)'), 'DoiNgu: phai co nhan thieu theo cong thuc FYC_FLOOR - a.fyc kem moc 5tr FYC')
 assert.ok(css.includes('.bv-fyc.lack'), 'index.css: phai co bien the chip canh bao .bv-fyc.lack (tong do nhat)')
-console.log('Moc FYC: fyc < 5tr -> so do (num-short) + nhan "Thieu ... tr (moc 5tr FYC)"; >= 5tr hien xanh la binh thuong')
+assert.ok(css.includes('.bv-total-num.num-fyc') && css.includes('.bv-total-num.num-short'), 'index.css: so to Bang Vang phai nhan mau num-fyc/num-short (selector .bv-total-num.num-*)')
+console.log('Moc FYC: fyc < 5tr -> so to to do + chip "Thieu ... tr (moc 5tr FYC)"; >= 5tr so to xanh la, khong chip')
 // Viec B: cac lop trinh bay moi chinh trong index.css
 assert.ok(css.includes('.bv-fyc'), 'index.css: phai co class .bv-fyc cho dong chip FYC')
 assert.ok(css.includes('linear-gradient(180deg, #ffffff 0%, #f6f9fc 100%)'), 'index.css: the .card phai co nen gradient nhe (trang -> xanh xam nhat)')

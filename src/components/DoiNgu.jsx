@@ -46,10 +46,13 @@
 // FYC thang, van giu giong so IP"): logic sap xep 'fyc' DUNG nhung mat
 // thuong khong thay duoc — (a) so TO ben phai hang van la TONG NOP,
 // khong phai FYC; (b) o top dau FYC ≈ 26-27% IP nen thu tu theo FYC
-// gan nhu trung thu tu theo IP. Sua TRINH BAY (khong doi logic): khi
-// dang sap theo FYC thang, moi hang Bang Vang hien them dong chip
-// "FYC thang: X tr" (class .bv-fyc + so to mau .num-fyc) ngay duoi
-// thanh xep chong; sap theo tieu chi khac thi khong hien dong nay.
+// gan nhu trung thu tu theo IP. Ban dau sua TRINH BAY bang dong chip
+// "FYC thang: X tr" duoi thanh xep chong; Lan xem ban live e15080ad
+// roi KHOANH DO so to va chot tiep: o che do FYC thang, SO TO ben
+// phai PHAI LA FYC thang (to num-fyc khi dat moc FYC_FLOOR = 5tr, to
+// num-short khi duoi moc), dong phu ghi "FYC thang · N HS", chip
+// duoi chi con canh bao "Thieu ... tr (moc 5tr FYC)" khi duoi moc.
+// Che do sap khac (ipNet/barTotal) giu nguyen 100%: so to = tong nop.
 // Cung dot: lam dep giao dien HE THONG bang CSS (the gradient nhe +
 // bong mem 2 lop, hang top 3 nen nhan + avatar ring gradient, chip
 // pill gradient navy, KPI/mini-stat co dai nhan mau theo ngu nghia,
@@ -314,30 +317,30 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
                 </span>
               </>
             ) : null}
-            {/* Chi khi dang SAP THEO FYC THANG moi hien dong nay: cho
-                thay bang chung cua thu tu xep hang (so to ben phai van
-                la tong nop nen neu khong co dong nay se tuong dang sap
-                theo IP — Lan phan hoi 09/11/2026). Kem MOC CANH BAO
-                FYC toi thieu FYC_FLOOR = 5tr (Lan chot 09/11/2026):
-                fyc < 5tr -> chip chuyen tong do (.lack), so to do
-                (num-short) + nhan so thieu; fyc >= 5tr hien xanh la
-                binh thuong (num-fyc). */}
-            {sortKey === 'fyc' ? (
-              <span className={`bv-fyc${a.fyc < FYC_FLOOR ? ' lack' : ''}`}>
-                FYC tháng: {a.fyc < FYC_FLOOR ? (
-                  <>
-                    <b className="num-short">{fmtTr(a.fyc)} tr</b>
-                    <span className="num-short">· Thiếu {fmtTr(FYC_FLOOR - a.fyc)} tr (mốc {FYC_FLOOR}tr FYC)</span>
-                  </>
-                ) : (
-                  <b className="num-fyc">{fmtTr(a.fyc)} tr</b>
-                )}
+            {/* Che do SAP THEO FYC THANG: so TO ben phai (khoi
+                .bv-total ben duoi) da LA FYC thang roi nen chip duoi
+                nay CHI con canh bao khi duoi moc FYC_FLOOR = 5tr (Lan
+                chot 09/11/2026): chip tong do (.lack) + so thieu theo
+                cong thuc FYC_FLOOR - a.fyc. Dat moc -> khong hien
+                chip nao (tranh trung so voi so to). */}
+            {sortKey === 'fyc' && a.fyc < FYC_FLOOR ? (
+              <span className="bv-fyc lack">
+                <span className="num-short">Thiếu {fmtTr(FYC_FLOOR - a.fyc)} tr (mốc {FYC_FLOOR}tr FYC)</span>
               </span>
             ) : null}
           </span>
           <span className="bv-total">
-            <span className="bv-total-num">{fmtTr(bar.total)}</span>
-            <span className="bv-total-sub">{fmtCaseSub(a.caseSub)} HS</span>
+            {sortKey === 'fyc' ? (
+              <>
+                <span className={`bv-total-num ${a.fyc < FYC_FLOOR ? 'num-short' : 'num-fyc'}`}>{fmtTr(a.fyc)}</span>
+                <span className="bv-total-sub">FYC tháng · {fmtCaseSub(a.caseSub)} HS</span>
+              </>
+            ) : (
+              <>
+                <span className="bv-total-num">{fmtTr(bar.total)}</span>
+                <span className="bv-total-sub">{fmtCaseSub(a.caseSub)} HS</span>
+              </>
+            )}
           </span>
         </button>
 
