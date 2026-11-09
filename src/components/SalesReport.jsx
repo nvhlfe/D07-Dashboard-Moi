@@ -76,7 +76,7 @@ const primaryNum = (c) => {
     : { value: c.proposalNum, label: 'HSYC', secondary: c.policyNum || '', secondaryLabel: 'Số HĐ' }
 }
 
-export default function SalesReport({ snaps, loading, onGoNap, user }) {
+export default function SalesReport({ snaps, loading, remoteSettled = true, onNeedMonth, onGoNap, user }) {
   // Admin chinh (admin@prud07.top) xem so ho so DAY DU; con lai che con 2 so cuoi.
   const canSeeFull = isSuperAdmin(user)
   const [selectedMonth, setSelectedMonth] = useState('')
@@ -84,14 +84,43 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
   const [unitFilter, setUnitFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [expanded, setExpanded] = useState(null)
+  // Tai LAZY theo thang: { ym, phase: 'loading' | 'empty' } cho thang
+  // nguoi dung chon ma snaps chua co — App tai doc moi nhat cua thang do
+  // (+ thang truoc cho CF) theo yeu cau, khong tai san cac thang khac.
+  const [lazyMonth, setLazyMonth] = useState(null)
 
   const months = useMemo(
     () => [...new Set((snaps || []).map((s) => s.id.slice(0, 7)))].sort(),
     [snaps],
   )
-  const effMonth = selectedMonth && months.includes(selectedMonth)
+  // Danh sach thang CHON DUOC: thang da co trong snaps + 12 thang lien
+  // tuc tinh den thang moi nhat (de chon thang cu hon thi tai lazy).
+  const pickerMonths = useMemo(() => {
+    const set = new Set(months)
+    if (months.length) {
+      let [y, m] = months[months.length - 1].split('-').map(Number)
+      for (let i = 0; i < 11; i++) {
+        m -= 1; if (m === 0) { m = 12; y -= 1 }
+        set.add(`${y}-${String(m).padStart(2, '0')}`)
+      }
+    }
+    return [...set].sort()
+  }, [months])
+  const effMonth = selectedMonth && pickerMonths.includes(selectedMonth)
     ? selectedMonth
     : (months.length ? months[months.length - 1] : null)
+
+  const handleSelectMonth = (ym) => {
+    setSelectedMonth(ym)
+    setExpanded(null)
+    if (!onNeedMonth || months.includes(ym)) { setLazyMonth(null); return }
+    setLazyMonth({ ym, phase: 'loading' })
+    Promise.resolve(onNeedMonth(ym)).then((ok) => {
+      setLazyMonth((cur) => (cur && cur.ym === ym ? (ok ? null : { ym, phase: 'empty' }) : cur))
+    }).catch(() => {
+      setLazyMonth((cur) => (cur && cur.ym === ym ? { ym, phase: 'empty' } : cur))
+    })
+  }
 
   const view = useMemo(() => {
     if (!effMonth) return null
@@ -124,6 +153,41 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
     return <div className="card empty"><div className="e-ic">⏳</div>Đang tải dữ liệu…</div>
   }
   if (!view) {
+    // Thang dang chon chua co trong snaps va dang tai lazy theo yeu cau.
+    if (lazyMonth && lazyMonth.ym === effMonth && lazyMonth.phase === 'loading') {
+      return (
+        <div className="card empty">
+          <div className="e-ic">⏳</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Đang tải dữ liệu tháng {effMonth ? `${effMonth.split('-')[1]}/${effMonth.split('-')[0]}` : ''}…</div>
+          <p>Hệ thống chỉ tải đúng tháng bạn chọn — chờ một lát nhé.</p>
+        </div>
+      )
+    }
+    if (lazyMonth && lazyMonth.ym === effMonth && lazyMonth.phase === 'empty') {
+      return (
+        <div className="card empty">
+          <div className="e-ic">📭</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Tháng {effMonth ? `${effMonth.split('-')[1]}/${effMonth.split('-')[0]}` : ''} chưa có dữ liệu</div>
+          <p style={{ marginBottom: 14 }}>Chưa có bản Daily Sales nào của tháng này trên hệ thống. Chọn tháng khác bên dưới, hoặc nạp file Daily Sales của tháng này ở tab Nạp.</p>
+          <div className="field" style={{ marginBottom: 0, textAlign: 'left' }}>
+            <label>Tháng xem</label>
+            <select value={effMonth} onChange={(e) => handleSelectMonth(e.target.value)}>
+              {pickerMonths.map((m) => <option key={m} value={m}>{`Tháng ${m.split('-')[1]}/${m.split('-')[0]}`}{months.includes(m) ? '' : ' (tải khi chọn)'}</option>)}
+            </select>
+          </div>
+        </div>
+      )
+    }
+    // Luot tai may dau tien chua xong ma da ket luan rong -> dang tai.
+    if (!remoteSettled && !snaps?.length) {
+      return (
+        <div className="card empty">
+          <div className="e-ic">⏳</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Đang tải dữ liệu…</div>
+          <p>Lần đầu trên thiết bị này có thể mất vài giây — dữ liệu đang được tải về, bạn không cần nạp lại file.</p>
+        </div>
+      )
+    }
     return (
       <div className="card empty">
         <div className="e-ic">📭</div>
@@ -289,11 +353,11 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
         </div>
 
         <div className="muted" style={{ marginTop: 6 }}>Dữ liệu đến {fmtDateVN(snap.id)}</div>
-        {months.length > 1 && (
+        {pickerMonths.length > 1 && (
           <div className="field" style={{ marginTop: 10, marginBottom: 0 }}>
             <label>Tháng xem</label>
-            <select value={effMonth} onChange={(e) => { setSelectedMonth(e.target.value); setExpanded(null) }}>
-              {months.map((m) => <option key={m} value={m}>{`Tháng ${m.split('-')[1]}/${m.split('-')[0]}`}</option>)}
+            <select value={effMonth} onChange={(e) => handleSelectMonth(e.target.value)}>
+              {pickerMonths.map((m) => <option key={m} value={m}>{`Tháng ${m.split('-')[1]}/${m.split('-')[0]}`}{months.includes(m) ? '' : ' (tải khi chọn)'}</option>)}
             </select>
           </div>
         )}

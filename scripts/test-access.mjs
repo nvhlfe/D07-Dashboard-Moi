@@ -17,6 +17,10 @@ const team = read('../src/lib/team.js')
 const parseDaily = read('../src/lib/parseDaily.js')
 const napDuLieu = read('../src/components/NapDuLieu.jsx')
 const css = read('../src/index.css')
+const homNay = read('../src/components/HomNay.jsx')
+const salesReport = read('../src/components/SalesReport.jsx')
+const caNhan = read('../src/components/CaNhan.jsx')
+const snapCache = read('../src/lib/snapCache.js')
 
 // ── Doi ten hien thi ──
 console.log('=== doi ten hien thi ===')
@@ -316,5 +320,26 @@ assert.ok(!app.includes(OLD_ADMIN), 'App.jsx: khong con email Admin cu (comment/
   }
 }
 console.log('Admin chinh = admin@prud07.top o code + firestore.rules + storage.rules; email cu khong con o bat ky file src nao')
+
+// ── Toi uu toc do tai du lieu (09/11/2026): chi tai dung doc can ──
+console.log('\n=== toi uu tai du lieu ===')
+assert.ok(!store.includes("getDocs(collection(fs, 'daily_sales_tvv'))"), 'store: fetchFirestoreSnapshots KHONG con getDocs toan bo collection daily_sales_tvv')
+assert.ok(!store.includes("await getDoc(doc(fs, 'daily_sales_tvv'"), 'store: khong con getDoc tai lai tung doc sau khi liet ke id')
+assert.ok(store.includes('documentId()'), 'store: truy van theo documentId() (khoa chinh, khong can composite index)')
+assert.ok(store.includes("orderBy(documentId(), 'desc')"), 'store: sap xep giam dan theo documentId de lay doc moi nhat')
+assert.ok(store.includes('limit(2)') && store.includes('limit(1)'), 'store: moi truy van snapshot deu co limit (2 doc moi nhat / 1 doc moi nhat cua thang)')
+assert.ok(store.includes('fetchMonthSnapshots'), 'store: co fetchMonthSnapshots cho tai LAZY theo thang (Sales Report)')
+assert.ok(store.includes('persistentLocalCache') && store.includes('persistentMultipleTabManager'), 'store: Firestore bat persistent cache (IndexedDB) + multiple tab manager')
+assert.ok(store.includes('initializeFirestore'), 'store: dung initializeFirestore de cau hinh persistent cache')
+assert.ok(store.includes('persistSnapshots'), 'store: co persistSnapshots de luu ban da gop vao cache may sau khi fetch')
+assert.ok(app.includes('persistSnapshots(merged)'), 'App: reload luu lai ban merged vao cache may sau khi fetch may')
+assert.ok(app.includes('remoteSettled'), 'App: co trang thai remoteSettled cho luot tai dau')
+assert.ok(app.includes('ensureMonth'), 'App: co ensureMonth tai lazy thang cho Sales Report')
+assert.ok(homNay.includes('remoteSettled') && homNay.includes('Đang tải dữ liệu…'), 'HomNay: chua settled thi hien dang tai, khong hien man rong')
+assert.ok(doiNgu.includes('remoteSettled'), 'DoiNgu: nhan remoteSettled cho trang thai tai')
+assert.ok(caNhan.includes('remoteSettled'), 'CaNhan: nhan remoteSettled cho trang thai tai')
+assert.ok(salesReport.includes('remoteSettled') && salesReport.includes('onNeedMonth'), 'SalesReport: nhan remoteSettled + onNeedMonth (tai lazy thang)')
+assert.ok(snapCache.includes('neededSnapIds') && snapCache.includes('pruneSnapshots'), 'snapCache: co neededSnapIds + pruneSnapshots (cat cache theo dung luong)')
+console.log('Fetch gioi han + persistent cache + cache theo dung luong + trang thai tai da khoa bang assert')
 
 console.log('\n✅ TAT CA ASSERT DAT (test-access)')

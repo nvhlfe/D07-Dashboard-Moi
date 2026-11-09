@@ -28,7 +28,7 @@ function daysUntil(isoDate) {
   return Math.round((target - today) / 86400000)
 }
 
-export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenLogin, onOpenAccount }) {
+export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, user, profile, onOpenLogin, onOpenAccount }) {
   const [quoteOffset, setQuoteOffset] = useState(0)
   const [selDay, setSelDay] = useState(null)
 
@@ -78,6 +78,18 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
     return <div className="card empty"><div className="e-ic">⏳</div>Đang tải dữ liệu…</div>
   }
   if (!newest || !view) {
+    // Chua co du lieu TREN MAY nay va luot tai may dau tien chua xong:
+    // hien "dang tai" thay vi man rong 📭 (truoc day nguoi dung tuong
+    // he thong trong du lieu trong luc cho tai o lan mo dau/domain moi).
+    if (!remoteSettled) {
+      return (
+        <div className="card empty">
+          <div className="e-ic">⏳</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Đang tải dữ liệu…</div>
+          <p>Lần đầu trên thiết bị này có thể mất vài giây — dữ liệu đang được tải về, bạn không cần nạp lại file.</p>
+        </div>
+      )
+    }
     return (
       <div className="card empty">
         <div className="e-ic">📭</div>

@@ -16,7 +16,7 @@ import SalesReport from './components/SalesReport.jsx'
 import DoiNgu from './components/DoiNgu.jsx'
 import MemoThuVien from './components/MemoThuVien.jsx'
 import CaNhan from './components/CaNhan.jsx'
-import { loadLocalSnapshots, fetchFirestoreSnapshots, mergeSnapshots, getFbConfig, fetchUserProfile, saveUserProfile, fetchAllProfiles, adminSetProfileStatus, adminSetSalesReport, adminSetUnitView } from './lib/store'
+import { loadLocalSnapshots, fetchFirestoreSnapshots, fetchMonthSnapshots, persistSnapshots, mergeSnapshots, getFbConfig, fetchUserProfile, saveUserProfile, fetchAllProfiles, adminSetProfileStatus, adminSetSalesReport, adminSetUnitView } from './lib/store'
 import { useAuth } from './lib/auth'
 import { emailToMsdl, isMsdlAccount, isSuperAdmin, msdlToEmail, canViewSalesReport } from './lib/firebaseConfig'
 import { LOGO_D07 } from './lib/logoData'
@@ -50,6 +50,12 @@ export default function App() {
   const [snaps, setSnaps] = useState([])
   const [loading, setLoading] = useState(true)
   const [source, setSource] = useState('máy này')
+  // Luot tai may DAU TIEN da ket thuc chua (thanh cong hay loi deu tinh):
+  // cac man dung co nay de phan biet "dang tai du lieu…" voi "chua co du
+  // lieu" — tranh hien man 📭 trong luc dang tai lan dau tren thiet bi moi.
+  const [remoteSettled, setRemoteSettled] = useState(false)
+  const snapsRef = useRef([])
+  useEffect(() => { snapsRef.current = snaps }, [snaps])
 
   const { user, authLoading, login, register, logout } = useAuth()
   const [profile, setProfile] = useState(null)
@@ -127,20 +133,47 @@ export default function App() {
     setSnaps(local)
     setSource('máy này')
     setLoading(false)
-    if (getFbConfig()) {
-      const remote = await fetchFirestoreSnapshots()
-      if (remote) {
-        // GOP ban tren may + ban tren may (khong thay the): ban vua nap o
-        // may nay chua dong bo duoc van duoc dung, ban cu tren may khong
-        // de duoc ban moi cung ngay.
-        const merged = mergeSnapshots(local, remote)
-        if (merged.length) {
-          setSnaps(merged)
-          const newestEntry = merged[merged.length - 1]
-          setSource(newestEntry._from === 'remote' ? 'Firebase' : 'máy này')
-        }
+    if (!getFbConfig()) { setRemoteSettled(true); return }
+    const remote = await fetchFirestoreSnapshots()
+    // Du thanh cong hay loi (remote null) thi luot tai dau da ket thuc:
+    // tu luc nay cac man duoc phep ket luan "chua co du lieu" neu rong.
+    setRemoteSettled(true)
+    if (remote) {
+      // GOP ban tren may + ban tren may (khong thay the): ban vua nap o
+      // may nay chua dong bo duoc van duoc dung, ban cu tren may khong
+      // de duoc ban moi cung ngay. Remote gio chi gom TAP DOC CAN nen
+      // merge theo ngay la du de khong mat doc cache nao ca.
+      const merged = mergeSnapshots(local, remote)
+      if (merged.length) {
+        setSnaps(merged)
+        // LUU LAI ban da gop vao cache may (theo dung luong): lan mo sau
+        // thay du lieu NGAY tu cache, khong phai cho tai lai tu may chu.
+        persistSnapshots(merged)
+        const newestEntry = merged[merged.length - 1]
+        setSource(newestEntry._from === 'remote' ? 'Firebase' : 'máy này')
       }
     }
+  }, [])
+
+  // LAZY theo thang (Sales Report): nguoi dung chon thang chua co trong
+  // snaps -> tai doc moi nhat cua thang do (+ thang truoc cho CF) roi gop
+  // vao state + cache. Tra ve true neu thang do co du lieu.
+  const monthReqRef = useRef(new Set())
+  const ensureMonth = useCallback(async (ym) => {
+    if (!/^\d{4}-\d{2}$/.test(String(ym || ''))) return false
+    if ((snapsRef.current || []).some((s) => s.id && s.id.startsWith(`${ym}-`))) return true
+    if (monthReqRef.current.has(ym)) return false
+    monthReqRef.current.add(ym)
+    const fetched = await fetchMonthSnapshots(ym)
+    if (!fetched || !fetched.length) return false
+    let has = false
+    setSnaps((cur) => {
+      const merged = mergeSnapshots(cur, fetched)
+      persistSnapshots(merged)
+      has = merged.some((s) => s.id.startsWith(`${ym}-`))
+      return merged
+    })
+    return has
   }, [])
 
   useEffect(() => { reload() }, [reload])
@@ -401,13 +434,13 @@ export default function App() {
         <>
           <>
             {tab === 'home' && (
-              <HomNay snaps={snaps} loading={loading} onGoNap={() => setTab('nap')}
+              <HomNay snaps={snaps} loading={loading} remoteSettled={remoteSettled} onGoNap={() => setTab('nap')}
                 user={user} profile={profile}
                 onOpenLogin={() => { setLoginErr(''); setShowLogin(true) }}
                 onOpenAccount={openAccount} />
             )}
             {tab === 'sales' && (canSR ? (
-              <SalesReport snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} user={user} />
+              <SalesReport snaps={snaps} loading={loading} remoteSettled={remoteSettled} onNeedMonth={ensureMonth} onGoNap={() => setTab('nap')} user={user} />
             ) : (
               <div className="card empty">
                 <div className="e-ic">🔒</div>
@@ -424,12 +457,12 @@ export default function App() {
               </div>
             ))}
             {tab === 'team' && (
-              <DoiNgu snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} user={user}
+              <DoiNgu snaps={snaps} loading={loading} remoteSettled={remoteSettled} onGoNap={() => setTab('nap')} user={user}
                 profile={profile} isSuperAdmin={superAdmin} avatarMap={avatarMap}
                 onOpenLogin={() => { setLoginErr(''); setShowLogin(true) }} />
             )}
             {tab === 'me' && showMeTab && (
-              <CaNhan snaps={snaps} loading={loading} user={user} profile={profile}
+              <CaNhan snaps={snaps} loading={loading} remoteSettled={remoteSettled} user={user} profile={profile}
                 onProfileUpdate={setProfile} />
             )}
             {tab === 'memo' && (

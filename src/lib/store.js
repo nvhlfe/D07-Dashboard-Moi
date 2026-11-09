@@ -8,9 +8,10 @@
 // App LUON chay duoc chi bang localStorage (offline/demo) khi chua co Firebase.
 // ─────────────────────────────────────────────────────────────
 import { initializeApp, getApps } from 'firebase/app'
-import { getFirestore, doc, collection, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore'
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, collection, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, where, limit, documentId } from 'firebase/firestore'
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject, getBlob, listAll } from 'firebase/storage'
 import { resolveFirebaseConfig } from './firebaseConfig'
+import { pruneSnapshots, journeyMonthYms, prevMonthYm, nextMonthYm, LOCAL_CACHE_BUDGET } from './snapCache.js'
 
 export const SNAP_KEY = 'd07moi_snapshots'
 export const HIST_KEY = 'd07moi_history'
@@ -19,7 +20,6 @@ export const ADJ_KEY = 'd07moi_adjustments'
 export const AUDIT_KEY = 'd07moi_audit'
 export const USER_NAME_KEY = 'd07moi_user_name'
 export const targetKey = (year, month) => `d07moi_target_${year}-${month}`
-const MAX_SNAPSHOTS = 40
 
 // ── Snapshots local ──────────────────────────────────────────
 export function loadLocalSnapshots() {
@@ -30,7 +30,7 @@ export function loadLocalSnapshots() {
     return Object.values(obj)
       .filter((s) => s && s.date && s.data)
       .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-      .map((s) => ({ id: s.date, data: s.data, savedAt: s.savedAt || null }))
+      .map((s) => ({ id: s.date, data: s.data, savedAt: s.savedAt || null, fileName: s.fileName || '' }))
   } catch { return [] }
 }
 
@@ -38,22 +38,42 @@ export function loadLocalSnapshots() {
 // duoc; re-export tai day cho cac noi dang import tu store.
 export { mergeSnapshots } from './snapMerge.js'
 
-export function saveLocalSnapshot(date, fileName, data) {
-  let obj = {}
-  try { obj = JSON.parse(localStorage.getItem(SNAP_KEY) || '{}') } catch { obj = {} }
-  obj[date] = { date, fileName: fileName || '', savedAt: new Date().toISOString(), data }
-  // Giu toi da MAX_SNAPSHOTS snapshot moi nhat (theo ngay du lieu)
-  const dates = Object.keys(obj).sort()
-  while (dates.length > MAX_SNAPSHOTS) { const d = dates.shift(); delete obj[d] }
-  // localStorage co gioi han ~5MB: neu tran, bo bot snapshot cu nhat cho den khi ghi duoc
-  for (;;) {
-    try { localStorage.setItem(SNAP_KEY, JSON.stringify(obj)); return { ok: true, kept: Object.keys(obj).length } }
-    catch (e) {
-      const ks = Object.keys(obj).sort()
-      if (ks.length <= 1) return { ok: false, kept: 0, error: 'localStorage đầy — snapshot chỉ lưu trên Firebase (nếu đã kết nối).' }
-      delete obj[ks[0]]
+// Ghi TOAN BO tap snapshot vao localStorage theo DUNG LUONG (khong theo
+// so luong nhu truoc — 40 doc x ~600KB khong bao gio vua quota ~5MB):
+// pruneSnapshots bo doc cu nhat ngoai TAP CAN (neededSnapIds) + cac id
+// bat buoc giu (keepIds, vd doc vua nap) truoc. Neu setItem van loi quota
+// (quota thuc te nho hon ngan sach) thi giam dan ngan sach roi thu lai;
+// chi con doc moi nhat ma van loi -> bao ok:false de UI noi ro.
+function writeSnapCache(entries, keepIds = []) {
+  let budget = LOCAL_CACHE_BUDGET
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const { kept, json } = pruneSnapshots(entries, { budget, keepIds })
+    try {
+      localStorage.setItem(SNAP_KEY, json)
+      return { ok: true, kept: kept.length }
+    } catch (e) {
+      budget = Math.floor(budget / 2)
     }
   }
+  return { ok: false, kept: 0, error: 'localStorage đầy — snapshot chỉ lưu trên Firebase (nếu đã kết nối).' }
+}
+
+/**
+ * Luu lai tap snapshot DA GOP (may + may) vao cache local — App.reload
+ * goi sau moi lan fetch may thanh cong, de lan mo sau (ke ca offline /
+ * domain moi tung mo 1 lan) thay du lieu NGAY tu cache thay vi cho tai.
+ */
+export function persistSnapshots(snaps) {
+  try { return writeSnapCache(snaps || [], []) } catch { return { ok: false, kept: 0 } }
+}
+
+export function saveLocalSnapshot(date, fileName, data) {
+  const entries = loadLocalSnapshots()
+  const next = entries.filter((e) => e.id !== date)
+  next.push({ id: date, fileName: fileName || '', savedAt: new Date().toISOString(), data })
+  // Doc vua nap LUON duoc giu trong cache (keepIds) ke ca khi no khong
+  // thuoc tap can hien tai (vd nap lai file ngay cu).
+  return writeSnapCache(next, [date])
 }
 
 // ── Lich su nap ──────────────────────────────────────────────
@@ -119,6 +139,23 @@ export function parseFirebaseConfigPaste(text) {
   } catch { return null }
 }
 
+// Tao instance Firestore voi PERSISTENT CACHE (IndexedDB): doc da tai
+// 1 lan duoc phuc vu tu dia o cac lan mo sau — mo app thay du lieu gan
+// nhu ngay, ke ca mang cham/offline. Nhieu tab cung luc dung
+// persistentMultipleTabManager. Moi truong khong ho tro IndexedDB hoac
+// Firestore da khoi tao truoc do (hot reload) -> initializeFirestore
+// nem loi -> fallback getFirestore(app) (cache trong RAM nhu truoc),
+// app khong bao gio vo vi buoc nay.
+function createFirestore(app) {
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    })
+  } catch (e) {
+    try { return getFirestore(app) } catch { return null }
+  }
+}
+
 // ── Firebase singleton — 1 app instance dung chung cho Firestore va Auth ──
 let _fb = null
 export function getFirebaseApp() {
@@ -128,7 +165,7 @@ export function getFirebaseApp() {
   try {
     const existing = getApps().find((a) => a.options && a.options.projectId === cfg.projectId)
     const app = existing || initializeApp(cfg)
-    _fb = { projectId: cfg.projectId, app, fs: getFirestore(app) }
+    _fb = { projectId: cfg.projectId, app, fs: createFirestore(app) }
     return _fb.app
   } catch (e) {
     console.error('[store] Firebase init failed:', e)
@@ -158,39 +195,88 @@ export async function saveDailyToFirestore(ymd, payload, updatedBy = null) {
   }
 }
 
+// ── Doc snapshot Daily tu Firestore — CHI TAI DUNG DOC CAN ──────────
+// Ban cu getDocs TOAN BO collection (~40 doc, ~20MB) chi de lay danh
+// sach id roi getDoc lai tung doc — thu pham cham chinh khi mo app.
+// Ban nay dung truy van GIOI HAN theo documentId():
+//   - documentId() la khoa chinh __name__ cua doc: sap xep/gioi han theo
+//     khoa nay dung index khoa chinh co san cua Firestore, KHONG can
+//     composite index; du lieu cua cac doc tra ve dung luon (khong tai lai).
+// Tap doc dich (neededSnapIds trong snapCache.js):
+//   1) 2 doc moi nhat tong the (moi nhat + lien truoc cho delta);
+//   2) doc moi nhat cua thang truoc thang cua doc moi nhat (CF lien thang);
+//   3) doc moi nhat cua tung thang trong nam cua doc moi nhat ma thang do
+//      khong co so GA (Hanh trinh nam — thang co so GA khong can Daily).
+const dailyCol = (fs) => collection(fs, 'daily_sales_tvv')
+const toEntry = (d) => ({ id: d.id, data: d.data(), savedAt: d.data()?.updatedAt || null })
+
+/** Doc moi nhat cua 1 thang 'yyyy-mm' (query khoang documentId, limit 1). */
+async function fetchLatestDocOfMonth(fs, ym) {
+  const next = nextMonthYm(ym)
+  if (!ym || !next) return null
+  const q = query(
+    dailyCol(fs),
+    where(documentId(), '>=', `${ym}-01`),
+    where(documentId(), '<', `${next}-01`),
+    orderBy(documentId(), 'desc'),
+    limit(1),
+  )
+  const snap = await getDocs(q)
+  return snap.empty ? null : toEntry(snap.docs[0])
+}
+
 /**
- * Doc cac doc daily_sales_tvv can cho man Hinh Hom Nay:
- * moi nhat tong the, moi nhat cua thang truoc (cho tru CF lien thang).
- * Tra ve [{id, data}] sap xep tang dan theo ngay, hoac null neu khong dung duoc Firebase.
+ * Doc tap snapshot CAN THIET tu daily_sales_tvv.
+ * Tra ve [{id, data, savedAt}] sap xep tang dan theo ngay, [] neu chua co
+ * doc nao, hoac null neu khong dung duoc Firebase / loi (App roi ve cache).
  */
 export async function fetchFirestoreSnapshots() {
   const fs = getFirebaseFs()
   if (!fs) return null
   try {
-    const snap = await getDocs(collection(fs, 'daily_sales_tvv'))
-    const ids = []
-    snap.forEach((d) => ids.push(d.id))
-    ids.sort()
-    if (!ids.length) return []
-    const wanted = new Set()
-    const newest = ids[ids.length - 1]
-    wanted.add(newest)
-    // snapshot truoc do (cho delta) — uu tien cung thang
-    if (ids.length > 1) wanted.add(ids[ids.length - 2])
-    // doc moi nhat cua thang truoc thang cua doc moi nhat (cho CF lien thang)
-    const [y, m] = newest.split('-').map(Number)
-    const pm = m === 1 ? { y: y - 1, m: 12 } : { y, m: m - 1 }
-    const p = (n) => String(n).padStart(2, '0')
-    const prevMonthIds = ids.filter((id) => id.startsWith(`${pm.y}-${p(pm.m)}-`))
-    if (prevMonthIds.length) wanted.add(prevMonthIds[prevMonthIds.length - 1])
-    const out = []
-    for (const id of [...wanted].sort()) {
-      const d = await getDoc(doc(fs, 'daily_sales_tvv', id))
-      if (d.exists()) out.push({ id, data: d.data(), savedAt: d.data().updatedAt || null })
+    const byId = new Map()
+    const add = (e) => { if (e && e.id && e.data) byId.set(e.id, e) }
+    // 1) Hai doc moi nhat tong the
+    const latest = await getDocs(query(dailyCol(fs), orderBy(documentId(), 'desc'), limit(2)))
+    latest.forEach((d) => add(toEntry(d)))
+    if (!byId.size) return []
+    const newest = [...byId.keys()].sort().pop()
+    // 2) Doc moi nhat cua thang truoc (CF lien thang)
+    add(await fetchLatestDocOfMonth(fs, prevMonthYm(newest)))
+    // 3) Doc moi nhat cua cac thang Hanh trinh nam chua co trong tap
+    const year = Number(newest.slice(0, 4))
+    const newestYm = newest.slice(0, 7)
+    for (const ym of journeyMonthYms(year)) {
+      if (ym > newestYm) continue
+      if ([...byId.keys()].some((id) => id.startsWith(`${ym}-`))) continue
+      add(await fetchLatestDocOfMonth(fs, ym))
     }
-    return out
+    return [...byId.values()].sort((a, b) => String(a.id).localeCompare(String(b.id)))
   } catch (e) {
     console.error('[store] fetchFirestoreSnapshots:', e)
+    return null
+  }
+}
+
+/**
+ * LAZY theo thang cho Sales Report: khi nguoi dung chon xem 1 thang chua
+ * co trong snaps, chi tai doc MOI NHAT cua thang do + doc moi nhat cua
+ * thang truoc no (cho tru CF) — khong tai san cac thang khac.
+ * Tra ve mang entries (co the rong neu thang chua co du lieu tren may)
+ * hoac null neu loi/khong dung duoc Firebase.
+ */
+export async function fetchMonthSnapshots(ym) {
+  const fs = getFirebaseFs()
+  if (!fs || !/^\d{4}-\d{2}$/.test(String(ym || ''))) return null
+  try {
+    const out = []
+    const cur = await fetchLatestDocOfMonth(fs, ym)
+    if (cur) out.push(cur)
+    const prev = await fetchLatestDocOfMonth(fs, prevMonthYm(`${ym}-01`))
+    if (prev) out.push(prev)
+    return out.sort((a, b) => String(a.id).localeCompare(String(b.id)))
+  } catch (e) {
+    console.error('[store] fetchMonthSnapshots:', e)
     return null
   }
 }

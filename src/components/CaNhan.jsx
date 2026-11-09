@@ -174,7 +174,7 @@ function AvatarEditor({ file, saving, onCancel, onSave }) {
   )
 }
 
-export default function CaNhan({ snaps, loading, user, profile, onProfileUpdate }) {
+export default function CaNhan({ snaps, loading, remoteSettled = true, user, profile, onProfileUpdate }) {
   const viewerMsdl = String((profile && profile.msdl) || emailToMsdl(user && user.email) || '').trim().toUpperCase()
   const avatarUrl = profile?.avatarUrl || ''
   const [avBusy, setAvBusy] = useState(false)
@@ -332,11 +332,19 @@ export default function CaNhan({ snaps, loading, user, profile, onProfileUpdate 
       </div>
 
       {!newest || !view ? (
-        <div className="card empty">
-          <div className="e-ic">📭</div>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>Chưa có dữ liệu Daily Sales</div>
-          <p>Số liệu cá nhân sẽ hiện tại đây sau khi có bản Daily Sales mới nhất.</p>
-        </div>
+        !remoteSettled ? (
+          <div className="card empty">
+            <div className="e-ic">⏳</div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>Đang tải dữ liệu…</div>
+            <p>Lần đầu trên thiết bị này có thể mất vài giây — dữ liệu đang được tải về, bạn không cần nạp lại file.</p>
+          </div>
+        ) : (
+          <div className="card empty">
+            <div className="e-ic">📭</div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>Chưa có dữ liệu Daily Sales</div>
+            <p>Số liệu cá nhân sẽ hiện tại đây sau khi có bản Daily Sales mới nhất.</p>
+          </div>
+        )
       ) : !met ? (
         <div className="card empty">
           <div className="e-ic">🔎</div>

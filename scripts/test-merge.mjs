@@ -40,4 +40,22 @@ assert(m4.length === 1 && m4[0]._from === 'remote', 'hoa het -> uu tien ban tren
 // 5) Dau vao rong/null khong crash
 assert(mergeSnapshots([], null).length === 0 && mergeSnapshots(null, []).length === 0, 'rong/null -> []')
 
+// 6) Remote IT doc hon local (fetch gio chi tra TAP DOC CAN): cac doc chi
+// co o local (cache may) PHAI duoc giu nguyen — merge khong duoc lam mat.
+const localMany = [
+  { id: '2026-09-30', data: { proposalRows: rowsNew }, savedAt: '2026-09-30T01:00:00Z' },
+  { id: '2026-10-25', data: { proposalRows: rowsNew }, savedAt: '2026-10-25T01:00:00Z' },
+  { id: '2026-11-05', data: { proposalRows: rowsNew }, savedAt: '2026-11-05T01:00:00Z' },
+  { id: '2026-11-08', data: { proposalRows: rowsNew }, savedAt: '2026-11-08T01:00:00Z' },
+  { id: '2026-11-09', data: { proposalRows: rowsNew }, savedAt: '2026-11-09T01:00:00Z' },
+]
+const remoteFew = [
+  { id: '2026-11-08', data: { proposalRows: rowsNew }, savedAt: '2026-11-09T02:00:00Z' },
+  { id: '2026-11-09', data: { proposalRows: rowsNew }, savedAt: '2026-11-09T02:00:00Z' },
+]
+const m6 = mergeSnapshots(localMany, remoteFew)
+assert(m6.length === 5, 'remote it doc hon: merged giu du 5 id (khong mat doc cache)')
+assert(m6.map((e) => e.id).join(',') === '2026-09-30,2026-10-25,2026-11-05,2026-11-08,2026-11-09', 'remote it doc hon: thu tu + id day du')
+assert(m6[0]._from === 'local' && m6[3]._from === 'remote', 'remote it doc hon: doc trung lay ban may moi hon, doc rieng giu ban may nay')
+
 console.log('✅ TAT CA ASSERT DAT (test-merge)')

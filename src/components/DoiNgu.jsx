@@ -108,7 +108,7 @@ const initials = (name) => {
   return (parts[parts.length - 2].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
 }
 
-export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuperAdmin: adminProp, onOpenLogin, avatarMap = {} }) {
+export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, user, profile, isSuperAdmin: adminProp, onOpenLogin, avatarMap = {} }) {
   // So Policy DAY DU: Admin chinh (moi hang) + CHINH TVV do o hang cua
   // minh (Lan yeu cau 09/11/2026: xem day du so ho so trong data cua
   // minh); cac truong hop con lai che con 2 so cuoi.
@@ -227,6 +227,15 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
     return <div className="card empty"><div className="e-ic">⏳</div>Đang tải dữ liệu…</div>
   }
   if (!newest || !view) {
+    if (!remoteSettled) {
+      return (
+        <div className="card empty">
+          <div className="e-ic">⏳</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Đang tải dữ liệu…</div>
+          <p>Lần đầu trên thiết bị này có thể mất vài giây — dữ liệu đang được tải về, bạn không cần nạp lại file.</p>
+        </div>
+      )
+    }
     return (
       <div className="card empty">
         <div className="e-ic">📭</div>
