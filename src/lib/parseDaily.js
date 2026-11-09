@@ -28,7 +28,7 @@ export const sheetToRows = (wb, name) => {
   return XLSX.utils.sheet_to_json(wb.Sheets[name], { defval: null, raw: true })
 }
 
-/** LOI: nhan workbook (SheetJS) -> { sheetStatus, proposalRows, agents, units, pendingRows, pipelineRows } */
+/** LOI: nhan workbook (SheetJS) -> { sheetStatus, proposalRows, agents, units, leaderUnits, pendingRows, pipelineRows } */
 export function parseWorkbook(wb) {
   const sheetStatus = {}
   const proposalName = wb.SheetNames.includes('Proposal') ? 'Proposal' : (wb.SheetNames.includes('Export') ? 'Export' : null)
@@ -94,9 +94,22 @@ export function parseWorkbook(wb) {
 
   // --- Leader (Unit level) ---
   const units = {}
+  // leaderUnits: tap UnitCode CO TRONG sheet Leader (dong hop le) — muc
+  // Phong chi liet ke cac Unit nay (Unit co truong phong chinh thuc);
+  // Unit chi xuat hien o sheet Agent se bi loc khoi muc Phong.
+  const leaderUnits = []
   for (const r of (rawLeader || [])) {
     if (!isYearMonth(r['YearMonth']) || !r['UnitCode']) continue
     const unitCode = r['UnitCode']
+    if (!leaderUnits.includes(unitCode)) leaderUnits.push(unitCode)
+    // activeFycUnit: cot '#Active Agent (FYC) Unit' (cot BD sheet Leader) —
+    // so TVV Active theo FYC cua Unit theo so lieu cong ty. O TRONG trong
+    // file (rat pho bien dau thang) -> giu null de UI hien "–", TUYET DOI
+    // khong ep ve 0 (0 luot la mot khang dinh khac han "chua co so").
+    const rawActFyc = r['#Active Agent (FYC) Unit']
+    const activeFycUnit = rawActFyc !== null && rawActFyc !== undefined && rawActFyc !== '' && Number.isFinite(Number(rawActFyc))
+      ? Number(rawActFyc)
+      : null
     units[unitCode] = {
       unit: unitCode, leaderName: r['LeaderName'] || '',
       // LeaderCode = MSDL cua truong Unit (sheet Leader co cot nay, da doi
@@ -107,12 +120,13 @@ export function parseWorkbook(wb) {
       manpower: num(r['#Manpower']),
       caseSubUnit: num(r['Case Sub Unit']), caseNetUnit: num(r['Case Net Unit']),
       apeSubUnit: num(r['APE Sub Unit']), apeNetUnit: num(r['APE Net Unit']),
+      activeFycUnit,
       ipSubUnit: 0, ipNetUnit: 0, cIF: 0, cPS: 0, cOther: 0,
     }
   }
   for (const msdl in agents) {
     const a = agents[msdl]
-    if (!units[a.unit]) units[a.unit] = { unit: a.unit, leaderName: '', leaderCode: '', agSeg: '', manpower: 0, caseSubUnit: 0, caseNetUnit: 0, apeSubUnit: 0, apeNetUnit: 0, ipSubUnit: 0, ipNetUnit: 0, cIF: 0, cPS: 0, cOther: 0 }
+    if (!units[a.unit]) units[a.unit] = { unit: a.unit, leaderName: '', leaderCode: '', agSeg: '', manpower: 0, caseSubUnit: 0, caseNetUnit: 0, apeSubUnit: 0, apeNetUnit: 0, activeFycUnit: null, ipSubUnit: 0, ipNetUnit: 0, cIF: 0, cPS: 0, cOther: 0 }
     const u = units[a.unit]
     u.ipSubUnit += a.ipSub; u.ipNetUnit += a.ipNet
     u.cIF += a.cIF; u.cPS += a.cPS; u.cOther += a.cOther
@@ -149,7 +163,7 @@ export function parseWorkbook(wb) {
     })
   }
 
-  return { sheetStatus, proposalRows, agents, units, pendingRows, pipelineRows }
+  return { sheetStatus, proposalRows, agents, units, leaderUnits, pendingRows, pipelineRows }
 }
 
 /** Doc ArrayBuffer (trinh duyet / node) -> parse. */

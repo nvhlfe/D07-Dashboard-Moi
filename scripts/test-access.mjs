@@ -13,6 +13,8 @@ const fsRules = read('../firestore.rules')
 const store = read('../src/lib/store.js')
 const fbConfig = read('../src/lib/firebaseConfig.js')
 const team = read('../src/lib/team.js')
+const parseDaily = read('../src/lib/parseDaily.js')
+const napDuLieu = read('../src/components/NapDuLieu.jsx')
 
 // ── Doi ten hien thi ──
 console.log('=== doi ten hien thi ===')
@@ -86,10 +88,37 @@ assert.ok(doiNgu.includes('leaderCode'), 'DoiNgu: nhan dien leader qua LeaderCod
 assert.ok(doiNgu.includes('viewMode'), 'DoiNgu: phai co chuyen che do xem Ca nhan / Phong')
 assert.ok(doiNgu.includes('🏢 Phòng'), 'DoiNgu: phai co nut/che do Phong')
 assert.ok(doiNgu.includes("mode === 'unit'"), "DoiNgu: che do 'unit' chi hieu luc khi co quyen (mode da gan canUnit)")
-assert.ok(doiNgu.includes('Lượt Act / MOC'), 'DoiNgu: the Unit phai co Luot Act / MOC')
-assert.ok(doiNgu.includes('Đủ MOC'), 'DoiNgu: the Unit phai co badge Du MOC / Thieu luot Act')
 assert.ok(doiNgu.includes('canUnit ? ('), 'DoiNgu: thanh chuyen che do chi render khi canUnit (an han nut Phong khi khong co quyen)')
-console.log('Phong: chi Admin / duoc cap quyen / UM-BM moi thay; the Unit co FYP, Act, MOC, IP phat hanh, pending')
+console.log('Phong: chi Admin / duoc cap quyen / UM-BM moi thay; the Unit co FYP, Luot Active, IP phat hanh, pending')
+
+// ── DoiNgu: chinh muc Phong theo chot 09/11/2026 (FYC + loc Leader + Luot Active cot BD, bo MOC) ──
+console.log('\n=== DoiNgu: Phong theo sheet Leader + Luot Active (cot BD) ===')
+// (2) Danh sach Phong chi gom Unit co trong sheet Leader
+assert.ok(parseDaily.includes('leaderUnits'), 'parseDaily: phai tra leaderUnits (UnitCode co trong sheet Leader)')
+assert.ok(parseDaily.includes("'#Active Agent (FYC) Unit'"), "parseDaily: phai doc cot '#Active Agent (FYC) Unit' (cot BD sheet Leader)")
+assert.ok(parseDaily.includes('activeFycUnit'), 'parseDaily: unit phai co truong activeFycUnit (so hoac null)')
+assert.ok(napDuLieu.includes('leaderUnits: parsed.leaderUnits'), 'NapDuLieu: payload luu snapshot phai gom leaderUnits')
+assert.ok(napDuLieu.includes('leaderUnits: base.data.leaderUnits'), 'NapDuLieu: luong gop Proposal rieng phai giu leaderUnits cua ban goc')
+assert.ok(team.includes('filterLeaderUnits'), 'team.js: phai co helper filterLeaderUnits cho muc Phong')
+assert.ok(team.includes('activeFycUnit: u && typeof u.activeFycUnit'), 'team.js: buildTeam phai truyen activeFycUnit vao unitView')
+assert.ok(doiNgu.includes('filterLeaderUnits(view.team.units, leaderUnits)'), 'DoiNgu: unitRows phai loc qua filterLeaderUnits theo leaderUnits cua snapshot')
+assert.ok(doiNgu.includes('Chỉ gồm các phòng có trong sheet Leader'), 'DoiNgu: dau muc Phong phai ghi ro chi gom phong co trong sheet Leader')
+console.log('Phong: loc theo leaderUnits (fallback snapshot cu giu nguyen danh sach — kiem chung o test-team)')
+// (3) Luot Active thay MOC o the Unit
+assert.ok(doiNgu.includes('Lượt Active'), 'DoiNgu: the Unit phai co nhan Luot Active')
+assert.ok(doiNgu.includes('số TVV Active theo FYC của phòng (theo sheet Leader)'), 'DoiNgu: phai co dong nguon giai thich Luot Active lay tu sheet Leader')
+assert.ok(doiNgu.includes('phòng hiện “–” là file chưa có số'), 'DoiNgu: dong nguon phai giai thich phong hien "–" la file chua co so')
+assert.ok(doiNgu.includes('u.activeFycUnit === null'), 'DoiNgu: activeFycUnit null phai hien "–" (khong hien 0)')
+assert.ok(!doiNgu.includes('Đủ MOC'), 'DoiNgu: the Unit KHONG con badge Du MOC')
+assert.ok(!doiNgu.includes('lượt Act</span>'), 'DoiNgu: the Unit KHONG con badge Thieu luot Act')
+assert.ok(!doiNgu.includes('Lượt Act / MOC'), 'DoiNgu: KHONG con nhan Luot Act / MOC')
+assert.ok(!doiNgu.includes('MOC_TARGET'), 'DoiNgu: KHONG con dung MOC_TARGET (moc /6 da bo o muc Phong)')
+assert.ok(!doiNgu.includes('số MOC chính thức'), 'DoiNgu: KHONG con ghi chu MOC uoc tinh o muc Phong')
+console.log('The Unit: Luot Active = cot BD sheet Leader (null -> "–"); da bo moc /6 + badge MOC + ghi chu uoc tinh')
+// (1) Dong TVV trong chi tiet Unit hien FYC thang thay FYP thang
+assert.ok(doiNgu.includes('FYC {fmtTr(a.fyc)} tr'), 'DoiNgu: dong TVV chi tiet Unit phai hien FYC thang (fmtTr(a.fyc))')
+assert.ok(!doiNgu.includes('FYP {fmtTr(a.fyp)} tr · Case Net'), 'DoiNgu: dong TVV chi tiet Unit KHONG con hien FYP thang')
+console.log('Chi tiet Unit: dong TVV hien FYC thang; nhom Active giu chuan Case Net')
 
 // ── Avatar toan cuc cho Admin + chi tiet Unit theo UM ──
 console.log('\n=== avatar Admin + drill-down Unit ===')

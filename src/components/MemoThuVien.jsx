@@ -5,13 +5,17 @@
 // len dau. Xem chi tiet: DOC FILE PDF TRUC TIEP trong khung nhung
 // + nut Tai ve, kem panel "Tom tat & diem can luu y".
 // Admin chinh dang memo: chi tai PDF goc len Firebase Storage,
-// metadata o Firestore `memos` (khong tach anh nua — Lan chot doi
-// sang doc truc tiep 08/11/2026 sau khi chunk tach anh bi 404 do
+// metadata o Firestore `memos` (khong tach anh de XEM nua — Lan chot
+// doi sang doc truc tiep 08/11/2026 sau khi chunk tach anh bi 404 do
 // ban deploy moi thay the asset cu). Memo cu nao da co anh trang
 // (pages[]) van xem dang anh nhu truoc.
+// Anh BIA thu vien: tu dong render TRANG 1 thanh JPEG (coverUrl)
+// ngay khi dang (lib/pdfCover, pdfjs import TINH — khong lazy chunk);
+// memo da dang thieu bia thi Admin mo chi tiet se tu bo sung 1 lan.
 // ─────────────────────────────────────────────────────────────
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { fetchMemos, uploadMemoPdf, createMemoDoc, deleteMemoEverywhere } from '../lib/store'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { fetchMemos, uploadMemoPdf, createMemoDoc, deleteMemoEverywhere, uploadMemoCover, setMemoCoverUrl, fetchMemoPdfBlob } from '../lib/store'
+import { renderPdfFirstPageToJpegBlob } from '../lib/pdfCover'
 import { AUDIENCES, audienceLabel, filterMemos, sortMemos, summaryLines } from '../lib/memoLib'
 
 const FILTERS = [{ code: 'all', label: 'Tất cả' }, ...AUDIENCES]
@@ -41,6 +45,9 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose, onOpenLogin }
   const [formErr, setFormErr] = useState('')
   const [notice, setNotice] = useState(null)
   const [deletingId, setDeletingId] = useState('')
+  // Trang thai tu tao anh bia trong man hinh chi tiet (chi Admin kich hoat)
+  const [coverState, setCoverState] = useState('')
+  const coverTriedRef = useRef(new Set())
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -102,12 +109,31 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose, onOpenLogin }
       createdAt: now.getTime(),
       createdBy: user?.email || '',
     })
+    if (!created.ok) { setBusy(''); setFormErr(created.error || 'Lưu thông tin memo không thành công.'); return }
+    // Tao anh bia tu TRANG 1 cua chinh File PDF vua dang (thao tac PHU:
+    // loi thi memo van dang thanh cong, chi kem ghi chu chua co bia).
+    setBusy('Đang tạo ảnh bìa từ trang 1 của PDF…')
+    let coverOk = false
+    try {
+      const coverBlob = await renderPdfFirstPageToJpegBlob(pdfFile)
+      if (coverBlob) {
+        const upCover = await uploadMemoCover(memoId, coverBlob)
+        if (upCover.ok) {
+          const savedCover = await setMemoCoverUrl(memoId, upCover.coverUrl)
+          coverOk = !!savedCover.ok
+        }
+      }
+    } catch (e) { console.warn('[MemoThuVien] tao bia khi dang:', e) }
     setBusy('')
-    if (!created.ok) { setFormErr(created.error || 'Lưu thông tin memo không thành công.'); return }
     setShowForm(false)
     setForm(emptyForm())
     setPdfFile(null)
-    setNotice({ type: 'success', text: `✓ Đã đăng memo “${form.title.trim()}”.` })
+    setNotice({
+      type: 'success',
+      text: coverOk
+        ? `✓ Đã đăng memo “${form.title.trim()}” kèm ảnh bìa trang 1.`
+        : `✓ Đã đăng memo “${form.title.trim()}”, nhưng chưa tạo được ảnh bìa — mở memo ra xem bằng tài khoản Admin, hệ thống sẽ tự tạo lại bìa.`,
+    })
     await reload()
   }
 
@@ -123,6 +149,40 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose, onOpenLogin }
     else if (res.docOk) setNotice({ type: 'error', text: `Đã xoá thông tin memo nhưng còn sót file: ${res.errors.join(' ')}` })
     else setNotice({ type: 'error', text: res.errors[0] || 'Xoá memo không thành công.' })
   }
+
+  // ── Tu bo sung anh bia cho memo DA DANG con thieu bia ──
+  // Chi Admin mo chi tiet moi kich hoat (rules ghi memo chi Admin):
+  // lay PDF goc qua Storage SDK -> render trang 1 -> tai cover.jpg ->
+  // ghi coverUrl vao doc -> thu vien/chi tiet hien bia ngay. Moi memo
+  // chi thu 1 lan trong phien (coverTriedRef) de tranh lap loi vo han.
+  useEffect(() => {
+    setCoverState('')
+    if (!isSuperAdmin || !selected) return undefined
+    const hasCover = !!(selected.coverUrl || (Array.isArray(selected.pages) && selected.pages[0]))
+    if (hasCover || !selected.pdfUrl || coverTriedRef.current.has(selected.id)) return undefined
+    coverTriedRef.current.add(selected.id)
+    let alive = true
+    setCoverState('making')
+    ;(async () => {
+      try {
+        const pdfBlob = await fetchMemoPdfBlob(selected.id)
+        const coverBlob = pdfBlob ? await renderPdfFirstPageToJpegBlob(pdfBlob) : null
+        if (!coverBlob) { if (alive) setCoverState('error'); return }
+        const up = await uploadMemoCover(selected.id, coverBlob)
+        if (!up.ok) { if (alive) setCoverState('error'); return }
+        const saved = await setMemoCoverUrl(selected.id, up.coverUrl)
+        if (!saved.ok) { if (alive) setCoverState('error'); return }
+        if (!alive) return
+        setMemos((prev) => prev.map((m) => (m.id === selected.id ? { ...m, coverUrl: up.coverUrl } : m)))
+        setSelected((cur) => (cur && cur.id === selected.id ? { ...cur, coverUrl: up.coverUrl } : cur))
+        setCoverState('done')
+      } catch (e) {
+        console.warn('[MemoThuVien] tu tao bia cho memo cu:', e)
+        if (alive) setCoverState('error')
+      }
+    })()
+    return () => { alive = false }
+  }, [selected, isSuperAdmin])
 
   // ── The memo trong luoi ──
   const renderCard = (m) => (
@@ -143,8 +203,8 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose, onOpenLogin }
         {m.pinned ? <span className="memo-chip pin">📌 Ghim mục</span> : null}
       </div>
       {m.displayDate ? <div className="memo-card-date">{m.displayDate}</div> : null}
-      {Array.isArray(m.pages) && m.pages[0]
-        ? <img className="memo-thumb" src={m.pages[0]} alt={m.title || 'Memo'} loading="lazy" />
+      {m.coverUrl || (Array.isArray(m.pages) && m.pages[0])
+        ? <img className="memo-thumb" src={m.coverUrl || m.pages[0]} alt={m.title || 'Memo'} loading="lazy" />
         : <div className="memo-thumb memo-thumb-empty">📄</div>}
       {m.fileName ? <div className="memo-card-file">{shortFileName(m.fileName)}</div> : null}
     </div>
@@ -175,6 +235,10 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose, onOpenLogin }
           </div>
         </div>
 
+        {coverState === 'making' ? <p className="muted" style={{ margin: '0 0 8px' }}>🖼 Đang tự tạo ảnh bìa từ trang 1 của memo này…</p> : null}
+        {coverState === 'done' ? <p className="muted" style={{ margin: '0 0 8px' }}>✓ Đã tạo ảnh bìa cho memo này — thẻ memo ngoài thư viện sẽ hiện trang 1 làm bìa.</p> : null}
+        {coverState === 'error' ? <p className="muted" style={{ margin: '0 0 8px' }}>Chưa tạo được ảnh bìa tự động cho memo này — vẫn xem PDF bình thường ở khung bên cạnh.</p> : null}
+
         <div className="memo-detail-grid">
           <aside className="memo-summary card">
             <button type="button" className="memo-summary-head" onClick={() => setSummaryOpen((o) => !o)}>
@@ -183,6 +247,9 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose, onOpenLogin }
             </button>
             {summaryOpen && (
               <div className="memo-summary-body">
+                {(selected.coverUrl || (Array.isArray(selected.pages) && selected.pages[0]))
+                  ? <img className="memo-detail-cover" src={selected.coverUrl || selected.pages[0]} alt={selected.title || 'Memo'} loading="lazy" />
+                  : null}
                 {selected.title ? <div className="memo-summary-title">{selected.title}</div> : null}
                 {sumLines.length > 0 && (
                   <>

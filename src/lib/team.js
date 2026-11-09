@@ -26,6 +26,11 @@
 //   moi TVV dat Act = 1 LUOT cho Unit cua ho.
 // KHONG tinh he so x2 cho TVV moi CL (Daily khong co du kien nay).
 // So MOC chinh thuc nam o file Compensation.
+// LUU Y 09/11/2026: THE UNIT o muc Phong KHONG con hien uoc tinh MOC
+// nua — hien "Luot Active" = activeFycUnit (cot '#Active Agent (FYC)
+// Unit' sheet Leader, parse o parseDaily). actCount/actNeed/actEnough
+// o day van tinh de phuc vu nhom Active (Case Net) trong CHI TIET Unit
+// va cac test/tong hop lib khac.
 // Don vi tien: trieu dong (nhu du lieu Daily).
 // ─────────────────────────────────────────────────────────────
 
@@ -40,8 +45,8 @@ const num = (v) => {
 
 /**
  * Gop snapshot + cases thanh cau truc Doi Ngu:
- * { units: [{ unit, leaderName, leaderCode, agentCount, fyp, fyc, actCount,
- *             actNeed, actEnough, agents: [agentView] }],
+ * { units: [{ unit, leaderName, leaderCode, activeFycUnit, agentCount,
+ *             fyp, fyc, actCount, actNeed, actEnough, agents: [agentView] }],
  *   totals: { unitCount, agentCount, actAgents, unitsEnough, fyp, fyc } }
  * agentView: { msdl, agName, unit, agSeg, level, fyp, fyc, nop, ph, pend,
  *              isAct, caseNet, fypYtd, fycQtd, fycL12m, tldtptt, ipSub, ipNet, caseSub,
@@ -100,6 +105,14 @@ export function buildTeam(snapshot, cases) {
         // leaderCode = MSDL cua truong Unit (sheet Leader): DoiNgu dung de
         // chi cho phep UM dung dau Unit do mo CHI TIET phong cua minh.
         leaderCode: (u && u.leaderCode) || '',
+        // activeFycUnit = cot '#Active Agent (FYC) Unit' (sheet Leader):
+        // so LUOT ACTIVE theo FYC cua Unit. null = file chua co so o Unit
+        // nay (UI hien "–"). The Unit o muc Phong hien so nay thay cho
+        // uoc tinh MOC (Lan chot 09/11/2026); actCount/actNeed/actEnough
+        // ben duoi van giu cho nhom Active cua chi tiet + tong hop lib.
+        activeFycUnit: u && typeof u.activeFycUnit === 'number' && Number.isFinite(u.activeFycUnit)
+          ? u.activeFycUnit
+          : null,
         agents: [],
       })
     }
@@ -169,6 +182,21 @@ export function buildTeam(snapshot, cases) {
     return String(x.unit).localeCompare(String(y.unit))
   })
   return { units, totals }
+}
+
+/**
+ * Loc danh sach Unit cho MUC PHONG: chi giu Unit CO TRONG sheet Leader
+ * (snapshot.data.leaderUnits — tap UnitCode parse tu sheet Leader, xem
+ * lib/parseDaily.js), tuc Unit co truong phong chinh thuc (Lan chot
+ * 09/11/2026). Unit chi co o sheet Agent (khong truong phong) bi loai.
+ * FALLBACK: snapshot cu chua co leaderUnits (nap truoc dot nay) -> tra
+ * nguyen danh sach, giu hanh vi cu de khong vo man hinh.
+ */
+export function filterLeaderUnits(units, leaderUnits) {
+  const list = units || []
+  if (!Array.isArray(leaderUnits) || leaderUnits.length === 0) return list
+  const set = new Set(leaderUnits.map((c) => String(c || '').trim().toUpperCase()))
+  return list.filter((u) => set.has(String((u && u.unit) || '').trim().toUpperCase()))
 }
 
 /** Lam phang: moi agentView cua moi Unit (da kem truong unit cua chinh no). */

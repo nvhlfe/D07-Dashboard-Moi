@@ -60,16 +60,59 @@ assert.deepStrictEqual(summaryLines(null), [])
 assert.deepStrictEqual(summaryLines('\n \n'), [])
 console.log('Bo dong rong + trim — dung')
 
-// ── Xem PDF truc tiep: KHONG con phu thuoc pdfjs-dist / pdfSplit ──
-// (Lan chot doi tu tach anh sang doc PDF truc tiep 08/11/2026 — chunk
-// tach anh bi 404 sau khi ban deploy moi thay the asset cu.)
-console.log('\n=== doc PDF truc tiep (khong pdfjs) ===')
+// ── Xem PDF truc tiep + anh bia tu dong tu trang 1 ──
+// XEM memo van doc PDF goc truc tiep (khung iframe) nhu Lan chot
+// 08/11/2026. RIENG anh bia thu vien duoc tao tu trang 1 bang
+// pdfjs-dist IMPORT TINH qua lib/pdfCover (KHONG React.lazy/dynamic
+// import nhu ban pdfSplit cu bi 404 chunk).
+console.log('\n=== xem PDF truc tiep + bia trang 1 (pdfjs tinh) ===')
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
-assert.ok(!pkg.dependencies || !pkg.dependencies['pdfjs-dist'], 'package.json KHONG con dependency pdfjs-dist')
+assert.ok(pkg.dependencies && pkg.dependencies['pdfjs-dist'], 'package.json CO dependency pdfjs-dist (dung cho tao bia)')
 const memoSrc = readFileSync(new URL('../src/components/MemoThuVien.jsx', import.meta.url), 'utf8')
 assert.ok(!memoSrc.includes('pdfSplit'), 'MemoThuVien khong con tham chieu pdfSplit')
 assert.ok(memoSrc.includes('uploadMemoPdf'), 'MemoThuVien dang bang uploadMemoPdf (chi tai PDF goc)')
 assert.ok(memoSrc.includes('memo-pdf-frame'), 'Man hinh chi tiet co khung xem PDF truc tiep')
-console.log('Da go pdfjs-dist + pdfSplit; dang/xem memo bang PDF goc truc tiep')
+
+// pdfCover: module rieng, import tinh, worker qua ?url
+const coverSrc = readFileSync(new URL('../src/lib/pdfCover.js', import.meta.url), 'utf8')
+assert.ok(coverSrc.includes("from 'pdfjs-dist'"), 'pdfCover import tinh pdfjs-dist')
+assert.ok(coverSrc.includes('pdf.worker.min.mjs?url'), 'pdfCover cau hinh worker qua ?url (chuan Vite)')
+assert.ok(coverSrc.includes('getDocument'), 'pdfCover dung getDocument de render trang 1')
+assert.ok(coverSrc.includes('renderPdfFirstPageToJpegBlob'), 'pdfCover export renderPdfFirstPageToJpegBlob')
+assert.ok(memoSrc.includes("from '../lib/pdfCover'"), 'MemoThuVien import tinh pdfCover')
+assert.ok(!memoSrc.includes("import('../lib/pdfCover')") && !memoSrc.includes("import('../lib/pdfSplit"), 'MemoThuVien KHONG dynamic-import pdfCover (tranh loi chunk 404 cu)')
+console.log('pdfCover import tinh + worker ?url — khong lazy chunk')
+
+// Thu vien: bia uu tien coverUrl truoc pages[0]
+assert.ok(memoSrc.includes('m.coverUrl || (Array.isArray(m.pages) && m.pages[0])'), 'The thu vien lay bia = coverUrl || pages[0]')
+assert.ok(memoSrc.includes('selected.coverUrl || selected.pages[0]'), 'Chi tiet hien bia = coverUrl || pages[0]')
+console.log('Thu vien + chi tiet: coverUrl uu tien truoc pages[0]')
+
+// Luong dang: sau khi upload PDF + tao doc thi moi tao bia tu File goc
+const iUpload = memoSrc.indexOf('uploadMemoPdf(memoId, pdfFile)')
+const iDoc = memoSrc.indexOf('createMemoDoc({')
+const iCoverRender = memoSrc.indexOf('renderPdfFirstPageToJpegBlob(pdfFile)')
+assert.ok(iUpload > -1 && iDoc > iUpload, 'Dang: upload PDF truoc, tao doc sau')
+assert.ok(iCoverRender > iDoc, 'Dang: tao bia SAU khi tao doc thanh cong')
+assert.ok(memoSrc.includes('uploadMemoCover(memoId, coverBlob)'), 'Dang: upload bia bang uploadMemoCover')
+assert.ok(memoSrc.includes('setMemoCoverUrl(memoId, upCover.coverUrl)'), 'Dang: ghi coverUrl vao doc sau khi upload bia')
+console.log('Luong dang: upload PDF -> tao doc -> render trang 1 -> upload cover -> ghi coverUrl')
+
+// Chi tiet: Admin mo memo thieu bia -> tu bo sung bia 1 lan qua SDK
+assert.ok(memoSrc.includes('fetchMemoPdfBlob(selected.id)'), 'Chi tiet lay PDF goc qua fetchMemoPdfBlob (Storage SDK, tranh CORS)')
+assert.ok(memoSrc.includes('coverTriedRef'), 'Chi tiet chi thu tao bia 1 lan/memo (coverTriedRef)')
+assert.ok(memoSrc.includes('uploadMemoCover(selected.id, coverBlob)'), 'Chi tiet upload bia bang uploadMemoCover')
+assert.ok(memoSrc.includes('setMemoCoverUrl(selected.id, up.coverUrl)'), 'Chi tiet ghi coverUrl vao doc')
+console.log('Chi tiet: tu bo sung bia cho memo cu thieu coverUrl (chi Admin kich hoat)')
+
+// store: du cac ham bia + xoa memo don ca cover.jpg
+const storeSrc = readFileSync(new URL('../src/lib/store.js', import.meta.url), 'utf8')
+assert.ok(storeSrc.includes('export async function uploadMemoCover'), 'store co uploadMemoCover')
+assert.ok(storeSrc.includes('memos/${memoId}/cover.jpg'), 'uploadMemoCover ghi vao memos/{id}/cover.jpg')
+assert.ok(storeSrc.includes('export async function setMemoCoverUrl'), 'store co setMemoCoverUrl')
+assert.ok(storeSrc.includes('export async function fetchMemoPdfBlob'), 'store co fetchMemoPdfBlob')
+assert.ok(storeSrc.includes('getBlob'), 'fetchMemoPdfBlob dung getBlob cua Storage SDK')
+assert.ok(storeSrc.includes('memos/${memo.id}/cover.jpg'), 'deleteMemoEverywhere xoa ca memos/{id}/cover.jpg')
+console.log('store: uploadMemoCover/setMemoCoverUrl/fetchMemoPdfBlob + xoa memo don cover.jpg')
 
 console.log('\n✅ TAT CA ASSERT DAT (test-memo)')

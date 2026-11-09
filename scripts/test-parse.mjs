@@ -71,3 +71,35 @@ function summarize(label, path, snapDate) {
 
 summarize('Daily 25.10', process.env.HOME + '/workspace/user/files/Daily_Sales_25.10.xlsx', '2026-10-25')
 summarize('Daily 11.10', process.env.HOME + '/workspace/user/files/Daily_Sales_11.10.xlsx', null)
+
+// ── leaderUnits + activeFycUnit (dot chinh muc Phong 09/11/2026) ──
+// leaderUnits = UnitCode co trong sheet Leader (muc Phong chi liet ke
+// cac Unit nay). activeFycUnit = cot '#Active Agent (FYC) Unit' cua Unit:
+// co so -> so; o trong -> null (UI hien "–", khong ep 0).
+// So doi soat dem DOC LAP bang openpyxl tu file tho:
+//   8.11: 20 Unit Leader · 6 Unit co so · tong = 7
+//   25.10: 21 Unit Leader · 10 Unit co so · tong = 15 · Unit 9CJ = 1
+function checkLeaderActive(label, path, expUnits, expWithNum, expTotal, exp9CJ) {
+  const p = loadAndParse(path)
+  assert.ok(Array.isArray(p.leaderUnits), `${label}: parse phai tra leaderUnits (mang UnitCode sheet Leader)`)
+  assert.strictEqual(p.leaderUnits.length, expUnits, `${label}: so Unit trong sheet Leader phai = ${expUnits}`)
+  assert.strictEqual(new Set(p.leaderUnits).size, p.leaderUnits.length, `${label}: leaderUnits khong duoc trung UnitCode`)
+  let withNum = 0; let total = 0
+  for (const code of p.leaderUnits) {
+    const u = p.units[code]
+    assert.ok(u, `${label}: Unit ${code} trong leaderUnits phai co mat trong units`)
+    assert.ok(u.activeFycUnit === null || (typeof u.activeFycUnit === 'number' && Number.isFinite(u.activeFycUnit)), `${label}: Unit ${code} activeFycUnit phai la so hoac null`)
+    if (u.activeFycUnit !== null) { withNum++; total += u.activeFycUnit }
+  }
+  assert.strictEqual(withNum, expWithNum, `${label}: so Unit co so o cot Active FYC Unit phai = ${expWithNum}`)
+  assert.strictEqual(total, expTotal, `${label}: tong cot Active FYC Unit phai = ${expTotal}`)
+  if (exp9CJ !== undefined) assert.strictEqual(p.units['9CJ'].activeFycUnit, exp9CJ, `${label}: Unit 9CJ activeFycUnit phai = ${exp9CJ}`)
+  // Unit chi co o sheet Agent (khong trong Leader) -> activeFycUnit null
+  for (const [code, u] of Object.entries(p.units)) {
+    if (!p.leaderUnits.includes(code)) assert.strictEqual(u.activeFycUnit, null, `${label}: Unit ${code} khong co trong Leader -> activeFycUnit phai null`)
+  }
+  console.log(`\n=== ${label}: leaderUnits = ${p.leaderUnits.length} · Unit co so Active FYC = ${withNum} · tong = ${total} ===`)
+}
+checkLeaderActive('Daily 8.11', process.env.HOME + '/workspace/user/files/Daily_Sales_8.11.xlsx', 20, 6, 7, undefined)
+checkLeaderActive('Daily 25.10', process.env.HOME + '/workspace/user/files/Daily_Sales_25.10.xlsx', 21, 10, 15, 1)
+console.log('\n✅ leaderUnits + activeFycUnit khop doi soat doc lap ca 2 file')

@@ -118,12 +118,12 @@ export default function NapDuLieu({ onSaved, user, snaps }) {
       const units = {}
       for (const [code, u] of Object.entries(base.data.units || {})) units[code] = { ...u, cIF: 0, cPS: 0, cOther: 0 }
       for (const a of Object.values(agents)) {
-        if (!units[a.unit]) units[a.unit] = { unit: a.unit, leaderName: '', agSeg: '', manpower: 0, caseSubUnit: 0, caseNetUnit: 0, apeSubUnit: 0, apeNetUnit: 0, ipSubUnit: 0, ipNetUnit: 0, cIF: 0, cPS: 0, cOther: 0 }
+        if (!units[a.unit]) units[a.unit] = { unit: a.unit, leaderName: '', leaderCode: '', agSeg: '', manpower: 0, caseSubUnit: 0, caseNetUnit: 0, apeSubUnit: 0, apeNetUnit: 0, activeFycUnit: null, ipSubUnit: 0, ipNetUnit: 0, cIF: 0, cPS: 0, cOther: 0 }
         const u = units[a.unit]
         u.cIF += a.cIF; u.cPS += a.cPS; u.cOther += a.cOther
       }
       const payload = {
-        agents, units,
+        agents, units, leaderUnits: base.data.leaderUnits,
         proposalRows: newRows,
         pendingRows: base.data.pendingRows || [], pipelineRows: base.data.pipelineRows || [],
       }
@@ -152,7 +152,7 @@ export default function NapDuLieu({ onSaved, user, snaps }) {
     setSaving(true)
     try {
       const payload = {
-        agents: parsed.agents, units: parsed.units,
+        agents: parsed.agents, units: parsed.units, leaderUnits: parsed.leaderUnits,
         proposalRows: parsed.proposalRows, pendingRows: parsed.pendingRows, pipelineRows: parsed.pipelineRows,
       }
       const local = saveLocalSnapshot(dataDate, fileName, payload)

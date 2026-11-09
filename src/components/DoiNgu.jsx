@@ -27,10 +27,17 @@
 // Admin mo moi Unit; nguoi khac CHI mo Unit minh dung dau (MSDL trung
 // leaderCode cua Unit) — trong chi tiet liet ke TVV theo 2 nhom
 // Dang Active / Chua Active (Active = caseNet > 0 nhu toan app).
+// DOT CHINH PHONG 09/11/2026 (Lan chot sau doi soat 2 file that):
+// (1) dong TVV trong chi tiet Unit hien FYC thang thay FYP thang;
+// (2) muc Phong CHI liet ke Unit co trong sheet Leader (leaderUnits);
+// (3) the Unit BO badge/moc MOC — hien "Luot Active" = cot
+// '#Active Agent (FYC) Unit' cua sheet Leader (activeFycUnit),
+// chua co so thi hien "–". Nhom Active trong chi tiet GIU chuan
+// Case Net nhu cu.
 // ─────────────────────────────────────────────────────────────
 import React, { useMemo, useState } from 'react'
 import { buildCases } from '../lib/cases'
-import { buildTeam, rankAgents, flattenAgents, MOC_TARGET } from '../lib/team'
+import { buildTeam, rankAgents, flattenAgents, filterLeaderUnits } from '../lib/team'
 import { maskSensitive } from '../lib/analyze'
 import { isSuperAdmin, emailToMsdl, canViewUnitSection } from '../lib/firebaseConfig'
 
@@ -165,18 +172,22 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
   const mode = viewMode === 'unit' && canUnit ? 'unit' : 'personal'
 
   // Danh sach Unit cho muc Phong: tai dung buildTeam (da co leaderName,
-  // agentCount, fyp, actCount, actNeed, actEnough + bar tung TVV), cong
-  // don IP phat hanh / gia tri pending theo groupValue, sap xep FYP giam dan.
+  // agentCount, fyp, activeFycUnit + bar tung TVV), cong don IP phat hanh /
+  // gia tri pending theo groupValue, sap xep FYP giam dan.
+  // CHI LIET KE Unit co trong sheet Leader (snapshot.data.leaderUnits —
+  // Unit co truong phong chinh thuc; Lan chot 09/11/2026). Snapshot cu
+  // khong co leaderUnits thi filterLeaderUnits tra nguyen danh sach.
   const unitRows = useMemo(() => {
     if (!view) return []
-    return view.team.units
+    const leaderUnits = (newest && newest.data && newest.data.leaderUnits) || null
+    return filterLeaderUnits(view.team.units, leaderUnits)
       .map((u) => ({
         ...u,
         ipIssued: u.agents.reduce((s, a) => s + ((a.bar && a.bar.issued) || 0), 0),
         pendValue: u.agents.reduce((s, a) => s + ((a.bar && a.bar.pending) || 0), 0),
       }))
       .sort((x, y) => y.fyp - x.fyp || String(x.unit).localeCompare(String(y.unit)))
-  }, [view])
+  }, [view, newest])
 
   if (loading) {
     return <div className="card empty"><div className="e-ic">⏳</div>Đang tải dữ liệu…</div>
@@ -323,9 +334,10 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
   }
 
   // 1 dong TVV trong CHI TIET Unit: avatar (anh that neu co trong
-  // avatarMap, khong thi chu cai dau) + ten + phan loai + MSDL + FYP
-  // thang + Case Net + IP phat hanh; badge theo isAct (caseNet > 0 —
-  // dinh nghia Active dung chung toan app, xem lib/team.js).
+  // avatarMap, khong thi chu cai dau) + ten + phan loai + MSDL + FYC
+  // thang (Lan chot 09/11/2026: FYC thay FYP o dong nay) + Case Net +
+  // IP phat hanh; badge theo isAct (caseNet > 0 — dinh nghia Active
+  // dung chung toan app, xem lib/team.js).
   const renderUnitMember = (a) => (
     <div className="tvv-row" key={a.msdl}>
       <span className={`bv-avatar unit-av ${AVATAR_CLASS[segKey(a.agSeg)]}`}>
@@ -339,7 +351,7 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
           {a.agSeg ? <span className="seg-chip">{a.agSeg}</span> : null}
         </span>
         <span className="tvv-nums">
-          MSĐL {a.msdl} · FYP {fmtTr(a.fyp)} tr · Case Net {fmtInt(a.caseNet)} · IP phát hành {fmtTr(a.ipNet)} tr
+          MSĐL {a.msdl} · FYC {fmtTr(a.fyc)} tr · Case Net {fmtInt(a.caseNet)} · IP phát hành {fmtTr(a.ipNet)} tr
         </span>
       </span>
       <span className={`act-badge ${a.isAct ? 'ok' : 'no'}`}>{a.isAct ? '✓ Active' : 'Chưa Active'}</span>
@@ -368,9 +380,6 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
             {u.leaderName ? <span className="muted" style={{ display: 'block' }}>Trưởng phòng: {u.leaderName}</span> : null}
           </span>
           <span className="unit-head-right">
-            {u.actEnough
-              ? <span className="pill pill-ok">✓ Đủ MOC</span>
-              : <span className="pill pill-warn">Thiếu {fmtInt(u.actNeed)} lượt Act</span>}
             {openable
               ? <span className="unit-open-hint">{open ? 'Thu gọn ▴' : 'Xem chi tiết ▾'}</span>
               : <span className="unit-lock" title="Chỉ Trưởng phòng của Unit này mới xem được chi tiết TVV">🔒</span>}
@@ -379,7 +388,7 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
         <div className="mini-stats" style={{ margin: '10px 0' }}>
           <div className="mini-stat"><div className="ms-num">{fmtInt(u.agentCount)}</div><div className="ms-label">TVV</div></div>
           <div className="mini-stat"><div className="ms-num">{fmtTr(u.fyp)}</div><div className="ms-label">FYP tháng (tr)</div></div>
-          <div className="mini-stat"><div className="ms-num">{fmtInt(u.actCount)}/{MOC_TARGET}</div><div className="ms-label">Lượt Act / MOC</div></div>
+          <div className="mini-stat"><div className="ms-num">{u.activeFycUnit === null || u.activeFycUnit === undefined ? '–' : fmtInt(u.activeFycUnit)}</div><div className="ms-label">Lượt Active</div></div>
         </div>
         <div className="unit-nums">
           <span>TVV đạt Act: <b>{fmtInt(u.actCount)}/{fmtInt(u.agentCount)}</b></span>
@@ -430,8 +439,8 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
           <div className="card">
             <h2>🏢 Phòng (Unit) — tháng {month}/{year}</h2>
             <div className="muted">
-              Lượt Act / MOC tự tính từ Daily Sales (ước tính) — ngưỡng MOC ≥ {MOC_TARGET} lượt/Unit;
-              số MOC chính thức nằm ở file Compensation.
+              Chỉ gồm các phòng có trong sheet Leader (có trưởng phòng).
+              Lượt Active: số TVV Active theo FYC của phòng (theo sheet Leader); phòng hiện “–” là file chưa có số.
             </div>
           </div>
           {unitNotice ? (

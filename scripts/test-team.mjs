@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs'
 import assert from 'node:assert'
 import { parseWorkbook } from '../src/lib/parseDaily.js'
 import { buildCases } from '../src/lib/cases.js'
-import { buildTeam, flattenAgents, rankAgents, MOC_TARGET } from '../src/lib/team.js'
+import { buildTeam, flattenAgents, rankAgents, filterLeaderUnits, MOC_TARGET } from '../src/lib/team.js'
 
 const path = process.env.HOME + '/workspace/user/files/Daily_Sales_25.10.xlsx'
 const wb = XLSX.read(readFileSync(path), { type: 'buffer', cellDates: false })
@@ -143,6 +143,37 @@ console.log(`TVV nhieu pending nhat: ${topPend.agName} (${topPend.unit}) = ${top
 assert.strictEqual(topPend.pendingCases.length, psByMsdl.get(topPend.msdl) || 0, 'pendingCases cua TVV nhieu pending nhat phai khop so case PS dem truc tiep tu buildCases')
 assert.strictEqual(flat.reduce((s, a) => s + a.pendingCases.length, 0), directPend, 'Tong pendingCases toan GA phai = tong case PS cua buildCases')
 assert.ok(flat.every((a) => a.pendingCases.every((pc) => typeof pc.proposalNum === 'string' && Array.isArray(pc.pendingReasons))), 'pendingCases phai co proposalNum + pendingReasons (mang)')
+
+// ── Muc Phong: loc theo sheet Leader + Luot Active cot BD (09/11/2026) ──
+// unitView cua buildTeam phai mang activeFycUnit tu data.units (so/null).
+assert.ok(team.units.every((u) => u.activeFycUnit === null || (typeof u.activeFycUnit === 'number' && Number.isFinite(u.activeFycUnit))), 'unitView phai co activeFycUnit la so hoac null')
+for (const u of team.units) {
+  const src = parsed.units[u.unit]
+  const exp = src && typeof src.activeFycUnit === 'number' ? src.activeFycUnit : null
+  assert.strictEqual(u.activeFycUnit, exp, `Unit ${u.unit}: activeFycUnit cua buildTeam phai khop data.units`)
+}
+assert.strictEqual(team.units.find((u) => u.unit === '9CJ').activeFycUnit, 1, "Unit 9CJ (25.10): activeFycUnit phai = 1 (cot '#Active Agent (FYC) Unit' sheet Leader)")
+const sumActFyc25 = team.units.reduce((s, u) => s + (u.activeFycUnit || 0), 0)
+assert.strictEqual(sumActFyc25, 15, 'Tong activeFycUnit toan GA file 25.10 phai = 15 (doi soat doc lap tu file tho)')
+// Loc muc Phong: 25.10 con 21 Unit (chi Unit co trong sheet Leader).
+const shown25 = filterLeaderUnits(team.units, parsed.leaderUnits)
+assert.strictEqual(shown25.length, 21, 'Muc Phong file 25.10: sau loc theo Leader phai con 21 Unit')
+assert.ok(shown25.every((u) => parsed.leaderUnits.includes(u.unit)), 'Moi Unit hien o muc Phong phai co trong leaderUnits')
+console.log(`Muc Phong 25.10: ${team.units.length} Unit (buildTeam) -> loc Leader con ${shown25.length} · tong Luot Active (cot BD) = ${sumActFyc25}`)
+// Fallback snapshot cu (khong co leaderUnits): giu nguyen danh sach.
+assert.strictEqual(filterLeaderUnits(team.units, undefined).length, team.units.length, 'Thieu leaderUnits (snapshot cu) -> fallback giu nguyen danh sach Unit')
+assert.strictEqual(filterLeaderUnits(team.units, []).length, team.units.length, 'leaderUnits rong -> fallback giu nguyen danh sach Unit')
+assert.strictEqual(filterLeaderUnits(team.units, null).length, team.units.length, 'leaderUnits null -> fallback giu nguyen danh sach Unit')
+// File 8.11: loc con 20 Unit, tong Luot Active = 7.
+const wb811 = XLSX.read(readFileSync(process.env.HOME + '/workspace/user/files/Daily_Sales_8.11.xlsx'), { type: 'buffer', cellDates: false })
+const parsed811 = parseWorkbook(wb811)
+const snap811 = { id: '2026-11-08', data: parsed811 }
+const team811 = buildTeam(snap811, buildCases(snap811))
+const shown811 = filterLeaderUnits(team811.units, parsed811.leaderUnits)
+const sumActFyc811 = team811.units.reduce((s, u) => s + (u.activeFycUnit || 0), 0)
+assert.strictEqual(shown811.length, 20, 'Muc Phong file 8.11: sau loc theo Leader phai con 20 Unit')
+assert.strictEqual(sumActFyc811, 7, 'Tong activeFycUnit toan GA file 8.11 phai = 7 (doi soat doc lap tu file tho)')
+console.log(`Muc Phong 8.11: ${team811.units.length} Unit (buildTeam) -> loc Leader con ${shown811.length} · tong Luot Active (cot BD) = ${sumActFyc811}`)
 
 console.log('Top Unit theo luot Act:', [...team.units].sort((x, y) => y.actCount - x.actCount).slice(0, 3).map((u) => `${u.unit}:${u.actCount}/${MOC_TARGET}`).join(' · '))
 console.log(`TVV chua co ho so (nop=0): ${flat.filter((a) => a.nop === 0).length}`)

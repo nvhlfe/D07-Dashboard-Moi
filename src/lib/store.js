@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────
 import { initializeApp, getApps } from 'firebase/app'
 import { getFirestore, doc, collection, setDoc, getDoc, getDocs, addDoc, deleteDoc, query, orderBy } from 'firebase/firestore'
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject, getBlob } from 'firebase/storage'
 import { resolveFirebaseConfig } from './firebaseConfig'
 
 export const SNAP_KEY = 'd07moi_snapshots'
@@ -485,6 +485,55 @@ export async function uploadMemoPdf(memoId, pdfFile) {
   }
 }
 
+/**
+ * Tai anh bia (JPEG trang 1) cua memo len Storage memos/{id}/cover.jpg.
+ * Tra { ok, coverUrl } hoac { ok: false, error }. Tao bia la thao tac PHU
+ * (sau khi da dang PDF thanh cong) — loi o day khong lam hong memo.
+ */
+export async function uploadMemoCover(memoId, blob) {
+  const st = getFirebaseStorage()
+  if (!st) return { ok: false, error: `Chưa kết nối được kho lưu trữ (Storage). ${MEMO_ERR_HINT}` }
+  if (!memoId || !blob) return { ok: false, error: 'Thiếu dữ liệu để tải ảnh bìa memo.' }
+  try {
+    const coverRef = storageRef(st, `memos/${memoId}/cover.jpg`)
+    await uploadBytes(coverRef, blob, { contentType: 'image/jpeg' })
+    const coverUrl = await getDownloadURL(coverRef)
+    return { ok: true, coverUrl }
+  } catch (e) {
+    console.warn('[store] uploadMemoCover:', e)
+    return { ok: false, error: memoErrMsg(e, 'Tải ảnh bìa memo lên không thành công.') }
+  }
+}
+
+/** Ghi/ghi de truong coverUrl vao doc memos/{id} (merge, giu nguyen cac truong khac). */
+export async function setMemoCoverUrl(memoId, coverUrl) {
+  const fs = getFirebaseFs()
+  if (!fs || !memoId || !coverUrl) return { ok: false, error: 'Thiếu dữ liệu để lưu ảnh bìa memo.' }
+  try {
+    await setDoc(doc(fs, 'memos', memoId), { coverUrl }, { merge: true })
+    return { ok: true }
+  } catch (e) {
+    console.warn('[store] setMemoCoverUrl:', e)
+    return { ok: false, error: memoErrMsg(e, 'Lưu ảnh bìa memo không thành công.') }
+  }
+}
+
+/**
+ * Lay Blob PDF goc cua memo qua Firebase Storage SDK (getBlob theo ref)
+ * — dung de tu tao bia cho memo da dang thieu coverUrl. Dung SDK thay vi
+ * fetch URL tho de tranh vuong CORS cua bucket. Tra Blob hoac null.
+ */
+export async function fetchMemoPdfBlob(memoId) {
+  const st = getFirebaseStorage()
+  if (!st || !memoId) return null
+  try {
+    return await getBlob(storageRef(st, `memos/${memoId}/original.pdf`))
+  } catch (e) {
+    console.warn('[store] fetchMemoPdfBlob:', e)
+    return null
+  }
+}
+
 /** Tao doc Firestore memos/{id} (id do UI tu sinh) — tra { ok, id } hoac { ok: false, error }. */
 export async function createMemoDoc(data) {
   const fs = getFirebaseFs()
@@ -522,7 +571,7 @@ export async function deleteMemoEverywhere(memo) {
   }
   const st = getFirebaseStorage()
   if (st) {
-    const paths = [memo?.pdfPath, ...(Array.isArray(memo?.pagePaths) ? memo.pagePaths : [])].filter(Boolean)
+    const paths = [memo?.pdfPath, ...(Array.isArray(memo?.pagePaths) ? memo.pagePaths : []), memo?.id ? `memos/${memo.id}/cover.jpg` : null].filter(Boolean)
     for (const p of paths) {
       try { await deleteObject(storageRef(st, p)) } catch (e) {
         if (!String(e?.code || '').includes('object-not-found')) {
