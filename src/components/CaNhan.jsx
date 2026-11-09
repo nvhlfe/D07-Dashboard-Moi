@@ -386,9 +386,11 @@ export default function CaNhan({ snaps, loading, user, profile, onProfileUpdate 
           </div>
 
           {/* ── Ho so cua chinh minh theo 3 nhom ── */}
-          {renderGroup('✅ Phát hành', view.issued)}
-          {renderGroup('⏳ Pending', view.pending)}
-          {renderGroup('🌱 Chưa lên phí', view.pipeline)}
+          <div className="me-groups">
+            {renderGroup('✅ Phát hành', view.issued)}
+            {renderGroup('⏳ Pending', view.pending)}
+            {renderGroup('🌱 Chưa lên phí', view.pipeline)}
+          </div>
         </>
       )}
     </div>

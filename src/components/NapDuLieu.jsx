@@ -209,7 +209,7 @@ export default function NapDuLieu({ onSaved, user, snaps }) {
   )
 
   return (
-    <div>
+    <div className="nap-wrap">
       <div className="card">
         <h2>📥 Nạp file Daily Sales</h2>
         <div

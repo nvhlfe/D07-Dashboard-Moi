@@ -324,9 +324,9 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
       </div>
       {filteredAll.length === 0 && <div className="card empty"><div className="e-ic">🔍</div>Không có hồ sơ nào khớp bộ lọc.</div>}
       {isPendingView
-        ? pendingFlat.map(renderCard)
+        ? (<div className="sr-flat-grid">{pendingFlat.map(renderCard)}</div>)
         : dayGroups.map((g) => (
-          <div key={g.key || 'nodate'}>
+          <div className="day-group" key={g.key || 'nodate'}>
             <div className="day-head">
               📅 {g.key ? fmtDateVN(g.key) : 'Không rõ ngày nộp'} — {g.items.length} hồ sơ · {fmtTr(g.total)} tr
             </div>

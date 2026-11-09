@@ -677,3 +677,123 @@ button.unit-head { font-family: inherit; }
   font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer;
 }
 .memo-check input { width: 19px; height: 19px; accent-color: var(--primary); flex-shrink: 0; }
+
+/* ══ RESPONSIVE 3 MUC THIET BI (09/11/2026 — Lan yeu cau: xem tren
+   laptop ra giao dien laptop, pad trung gian, phone giu nguyen) ════
+   Phone <640px: GIU NGUYEN 100% — toan bo rule cua dot nay nam trong
+   @media (min-width: ...), KHONG sua bat ky rule goc nao ngoai media
+   query. Cac wrapper .home-2col / .bv-list / .unit-grid / .day-group /
+   .sr-flat-grid / .me-groups / .nap-wrap la div khoi THUONG o phone
+   (khong co rule ngoai media query) nen khong doi giao dien phone.
+   Pad 640–1023px: khung noi rong toi ~880px noi dung, vai luoi gian.
+   Laptop >=1024px: thanh tab day -> SIDEBAR doc trai co dinh 232px
+   bang CSS thuan (.bottom-nav von position:fixed nen chi doi vi tri/
+   kich thuoc, khong doi DOM); header + noi dung dich phai theo
+   padding cua .app-shell, noi dung toi da 1240px. */
+
+@media (min-width: 640px) {
+  /* Khung: noi rong — noi dung toi da ~880px, can giua */
+  .app-shell { max-width: 912px; padding-left: 16px; padding-right: 16px; }
+  .bottom-nav .inner { max-width: 880px; }
+
+  /* KPI: giu 2x2 nhung rong rai hon (1 hang 4 o chi o >=1024px) */
+  .kpi-grid { gap: 14px; }
+  .kpi { padding: 16px 14px; }
+  .kpi .k-val { font-size: 25px; }
+
+  /* Bang Vang: giu 1 cot, thoang hon + so to lon hon mot nac */
+  .bv-card { padding: 20px 18px 14px; }
+  .bv-row { padding: 4px 8px; }
+  .bv-total-num { font-size: 22px; }
+
+  /* Luoi chi so (trang Ca nhan + chi tiet TVV trong Bang Vang): 3 cot */
+  .bv-ref-grid { grid-template-columns: repeat(3, 1fr); }
+
+  /* Muc Phong: the Unit 2 cot; the dang mo chi tiet chiem tron hang
+     de bang TVV ben trong khong bi bop ngang */
+  .unit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+  .unit-grid .unit-card { margin-bottom: 0; }
+  .unit-grid .unit-card:has(.unit-detail) { grid-column: 1 / -1; }
+
+  /* Thu vien Memo: 3 cot */
+  .memo-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 1024px) {
+  /* ── Sidebar trai co dinh 232px ──
+     .app-shell max-width = 232 (sidebar) + 28 (khoang) + 1240 (noi
+     dung) + 28 (le phai) = 1528px. Sidebar dinh sat ME TRAI cua shell
+     bang left: max(0px, 50vw - 764px): man hinh vua shell thi left = 0,
+     man cuc rong thi shell can giua o dau sidebar o do. */
+  .app-shell { max-width: 1528px; padding: 0 28px 40px 260px; }
+  .bottom-nav {
+    left: max(0px, calc(50vw - 764px)); right: auto; top: 0; bottom: 0;
+    width: 232px; padding: 18px 12px;
+    border-top: none; border-right: 1px solid var(--border);
+    box-shadow: 4px 0 18px rgba(11, 42, 74, 0.06);
+  }
+  /* .inner o App.jsx co inline grid-template-columns — khi chuyen sang
+     flex cot thi thuoc tinh do bi bo qua, nut xep doc gon gang. */
+  .bottom-nav .inner {
+    display: flex; flex-direction: column; gap: 4px;
+    max-width: none; width: 100%; margin: 0;
+  }
+  .nav-btn {
+    flex-direction: row; justify-content: flex-start; gap: 11px;
+    width: 100%; min-height: 47px; margin: 0; padding: 10px 14px;
+    font-size: 13.5px; text-align: left;
+  }
+  .nav-btn .ic { font-size: 19px; }
+  /* Cham do cua tab dang chon: tu tren-giua (ban day) -> trai-giua */
+  .nav-btn.active::before { left: 6px; top: 50%; transform: translateY(-50%); }
+
+  /* Co chu: tieu de muc + so to tang ~10–15%, chu noi dung giu nguyen */
+  .app-header h1 { font-size: 26px; }
+  .card h2 { font-size: 17px; }
+  .big-num { font-size: 31px; }
+  .kpi .k-val { font-size: 26px; }
+  .bv-total-num { font-size: 24px; }
+  .hero .cd-big { font-size: 58px; }
+  .memo-title { font-size: 21px; }
+  .me-name { font-size: 21px; }
+  .unit-name { font-size: 17px; }
+
+  /* Trang Chu: KPI 1 hang 4 o */
+  .kpi-grid { grid-template-columns: repeat(4, 1fr); }
+  /* Top 5 + Nhip nop: 2 cot canh nhau; warn-box (khi co) nam duoi,
+     chiem tron hang. Top 5 la con dau, Nhip nop la con cuoi cua
+     .home-2col — gan o bang first/last-child de khoi them class. */
+  .home-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; align-items: start; }
+  .home-2col > :first-child { grid-column: 1; grid-row: 1; }
+  .home-2col > :last-child { grid-column: 2; grid-row: 1; }
+  .home-2col > .warn-box { grid-column: 1 / -1; grid-row: 2; }
+
+  /* Tinh Anh — Bang Vang: luoi 2 cot; hang dang mo chi tiet tron hang */
+  .bv-list { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 18px; align-items: start; }
+  .bv-list .bv-row:has(.bv-expand) { grid-column: 1 / -1; }
+  /* Muc Phong: 2–3 cot tu dong theo be rong con lai (the >=340px) */
+  .unit-grid { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+
+  /* Sales Report: the ho so 2 cot theo nhom ngay (header ngay chiem
+     tron hang) + danh sach phang o che do Pending cung 2 cot.
+     Luu y: .day-head trong grid khong con sticky nhu ban phone —
+     moi nhom ngay tren desktop ngan hon nen chap nhan duoc. */
+  .day-group { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; align-items: start; }
+  .day-group .day-head { grid-column: 1 / -1; }
+  .sr-flat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; align-items: start; }
+
+  /* Thu vien Memo: 4 cot */
+  .memo-grid { grid-template-columns: repeat(4, 1fr); }
+
+  /* Trang Ca nhan: luoi chi so 4 cot; 3 nhom ho so canh nhau */
+  .bv-ref-grid { grid-template-columns: repeat(4, 1fr); }
+  .me-groups { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 14px; align-items: start; }
+
+  /* Nap du lieu: cac the 2 cot; the tai file (the dau) chiem tron hang */
+  .nap-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; align-items: start; }
+  .nap-wrap > .card:first-child { grid-column: 1 / -1; }
+
+  /* Modal: hien giua man hinh thay vi sheet day tu duoi nhu phone */
+  .modal-overlay { align-items: center; padding: 24px; }
+  .modal-sheet { border-radius: 22px; max-width: 640px; }
+}

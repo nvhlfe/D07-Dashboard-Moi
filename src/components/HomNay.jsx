@@ -258,6 +258,10 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
         </div>
       </div>
 
+      {/* ── Top 5 TVV + Nhịp nộp: boc chung .home-2col de desktop
+          >=1024px xep 2 cot canh nhau bang CSS; o phone/tablet wrapper
+          la div khoi thuong nen giao dien giu nguyen 100%. ── */}
+      <div className="home-2col">
       {/* ── Top 5 TVV ── */}
       <div className="card">
         <h2>🏆 Bảng Vàng — Top 5 TVV phát hành</h2>
@@ -295,6 +299,7 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
             <>📅 Ngày <b>{selDM}</b>: chưa có hồ sơ nộp trong dữ liệu hiện tại.</>
           )}
         </div>
+      </div>
       </div>
 
       {/* ── Hanh trinh nam: cot FYP + duong so TVV Active theo thang ── */}

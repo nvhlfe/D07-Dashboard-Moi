@@ -535,7 +535,7 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
           ) : null}
           {unitRows.length === 0 ? (
             <div className="card empty"><div className="e-ic">📭</div>Chưa có Unit nào trong dữ liệu tháng này.</div>
-          ) : shownUnitRows.map(renderUnitCard)}
+          ) : (<div className="unit-grid">{shownUnitRows.map(renderUnitCard)}</div>)}
         </>
       ) : (
       <>
@@ -583,7 +583,7 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
           <div className="muted" style={{ padding: '10px 0' }}>
             {query ? 'Không thấy TVV nào khớp.' : 'Chưa có TVV nào có số liệu trong tháng này.'}
           </div>
-        ) : display.map(renderRow)}
+        ) : (<div className="bv-list">{display.map(renderRow)}</div>)}
         {!query && hiddenCount > 0 ? (
           <div className="muted" style={{ paddingTop: 10 }}>… và {fmtInt(hiddenCount)} TVV chưa có số liệu tháng này</div>
         ) : null}
