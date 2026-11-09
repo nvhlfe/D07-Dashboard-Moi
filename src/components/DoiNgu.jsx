@@ -3,7 +3,9 @@
 // DOT LAM LAI THEO MAU D03 (Lan gui anh Bang Vang + bang chi so TVV,
 // 08/11/2026): bo cach hien theo NHOM Unit/xo nhom + MOC, chuyen sang
 // DANH SACH TVV XEP HANG kieu BANG VANG:
-//  - Moi TVV: avatar chu cai dau (mau theo phan loai AGSeg), huy hieu
+//  - Moi TVV: avatar (anh that qua avatarMap neu co — Admin chinh thay
+//    cua MOI TVV, nguoi thuong chi thay cua chinh minh; chua co anh thi
+//    chu cai dau mau theo phan loai AGSeg), huy hieu
 //    top 3, ten + "{Unit} · {Phan loai}", THANH XEP CHONG 3 nhom gia tri
 //    (Phat hanh tim / Pending hong / Chua len phi xanh duong — tinh bang
 //    groupValue cua lib/cases), tong gia tri + so HS (Case Sub) ben phai.
@@ -17,8 +19,14 @@
 // DOT 09/11/2026 (Lan yeu cau): them MUC PHONG (Unit) trong cung tab —
 // thanh chuyen che do [Ca nhan | Phong]; muc Phong KHOA theo quyen
 // (Admin chinh / duoc cap canViewUnit / UM-BM tu nhan dien qua Daily),
-// khong co quyen thi an han nut Phong. Chi xem chi so Unit, khong
-// drill-down tung TVV trong dot nay.
+// khong co quyen thi an han nut Phong.
+// DOT BO SUNG 09/11/2026 (Lan phan hoi ban live): (1) Admin chinh thay
+// AVATAR that cua moi TVV o Tinh Anh qua avatarMap (App xay tu
+// fetchAllProfiles; ban dau chi hang cua chinh user moi co anh vi chi
+// doc duoc profile cua minh). (2) The Unit BAM MO CHI TIET (accordion):
+// Admin mo moi Unit; nguoi khac CHI mo Unit minh dung dau (MSDL trung
+// leaderCode cua Unit) — trong chi tiet liet ke TVV theo 2 nhom
+// Dang Active / Chua Active (Active = caseNet > 0 nhu toan app).
 // ─────────────────────────────────────────────────────────────
 import React, { useMemo, useState } from 'react'
 import { buildCases } from '../lib/cases'
@@ -70,7 +78,7 @@ const initials = (name) => {
   return (parts[parts.length - 2].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
 }
 
-export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuperAdmin: adminProp, onOpenLogin }) {
+export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuperAdmin: adminProp, onOpenLogin, avatarMap = {} }) {
   // So Policy DAY DU: Admin chinh (moi hang) + CHINH TVV do o hang cua
   // minh (Lan yeu cau 09/11/2026: xem day du so ho so trong data cua
   // minh); cac truong hop con lai che con 2 so cuoi.
@@ -85,6 +93,10 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
   // Thong bao khi bam vao TVV ma minh khong co quyen mo chi tiet:
   // 'login' = chua dang nhap, 'own' = da dang nhap nhung khong phai chinh minh.
   const [gateNotice, setGateNotice] = useState('')
+  // Chi tiet Unit (muc Phong): ma Unit dang mo accordion + co thong bao
+  // khi bam vao Unit khong phai phong minh phu trach.
+  const [openUnitCode, setOpenUnitCode] = useState('')
+  const [unitNotice, setUnitNotice] = useState(false)
 
   // ── Rules mo chi tiet TVV (Lan chot 08/11/2026) ──
   // Chua dang nhap: chi xem danh sach tong quan, khong mo duoc ai.
@@ -94,6 +106,28 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
   const viewerMsdl = String((profile && profile.msdl) || emailToMsdl(user && user.email) || '').trim().toUpperCase()
   const isMine = (a) => !!viewerMsdl && String(a.msdl || '').trim().toUpperCase() === viewerMsdl
   const canOpenRow = (a) => isAdmin || (!!user && isMine(a))
+
+  // Avatar that theo MSDL (avatarMap do App truyen xuong): Admin chinh
+  // co map cua MOI TVV, nguoi thuong chi co cua chinh minh. Khong co
+  // trong map -> render chu cai dau nhu truoc.
+  const avatarOf = (msdl) => avatarMap[String(msdl || '').trim().toUpperCase()] || ''
+
+  // ── Quyen mo CHI TIET Unit (muc Phong) ──
+  // Admin chinh: mo moi Unit. Nguoi khac: CHI Unit minh dung dau —
+  // MSDL trung leaderCode cua Unit (sheet Leader). Nguoi co canViewUnit
+  // nhung khong dung dau Unit nao thi van xem danh sach the tong quan,
+  // bam vao Unit khong phai cua minh se hien thong bao khoa.
+  const isMyUnit = (u) => !!viewerMsdl && !!u.leaderCode
+    && String(u.leaderCode).trim().toUpperCase() === viewerMsdl
+  const canOpenUnit = (u) => isAdmin || isMyUnit(u)
+  const handleUnitClick = (u) => {
+    if (canOpenUnit(u)) {
+      setUnitNotice(false)
+      setOpenUnitCode((cur) => (cur === u.unit ? '' : u.unit))
+    } else {
+      setUnitNotice(true)
+    }
+  }
 
   const newest = snaps && snaps.length ? snaps[snaps.length - 1] : null
 
@@ -209,8 +243,8 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
       <div className={`bv-row ${rank <= 3 ? ROW_BG[rank - 1] : ''}${isMine(a) ? ' bv-mine' : ''}`} key={a.msdl}>
         <button type="button" className="bv-head" onClick={() => handleRowClick(a)} aria-expanded={open}>
           <span className={`bv-avatar ${AVATAR_CLASS[sk]}`}>
-            {isMine(a) && profile?.avatarUrl
-              ? <img className="bv-avatar-img" src={profile.avatarUrl} alt="" />
+            {avatarOf(a.msdl)
+              ? <img className="bv-avatar-img" src={avatarOf(a.msdl)} alt="" />
               : initials(a.agName)}
             {rank <= 3 ? <span className="bv-medal">{MEDALS[rank - 1]}</span> : null}
           </span>
@@ -288,6 +322,95 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
     )
   }
 
+  // 1 dong TVV trong CHI TIET Unit: avatar (anh that neu co trong
+  // avatarMap, khong thi chu cai dau) + ten + phan loai + MSDL + FYP
+  // thang + Case Net + IP phat hanh; badge theo isAct (caseNet > 0 —
+  // dinh nghia Active dung chung toan app, xem lib/team.js).
+  const renderUnitMember = (a) => (
+    <div className="tvv-row" key={a.msdl}>
+      <span className={`bv-avatar unit-av ${AVATAR_CLASS[segKey(a.agSeg)]}`}>
+        {avatarOf(a.msdl)
+          ? <img className="bv-avatar-img" src={avatarOf(a.msdl)} alt="" />
+          : initials(a.agName)}
+      </span>
+      <span className="tvv-main">
+        <span className="tvv-name">
+          <span className="nm">{a.agName || '—'}</span>
+          {a.agSeg ? <span className="seg-chip">{a.agSeg}</span> : null}
+        </span>
+        <span className="tvv-nums">
+          MSĐL {a.msdl} · FYP {fmtTr(a.fyp)} tr · Case Net {fmtInt(a.caseNet)} · IP phát hành {fmtTr(a.ipNet)} tr
+        </span>
+      </span>
+      <span className={`act-badge ${a.isAct ? 'ok' : 'no'}`}>{a.isAct ? '✓ Active' : 'Chưa Active'}</span>
+    </div>
+  )
+
+  // The Unit o muc Phong: chi so tong (nhu ban truoc) + dau the BAM MO
+  // CHI TIET khi co quyen mo (canOpenUnit): mo duoc thi co chu
+  // "Xem chi tiet", khong mo duoc thi khoa 🔒 o goc phai va bam vao se
+  // hien thong bao. Chi tiet: dong tong (% Active, FYP) + 2 nhom
+  // Dang Active / Chua Active (agents da sap FYP giam dan o buildTeam).
+  const renderUnitCard = (u) => {
+    const openable = canOpenUnit(u)
+    const open = openable && openUnitCode === u.unit
+    const actList = u.agents.filter((a) => a.isAct)
+    const inactList = u.agents.filter((a) => !a.isAct)
+    const actPct = u.agentCount > 0 ? Math.round((u.actCount / u.agentCount) * 100) : 0
+    return (
+      <div className={`card unit-card${isMyUnit(u) ? ' unit-mine' : ''}`} key={u.unit || '—'}>
+        <button type="button" className="unit-head" onClick={() => handleUnitClick(u)} aria-expanded={open}>
+          <span className="unit-main">
+            <span className="unit-name">
+              🏢 Unit {u.unit || '—'}
+              {isMyUnit(u) ? <span className="bv-you">Phòng của bạn</span> : null}
+            </span>
+            {u.leaderName ? <span className="muted" style={{ display: 'block' }}>Trưởng phòng: {u.leaderName}</span> : null}
+          </span>
+          <span className="unit-head-right">
+            {u.actEnough
+              ? <span className="pill pill-ok">✓ Đủ MOC</span>
+              : <span className="pill pill-warn">Thiếu {fmtInt(u.actNeed)} lượt Act</span>}
+            {openable
+              ? <span className="unit-open-hint">{open ? 'Thu gọn ▴' : 'Xem chi tiết ▾'}</span>
+              : <span className="unit-lock" title="Chỉ Trưởng phòng của Unit này mới xem được chi tiết TVV">🔒</span>}
+          </span>
+        </button>
+        <div className="mini-stats" style={{ margin: '10px 0' }}>
+          <div className="mini-stat"><div className="ms-num">{fmtInt(u.agentCount)}</div><div className="ms-label">TVV</div></div>
+          <div className="mini-stat"><div className="ms-num">{fmtTr(u.fyp)}</div><div className="ms-label">FYP tháng (tr)</div></div>
+          <div className="mini-stat"><div className="ms-num">{fmtInt(u.actCount)}/{MOC_TARGET}</div><div className="ms-label">Lượt Act / MOC</div></div>
+        </div>
+        <div className="unit-nums">
+          <span>TVV đạt Act: <b>{fmtInt(u.actCount)}/{fmtInt(u.agentCount)}</b></span>
+          <span>IP phát hành: <b>{fmtTr(u.ipIssued)} tr</b></span>
+          <span>Đang pending: <b>{fmtTr(u.pendValue)} tr</b></span>
+        </div>
+        {open ? (
+          <div className="unit-detail">
+            {u.agentCount === 0 ? (
+              <div className="muted">Unit chưa có TVV nào trong dữ liệu tháng này.</div>
+            ) : (
+              <>
+                <div className="unit-sum">
+                  Tổng: <b>{fmtInt(u.agentCount)} TVV</b> · Đang Active <b>{fmtInt(u.actCount)} ({actPct}%)</b> · FYP <b>{fmtTr(u.fyp)} tr</b>
+                </div>
+                <div className="unit-group-title">✅ Đang Active ({actList.length})</div>
+                {actList.length === 0
+                  ? <div className="muted">Chưa có TVV nào đạt Active trong tháng này.</div>
+                  : actList.map(renderUnitMember)}
+                <div className="unit-group-title">⬜ Chưa Active ({inactList.length})</div>
+                {inactList.length === 0
+                  ? <div className="muted">Tất cả TVV trong phòng đều đã Active 🎉</div>
+                  : inactList.map(renderUnitMember)}
+              </>
+            )}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
   return (
     <div>
       {/* ── Thanh chuyen che do Ca nhan / Phong ──
@@ -311,31 +434,14 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
               số MOC chính thức nằm ở file Compensation.
             </div>
           </div>
+          {unitNotice ? (
+            <div className="msg info" style={{ marginBottom: 12 }}>
+              <span>🔒 Bạn chỉ xem được chi tiết phòng do mình phụ trách.</span>
+            </div>
+          ) : null}
           {unitRows.length === 0 ? (
             <div className="card empty"><div className="e-ic">📭</div>Chưa có Unit nào trong dữ liệu tháng này.</div>
-          ) : unitRows.map((u) => (
-            <div className="card unit-card" key={u.unit || '—'}>
-              <div className="unit-head">
-                <div>
-                  <div className="unit-name">🏢 Unit {u.unit || '—'}</div>
-                  {u.leaderName ? <div className="muted">Trưởng phòng: {u.leaderName}</div> : null}
-                </div>
-                {u.actEnough
-                  ? <span className="pill pill-ok">✓ Đủ MOC</span>
-                  : <span className="pill pill-warn">Thiếu {fmtInt(u.actNeed)} lượt Act</span>}
-              </div>
-              <div className="mini-stats" style={{ margin: '10px 0' }}>
-                <div className="mini-stat"><div className="ms-num">{fmtInt(u.agentCount)}</div><div className="ms-label">TVV</div></div>
-                <div className="mini-stat"><div className="ms-num">{fmtTr(u.fyp)}</div><div className="ms-label">FYP tháng (tr)</div></div>
-                <div className="mini-stat"><div className="ms-num">{fmtInt(u.actCount)}/{MOC_TARGET}</div><div className="ms-label">Lượt Act / MOC</div></div>
-              </div>
-              <div className="unit-nums">
-                <span>TVV đạt Act: <b>{fmtInt(u.actCount)}/{fmtInt(u.agentCount)}</b></span>
-                <span>IP phát hành: <b>{fmtTr(u.ipIssued)} tr</b></span>
-                <span>Đang pending: <b>{fmtTr(u.pendValue)} tr</b></span>
-              </div>
-            </div>
-          ))}
+          ) : unitRows.map(renderUnitCard)}
         </>
       ) : (
       <>

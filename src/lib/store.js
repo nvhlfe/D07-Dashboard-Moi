@@ -354,6 +354,10 @@ export async function fetchAllProfiles() {
         status: p.status || '',
         canSalesReport: p.canSalesReport === true,
         canViewUnit: p.canViewUnit === true,
+        // avatarUrl: Admin chinh can de hien anh dai dien cua MOI TVV o
+        // tab Tinh Anh (avatarMap trong App) — truoc day fetchAllProfiles
+        // khong tra truong nay nen Admin khong thay avatar TVV duoc.
+        avatarUrl: p.avatarUrl || '',
         updatedAt: p.updatedAt || '',
       })
     })

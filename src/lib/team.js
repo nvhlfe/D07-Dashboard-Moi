@@ -40,11 +40,11 @@ const num = (v) => {
 
 /**
  * Gop snapshot + cases thanh cau truc Doi Ngu:
- * { units: [{ unit, leaderName, agentCount, fyp, fyc, actCount, actNeed,
- *             actEnough, agents: [agentView] }],
+ * { units: [{ unit, leaderName, leaderCode, agentCount, fyp, fyc, actCount,
+ *             actNeed, actEnough, agents: [agentView] }],
  *   totals: { unitCount, agentCount, actAgents, unitsEnough, fyp, fyc } }
  * agentView: { msdl, agName, unit, agSeg, level, fyp, fyc, nop, ph, pend,
- *              isAct, fypYtd, fycQtd, fycL12m, tldtptt, ipSub, ipNet, caseSub,
+ *              isAct, caseNet, fypYtd, fycQtd, fycL12m, tldtptt, ipSub, ipNet, caseSub,
  *              bar: { issued, pending, pipeline, total } (groupValue),
  *              pendingCases: [{ policyNum, proposalNum, product,
  *              proposalDate, ageDays, ageBucket, pendingReasons, value }] }
@@ -97,6 +97,9 @@ export function buildTeam(snapshot, cases) {
       unitMap.set(key, {
         unit: key,
         leaderName: (u && u.leaderName) || '',
+        // leaderCode = MSDL cua truong Unit (sheet Leader): DoiNgu dung de
+        // chi cho phep UM dung dau Unit do mo CHI TIET phong cua minh.
+        leaderCode: (u && u.leaderCode) || '',
         agents: [],
       })
     }
@@ -127,6 +130,9 @@ export function buildTeam(snapshot, cases) {
       ipSub: num(a.ipSub),
       ipNet: num(a.ipNet),
       caseSub: num(a.caseSub),
+      // caseNet tho: chi tiet Unit (DoiNgu) hien so nay tung TVV lam can
+      // cu Active (isAct o duoi tinh tu caseNet/actCase nhu toan app).
+      caseNet: num(a.caseNet),
       nop: c.nop,
       ph: c.ph,
       pend: c.pend,

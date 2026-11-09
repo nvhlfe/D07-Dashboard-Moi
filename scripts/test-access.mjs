@@ -12,6 +12,7 @@ const html = read('../index.html')
 const fsRules = read('../firestore.rules')
 const store = read('../src/lib/store.js')
 const fbConfig = read('../src/lib/firebaseConfig.js')
+const team = read('../src/lib/team.js')
 
 // ── Doi ten hien thi ──
 console.log('=== doi ten hien thi ===')
@@ -89,6 +90,26 @@ assert.ok(doiNgu.includes('Lượt Act / MOC'), 'DoiNgu: the Unit phai co Luot A
 assert.ok(doiNgu.includes('Đủ MOC'), 'DoiNgu: the Unit phai co badge Du MOC / Thieu luot Act')
 assert.ok(doiNgu.includes('canUnit ? ('), 'DoiNgu: thanh chuyen che do chi render khi canUnit (an han nut Phong khi khong co quyen)')
 console.log('Phong: chi Admin / duoc cap quyen / UM-BM moi thay; the Unit co FYP, Act, MOC, IP phat hanh, pending')
+
+// ── Avatar toan cuc cho Admin + chi tiet Unit theo UM ──
+console.log('\n=== avatar Admin + drill-down Unit ===')
+assert.ok(store.includes('avatarUrl: p.avatarUrl'), 'store.js: fetchAllProfiles phai tra avatarUrl (Admin can de thay avatar moi TVV)')
+assert.ok(app.includes('avatarMap'), 'App.jsx: phai xay avatarMap {MSDL -> avatarUrl}')
+assert.ok(app.includes('avatarMap={avatarMap}'), 'App.jsx: phai truyen avatarMap xuong DoiNgu')
+assert.ok(app.includes('p.avatarUrl'), 'App.jsx: avatarMap cua Admin phai lay avatarUrl tu danh sach profiles')
+assert.ok(app.includes('profile?.avatarUrl'), 'App.jsx: avatarMap phai gom avatar cua chinh user (profile.avatarUrl)')
+assert.ok(doiNgu.includes('avatarMap'), 'DoiNgu: phai nhan prop avatarMap')
+assert.ok(doiNgu.includes('avatarOf'), 'DoiNgu: phai co helper avatarOf(msdl) tra avatar theo MSDL')
+assert.ok(doiNgu.includes('avatarOf(a.msdl)'), 'DoiNgu: hang TVV + dong chi tiet Unit phai render avatar qua avatarOf')
+assert.ok(team.includes('leaderCode: (u && u.leaderCode)'), 'team.js: buildTeam phai giu leaderCode cua Unit (tu sheet Leader)')
+assert.ok(team.includes('caseNet: num(a.caseNet)'), 'team.js: agentView phai co caseNet de chi tiet Unit hien can cu Active')
+assert.ok(doiNgu.includes('canOpenUnit'), 'DoiNgu: phai co canOpenUnit (Admin chinh hoac leaderCode trung MSDL)')
+assert.ok(doiNgu.includes('isMyUnit'), 'DoiNgu: phai co isMyUnit de danh dau Unit cua chinh UM')
+assert.ok(doiNgu.includes('Bạn chỉ xem được chi tiết phòng do mình phụ trách.'), 'DoiNgu: bam Unit khong phai cua minh phai hien thong bao khoa')
+assert.ok(doiNgu.includes('✅ Đang Active ('), 'DoiNgu: chi tiet Unit phai co nhom Dang Active kem so dem')
+assert.ok(doiNgu.includes('⬜ Chưa Active ('), 'DoiNgu: chi tiet Unit phai co nhom Chua Active kem so dem')
+assert.ok(doiNgu.includes('Xem chi tiết'), 'DoiNgu: the Unit mo duoc phai co dau hieu bam duoc (Xem chi tiet)')
+console.log('Admin thay avatar moi TVV qua avatarMap; chi tiet Unit: Admin mo tat ca, UM chi mo Unit minh dung dau (leaderCode); 2 nhom Active')
 
 // ── Rules: memos doc cong khai ──
 console.log('\n=== firestore.rules memos ===')

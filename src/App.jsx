@@ -9,7 +9,7 @@
 // Thu vien 📌 Memo · Thi dua · Tai lieu (Firestore `memos` + Firebase
 // Storage) mo tu nut "📌 Memo" tren header, thay vung noi dung tab khi mo.
 // ─────────────────────────────────────────────────────────────
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import HomNay from './components/HomNay.jsx'
 import NapDuLieu from './components/NapDuLieu.jsx'
 import SalesReport from './components/SalesReport.jsx'
@@ -242,6 +242,22 @@ export default function App() {
   // Admin chinh khong co trang ca nhan nay.
   const showMeTab = !!user && msdlAccount && !superAdmin
 
+  // ── avatarMap { MSDL -> avatarUrl } truyen xuong Tinh Anh (DoiNgu) ──
+  // Admin chinh: lay tu danh sach user_profiles (fetchAllProfiles — state
+  // adminList da tai san cho panel Duyet TK) nen thay avatar cua MOI TVV.
+  // Nguoi dung thuong: chi co avatar cua CHINH MINH (profile cua nguoi
+  // khac khong doc duoc theo Rules — giu nguyen gioi han nay).
+  const avatarMap = useMemo(() => {
+    const map = {}
+    const put = (msdl, url) => {
+      const k = String(msdl || '').trim().toUpperCase()
+      if (k && url) map[k] = url
+    }
+    if (superAdmin) for (const p of adminList) put(p.msdl, p.avatarUrl)
+    put(profile?.msdl, profile?.avatarUrl)
+    return map
+  }, [superAdmin, adminList, profile])
+
   // ── Rules hien thi tab (Lan chot 08/11/2026) ──
   // Tab Nap: CHI Admin chinh thay. Tab Sales Report: chi Admin chinh +
   // tai khoan duoc cap quyen (canViewSalesReport) thay — con lai AN HAN
@@ -409,7 +425,7 @@ export default function App() {
             ))}
             {tab === 'team' && (
               <DoiNgu snaps={snaps} loading={loading} onGoNap={() => setTab('nap')} user={user}
-                profile={profile} isSuperAdmin={superAdmin}
+                profile={profile} isSuperAdmin={superAdmin} avatarMap={avatarMap}
                 onOpenLogin={() => { setLoginErr(''); setShowLogin(true) }} />
             )}
             {tab === 'me' && showMeTab && (
