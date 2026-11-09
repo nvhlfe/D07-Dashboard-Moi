@@ -2,7 +2,14 @@
    khong bang vuot ngang. Palette thuong hieu: navy Prudential lam chu dao,
    do Prudential chi lam diem nhan tiet che; mau TRANG THAI du lieu giu
    nguyen thoi quen nhin so: phat hanh tim #7c3aed · pending hong #ec4899 ·
-   chua len phi xanh #06b6d4. */
+   chua len phi xanh #06b6d4.
+   DOT LAM DEP HE THONG 09/11/2026 (Lan che ban truoc "chua dep ve giao
+   dien/ mau sac"): them CHIEU SAU bang lop trinh bay — the gradient nhe
+   + bong mem 2 lop + bo goc 18px; hang Bang Vang top 3 nen nhan theo
+   huy chuong, avatar ring theo phan loai, doan thanh gradient cung
+   tong; chip pill gradient navy; KPI/mini-stat co dai nhan mau theo
+   ngu nghia so (.num-*); tab day dang chon noi dang pill. Chi CSS —
+   khong doi logic/du lieu. */
 :root {
   /* 09/11/2026: Lan che mau "nhat nhoa" -> tang bao hoa + tuong phan:
      chu chinh gan den-navy, muted dam len 1 bac, navy/primary dam hon,
@@ -27,9 +34,11 @@
   --amber: #b45309;
   --red: #b91c1c;
   --pink: #be185d;
-  --radius: 16px;
+  --radius: 18px;
   --radius-sm: 12px;
-  --shadow-card: 0 1px 2px rgba(8, 36, 64, 0.07), 0 4px 14px rgba(8, 36, 64, 0.07);
+  /* 09/11/2026 (dot lam dep he thong): bong MEM 2 lop — lop sat rat nhe
+     + lop xa mem tao chieu sau, thay bong phang cu. */
+  --shadow-card: 0 1px 2px rgba(8, 36, 64, 0.05), 0 10px 28px rgba(8, 36, 64, 0.08);
   --shadow-pop: 0 12px 36px rgba(8, 36, 64, 0.24);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -96,15 +105,25 @@ input, select, textarea { font-family: inherit; }
   font-size: 11px; font-weight: 600; color: var(--text3); padding: 7px 2px; margin: 5px 4px;
   border-radius: 12px; white-space: nowrap;
 }
-.nav-btn .ic { font-size: 20px; line-height: 1; }
-.nav-btn.active { color: var(--navy-dark); background: var(--navy-soft); font-weight: 800; }
+.nav-btn .ic { font-size: 20px; line-height: 1; transition: transform 0.15s ease; }
+.nav-btn.active {
+  color: var(--navy-dark); font-weight: 800;
+  /* Tab dang chon NOI hon: pill gradient navy nhat + vien trong + bong nhe,
+     icon phong to nhe. */
+  background: linear-gradient(180deg, #dbe7f7, var(--navy-soft));
+  box-shadow: inset 0 0 0 1px #b9cfe9, 0 2px 8px rgba(8, 36, 64, 0.10);
+}
+.nav-btn.active .ic { transform: scale(1.15); }
 .nav-btn.active::before {
   content: ''; position: absolute; top: 5px; left: 50%; transform: translateX(-50%);
   width: 5px; height: 5px; border-radius: 50%; background: var(--brand-red);
 }
 
 .card {
-  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  /* Nen gradient RAT nhe (trang -> xanh xam nhat) + vien xanh nhat:
+     the co chieu sau hon nen phang, van giu tong sang sach. */
+  background: linear-gradient(180deg, #ffffff 0%, #f6f9fc 100%);
+  border: 1px solid #c9d8ec; border-radius: var(--radius);
   padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow-card);
 }
 .card h2 { font-size: 15.5px; font-weight: 700; margin-bottom: 10px; color: var(--navy-dark); letter-spacing: -0.1px; }
@@ -141,10 +160,17 @@ input, select, textarea { font-family: inherit; }
 /* KPI 2x2 — moi the co o icon pastel rieng ben trai */
 .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
 .kpi {
-  background: var(--card); border: 1px solid var(--border);
+  background: linear-gradient(180deg, #ffffff 0%, #f6f9fc 100%); border: 1px solid #c9d8ec;
   border-radius: var(--radius); padding: 13px 12px; box-shadow: var(--shadow-card);
   display: flex; align-items: flex-start; gap: 11px;
+  /* Dai nhan mau MANH o canh trai theo tong the (gan theo class mau
+     .kpi.blue/.green/.violet/.pink o duoi). */
+  border-left: 4px solid #c9d8ec;
 }
+.kpi.blue { border-left-color: #2563eb; }
+.kpi.green { border-left-color: #16a34a; }
+.kpi.violet { border-left-color: #7c3aed; }
+.kpi.pink { border-left-color: #db2777; }
 .kpi .k-ic {
   flex-shrink: 0; width: 42px; height: 42px; border-radius: 12px;
   display: flex; align-items: center; justify-content: center; font-size: 20px;
@@ -159,7 +185,10 @@ input, select, textarea { font-family: inherit; }
 
 /* Thanh xep chong — mau trang thai chuan: phat hanh tim / pending hong / chua len phi xanh */
 .stack-bar { display: flex; height: 22px; border-radius: 10px; overflow: hidden; background: var(--line2); margin: 8px 0; }
-.stack-bar .seg-issued { background: #7c3aed; } .stack-bar .seg-pending { background: #ec4899; } .stack-bar .seg-pipe { background: #06b6d4; }
+/* Gradient cung tong voi thanh xep chong o Bang Vang (.bv-seg-*). */
+.stack-bar .seg-issued { background: linear-gradient(90deg, #6d28d9, #8b5cf6); }
+.stack-bar .seg-pending { background: linear-gradient(90deg, #db2777, #f472b6); }
+.stack-bar .seg-pipe { background: linear-gradient(90deg, #0891b2, #22d3ee); }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--text2); }
 .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; }
 
@@ -243,16 +272,35 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
 .chips-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
 .fchip {
   min-height: 44px; padding: 9px 14px; border-radius: 999px; border: 1.5px solid var(--border);
-  background: #fff; color: var(--text2); font-size: 13.5px; font-weight: 700; cursor: pointer;
+  background: #eef3f9; color: var(--navy-dark); font-size: 13.5px; font-weight: 700; cursor: pointer;
 }
-.fchip:hover { border-color: #9fb8d8; }
-.fchip.active { background: var(--navy); border-color: var(--navy); color: #fff; }
+.fchip:hover { border-color: #9fb8d8; background: #e3ecf8; }
+.fchip.active {
+  /* Chip dang chon: pill gradient navy + chu trang + bong nhe. */
+  background: linear-gradient(135deg, var(--navy) 0%, #1a56a8 100%);
+  border-color: var(--navy-dark); color: #fff;
+  box-shadow: 0 4px 12px rgba(8, 36, 64, 0.28);
+}
 .fchip.sm { min-height: 38px; padding: 6px 12px; font-size: 12.5px; }
 .mini-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
-.mini-stat { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 8px; text-align: center; box-shadow: var(--shadow-card); }
+.mini-stat {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 8px; text-align: center; box-shadow: var(--shadow-card);
+}
+/* Dai nhan mau o VIEN TREN theo NGU NGHIA cua so trong o (tai dung anh
+   xa .num-* — o nao so chinh mang class num-* thi vien tren nhan dung
+   mau do; o so thuong khong class thi khong co dai). Dung :has() voi
+   fallback vo hai: trinh duyet khong ho tro thi chi mat dai nhan. */
+.mini-stat:has(> .ms-num.num-fyp) { border-top: 3px solid #0c2a4e; }
+.mini-stat:has(> .ms-num.num-fyc) { border-top: 3px solid var(--green); }
+.mini-stat:has(> .ms-num.num-active) { border-top: 3px solid var(--green); }
+.mini-stat:has(> .ms-num.num-issued) { border-top: 3px solid var(--violet); }
+.mini-stat:has(> .ms-num.num-pending) { border-top: 3px solid var(--pink); }
+.mini-stat:has(> .ms-num.num-pipe) { border-top: 3px solid var(--amber); }
+.mini-stat:has(> .ms-num.num-short) { border-top: 3px solid var(--red); }
 .mini-stat .ms-num { font-size: 20px; font-weight: 800; color: var(--navy-dark); }
 .mini-stat .ms-label { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.3px; }
-.case-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow-card); }
+.case-card { background: linear-gradient(180deg, #ffffff 0%, #f6f9fc 100%); border: 1px solid #c9d8ec; border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow-card); }
 .case-card:hover { border-color: #bfcfe2; }
 .case-head { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; min-height: 44px; }
 .case-main { flex: 1; min-width: 0; }
@@ -328,7 +376,7 @@ button.unit-head { font-family: inherit; }
 
 
 /* ── Doi ngu: the Unit xo TVV + luot Act / MOC uoc tinh ── */
-.unit-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; margin-bottom: 10px; overflow: hidden; box-shadow: var(--shadow-card); }
+.unit-card { background: linear-gradient(180deg, #ffffff 0%, #f6f9fc 100%); border: 1px solid #c9d8ec; border-radius: 16px; margin-bottom: 10px; overflow: hidden; box-shadow: var(--shadow-card); }
 .unit-head {
   width: 100%; min-height: 56px; display: flex; align-items: flex-start; gap: 8px;
   background: none; border: none; cursor: pointer; text-align: left; padding: 12px 14px; color: inherit;
@@ -359,11 +407,13 @@ button.unit-head { font-family: inherit; }
 
 /* ── Doi Ngu — Bang Vang TVV (theo mau D03) ─────────────────────── */
 .bv-card { padding: 16px 14px 12px; }
-.bv-row { border-bottom: 1px solid var(--line); border-radius: 10px; padding: 2px 6px; }
+.bv-row { border-bottom: 1px solid var(--line); border-radius: 12px; padding: 2px 6px; }
 .bv-row:last-child { border-bottom: none; }
-.bv-r1 { background: linear-gradient(135deg, #fffbeb, #ffffff 70%); }
-.bv-r2 { background: linear-gradient(135deg, #f0f9ff, #ffffff 70%); }
-.bv-r3 { background: linear-gradient(135deg, #fdf2f8, #ffffff 70%); }
+/* Top 3: nen nhan gradient theo HUY CHUONG (vang am / bac / dong) +
+   vien trong rat nhe cung tong de hang "dat" hon cac hang thuong. */
+.bv-r1 { background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 55%, #ffffff 100%); box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.18); }
+.bv-r2 { background: linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 55%, #ffffff 100%); box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.20); }
+.bv-r3 { background: linear-gradient(135deg, #fed7aa 0%, #ffedd5 55%, #ffffff 100%); box-shadow: inset 0 0 0 1px rgba(194, 65, 12, 0.16); }
 .bv-head {
   display: flex; align-items: flex-start; gap: 10px; width: 100%;
   background: none; border: none; padding: 10px 0; cursor: pointer;
@@ -375,13 +425,21 @@ button.unit-head { font-family: inherit; }
   font-size: 16px; font-weight: 800; border: 2px solid transparent;
   box-shadow: 0 1px 3px rgba(11, 42, 74, 0.1);
 }
-.bv-av-dia { background: linear-gradient(135deg, #bfdbfe, #eff6ff); border-color: #93c5fd; color: #1d4ed8; }
-.bv-av-pla { background: linear-gradient(135deg, #e2e8f0, #f8fafc); border-color: #cbd5e1; color: #475569; }
-.bv-av-gold { background: linear-gradient(135deg, #fde68a, #fef3c7); border-color: #fbbf24; color: #92400e; }
-.bv-av-oth { background: linear-gradient(135deg, #eef2f7, #f8fafc); border-color: #e2e8f0; color: #64748b; }
+/* Vong (ring) theo phan loai: khoang trang tach nen + vong ngoai cung
+   mau vien — nhin nhu ring gradient quanh avatar. */
+.bv-av-dia { background: linear-gradient(135deg, #bfdbfe, #eff6ff); border-color: #93c5fd; color: #1d4ed8; box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #93c5fd, 0 2px 6px rgba(11, 42, 74, 0.14); }
+.bv-av-pla { background: linear-gradient(135deg, #e2e8f0, #f8fafc); border-color: #cbd5e1; color: #475569; box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #cbd5e1, 0 2px 6px rgba(11, 42, 74, 0.12); }
+.bv-av-gold { background: linear-gradient(135deg, #fde68a, #fef3c7); border-color: #fbbf24; color: #92400e; box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #fbbf24, 0 2px 6px rgba(11, 42, 74, 0.14); }
+.bv-av-oth { background: linear-gradient(135deg, #eef2f7, #f8fafc); border-color: #e2e8f0; color: #64748b; box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #e2e8f0, 0 2px 6px rgba(11, 42, 74, 0.10); }
 /* Hang cua chinh minh (nhan "Ban"): nen nhan navy nhat + vien trong */
 .bv-mine { background: linear-gradient(135deg, var(--navy-soft), #ffffff 78%); box-shadow: inset 0 0 0 1px #a9c2e2; }
-.bv-medal { position: absolute; right: -5px; bottom: -5px; font-size: 15px; line-height: 1; }
+.bv-medal {
+  /* Huy hieu hang: nen TRANG tron + bong do -> noi khoi avatar. */
+  position: absolute; right: -6px; bottom: -6px; width: 21px; height: 21px;
+  display: flex; align-items: center; justify-content: center;
+  background: #ffffff; border-radius: 50%; font-size: 13px; line-height: 1;
+  box-shadow: 0 2px 6px rgba(11, 42, 74, 0.30);
+}
 .bv-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .bv-name { font-size: 15px; font-weight: 800; color: var(--text); line-height: 1.25; }
 .bv-rank { color: var(--text3); font-weight: 700; margin-right: 6px; font-size: 13px; }
@@ -389,16 +447,31 @@ button.unit-head { font-family: inherit; }
 .bv-seg-dia { color: #2563eb; }
 .bv-seg-pla { color: #64748b; }
 .bv-seg-gold { color: #d97706; }
-.bv-bar { display: flex; height: 9px; border-radius: 99px; overflow: hidden; background: var(--line2); margin-top: 6px; }
-.bv-seg-issued { background: #7c3aed; min-width: 4px; }
-.bv-seg-pending { background: #ec4899; min-width: 4px; }
-.bv-seg-pipeline { background: #06b6d4; min-width: 4px; }
+.bv-bar { display: flex; height: 10px; border-radius: 99px; overflow: hidden; background: var(--line2); margin-top: 6px; }
+/* Tung doan gradient CUNG TONG (tim / hong / xanh ngoc) — bo tron 2 dau
+   nho border-radius + overflow hidden cua .bv-bar. */
+.bv-seg-issued { background: linear-gradient(90deg, #6d28d9, #8b5cf6); min-width: 4px; }
+.bv-seg-pending { background: linear-gradient(90deg, #db2777, #f472b6); min-width: 4px; }
+.bv-seg-pipeline { background: linear-gradient(90deg, #0891b2, #22d3ee); min-width: 4px; }
 .bv-nums { display: flex; flex-wrap: wrap; gap: 1px 12px; font-size: 11.5px; font-weight: 600; margin-top: 4px; }
+/* Dong chip FYC thang o hang Bang Vang — CHI hien khi dang sap xep theo
+   FYC (DoiNgu render co dieu kien sortKey === 'fyc'): nen xanh la rat
+   nhat + vien, so to mau .num-fyc (xanh la dam). */
+.bv-fyc {
+  display: inline-flex; align-items: center; gap: 4px; align-self: flex-start;
+  margin-top: 5px; padding: 2px 9px; border-radius: 999px;
+  background: #ecfdf5; border: 1px solid #a7f3d0;
+  font-size: 12px; font-weight: 700; color: var(--text2);
+}
+.bv-fyc b { font-size: 12.5px; }
+/* Bien the CANH BAO: FYC thang duoi moc toi thieu FYC_FLOOR (5tr) —
+   chip chuyen tong do nhat, so + nhan thieu to do bang .num-short. */
+.bv-fyc.lack { background: #fef2f2; border-color: #fecaca; }
 .bv-num-issued { color: #6d28d9; }
 .bv-num-pending { color: #db2777; }
 .bv-num-pipeline { color: #0891b2; }
 .bv-total { flex: 0 0 auto; text-align: right; padding-top: 2px; }
-.bv-total-num { display: block; font-size: 19px; font-weight: 800; color: var(--text); line-height: 1.1; }
+.bv-total-num { display: block; font-size: 21px; font-weight: 800; color: var(--text); line-height: 1.1; letter-spacing: -0.2px; }
 .bv-total-sub { display: block; font-size: 12px; color: var(--text3); font-weight: 600; margin-top: 2px; }
 .bv-expand { padding: 2px 0 12px 56px; }
 .bv-ref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin-bottom: 10px; }
@@ -410,7 +483,7 @@ button.unit-head { font-family: inherit; }
 .bv-pend-val { margin-left: auto; font-weight: 800; color: var(--pink); }
 @media (max-width: 480px) {
   .bv-expand { padding-left: 0; }
-  .bv-total-num { font-size: 17px; }
+  .bv-total-num { font-size: 19px; }
 }
 
 /* ── Sales Report — nhom theo ngay nop + vien trai trang thai ──── */

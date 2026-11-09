@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs'
 import assert from 'node:assert'
 import { parseWorkbook } from '../src/lib/parseDaily.js'
 import { buildCases } from '../src/lib/cases.js'
-import { buildTeam, flattenAgents, rankAgents, filterLeaderUnits, MOC_TARGET, ACTIVE_IP_TARGET } from '../src/lib/team.js'
+import { buildTeam, flattenAgents, rankAgents, filterLeaderUnits, MOC_TARGET, ACTIVE_IP_TARGET, FYC_FLOOR } from '../src/lib/team.js'
 
 const path = process.env.HOME + '/workspace/user/files/Daily_Sales_25.10.xlsx'
 const wb = XLSX.read(readFileSync(path), { type: 'buffer', cellDates: false })
@@ -186,6 +186,41 @@ for (let i = 1; i < byFyc.length; i++) {
 const maxFycRaw = Math.max(...agentsArr.map((a) => Number(a.fyc) || 0))
 assert.strictEqual(byFyc[0].fyc, maxFycRaw, "rankAgents('fyc') top1 phai = FYC thang lon nhat dem doc lap tu data.agents")
 console.log(`rankAgents('fyc') 25.10: giam dan dung · top1 ${byFyc[0].agName} fyc=${byFyc[0].fyc} (khop max doc lap ${maxFycRaw})`)
+// File 8.11 (thang 11): rankAgents('fyc') — hang 1 PHAM THI MY TRANG
+// fyc = 44,86tr (doi chieu thang max FYC cua sheet Agent tho). Day la
+// con so dong "FYC thang: 44,9 tr" se hien tren hang Bang Vang khi Lan
+// chon sap theo FYC thang (DoiNgu hien dong nay co dieu kien sortKey).
+const byFyc811 = rankAgents(team811, 'fyc')
+for (let i = 1; i < byFyc811.length; i++) {
+  assert.ok(byFyc811[i - 1].fyc >= byFyc811[i].fyc, `rankAgents('fyc') 8.11 phai giam dan theo fyc (lech o vi tri ${i})`)
+}
+const maxFyc811 = Math.max(...Object.values(parsed811.agents).map((a) => Number(a.fyc) || 0))
+assert.strictEqual(byFyc811[0].fyc, maxFyc811, "rankAgents('fyc') 8.11 top1 phai = FYC thang lon nhat dem doc lap tu data.agents")
+assert.strictEqual(byFyc811[0].agName, 'PHẠM THỊ MỸ TRANG', "rankAgents('fyc') 8.11: hang 1 phai la PHẠM THỊ MỸ TRANG")
+assert.strictEqual(Math.round(byFyc811[0].fyc * 100) / 100, 44.86, "rankAgents('fyc') 8.11: FYC thang hang 1 phai = 44,86 tr")
+console.log(`rankAgents('fyc') 8.11: giam dan dung · top1 ${byFyc811[0].agName} fyc=${byFyc811[0].fyc} (≈44,86 tr, khop max doc lap ${maxFyc811})`)
+// Moc CANH BAO FYC thang toi thieu (Lan chot 09/11/2026): FYC_FLOOR = 5tr.
+// Dem tren DUNG danh sach Bang Vang cua DoiNgu (dieu kien "co so lieu
+// thang": bar.total > 0 || fyp > 0) o file 8.11: 29 TVV tren bang, 18
+// nguoi duoi moc (fyc < 5) — cac so nay khoa cung theo file that hien tai.
+assert.strictEqual(FYC_FLOOR, 5, 'FYC_FLOOR phai = 5 (trieu dong FYC thang)')
+const listed811 = byFyc811.filter((a) => a.bar.total > 0 || a.fyp > 0)
+const lack811 = listed811.filter((a) => a.fyc < FYC_FLOOR)
+assert.strictEqual(listed811.length, 29, 'Bang Vang 8.11: phai co 29 TVV co so lieu thang (bar.total>0 hoac fyp>0)')
+assert.strictEqual(lack811.length, 18, 'Bang Vang 8.11: phai co 18 TVV fyc < 5tr (duoi moc canh bao FYC)')
+for (const a of lack811) {
+  const gap = FYC_FLOOR - a.fyc
+  assert.ok(gap > 0 && gap <= FYC_FLOOR, `${a.agName}: so thieu = FYC_FLOOR - fyc phai trong (0, 5]`)
+}
+assert.strictEqual(listed811.filter((a) => a.fyc === 0).length, 7, 'Bang Vang 8.11: 7 TVV fyc = 0 (thieu du 5tr)')
+// 3 vi du dau nhom thieu (byFyc811 da sap giam dan theo fyc):
+const exQuan = lack811.find((a) => a.agName === 'NGUYỄN HOÀNG QUÂN')
+const exTram = lack811.find((a) => a.agName === 'TRẦN THỊ ĐOAN TRÂM')
+const exDuy = lack811.find((a) => a.agName === 'ĐÀO THANH DUY')
+assert.ok(exQuan && Math.abs(exQuan.fyc - 4.9135) < 0.001 && Math.abs((FYC_FLOOR - exQuan.fyc) - 0.09) < 0.01, 'Vi du thieu: NGUYỄN HOÀNG QUÂN fyc≈4,91 -> thieu≈0,09tr')
+assert.ok(exTram && Math.abs(exTram.fyc - 4.74588) < 0.001 && Math.abs((FYC_FLOOR - exTram.fyc) - 0.25) < 0.01, 'Vi du thieu: TRẦN THỊ ĐOAN TRÂM fyc≈4,75 -> thieu≈0,25tr')
+assert.ok(exDuy && Math.abs(exDuy.fyc - 4.24662) < 0.001 && Math.abs((FYC_FLOOR - exDuy.fyc) - 0.75) < 0.01, 'Vi du thieu: ĐÀO THANH DUY fyc≈4,25 -> thieu≈0,75tr')
+console.log(`Moc FYC_FLOOR=5 (8.11): ${lack811.length}/${listed811.length} TVV tren Bang Vang duoi moc · vi du: QUÂN fyc=${exQuan.fyc} thieu=${Math.round((FYC_FLOOR - exQuan.fyc) * 100) / 100} · TRÂM fyc=${exTram.fyc} thieu=${Math.round((FYC_FLOOR - exTram.fyc) * 100) / 100} · DUY fyc=${exDuy.fyc} thieu=${Math.round((FYC_FLOOR - exDuy.fyc) * 100) / 100}`)
 // Doi soat moc 15tr IP tren Unit TUQ file 8.11: 4 TVV, 1 Active, 3 Chua
 // Active — ca 3 co ipNet = 0 (doi chieu thang sheet Agent tho) nen so
 // thieu theo cong thuc ACTIVE_IP_TARGET - ipNet deu = 15tr.

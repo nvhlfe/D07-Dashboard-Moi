@@ -42,10 +42,22 @@
 // phat hanh (ACTIVE_IP_TARGET trong lib/team.js): thieu bao nhieu /
 // da dat moc — nhom van chia theo Case Net, moc IP chi la nhan phu;
 // (4) so chinh duoc to mau theo ngu nghia bang class .num-* (index.css).
+// DOT 09/11/2026 (Lan phan hoi ban live d5f78dfc: "data chua lay theo
+// FYC thang, van giu giong so IP"): logic sap xep 'fyc' DUNG nhung mat
+// thuong khong thay duoc — (a) so TO ben phai hang van la TONG NOP,
+// khong phai FYC; (b) o top dau FYC ≈ 26-27% IP nen thu tu theo FYC
+// gan nhu trung thu tu theo IP. Sua TRINH BAY (khong doi logic): khi
+// dang sap theo FYC thang, moi hang Bang Vang hien them dong chip
+// "FYC thang: X tr" (class .bv-fyc + so to mau .num-fyc) ngay duoi
+// thanh xep chong; sap theo tieu chi khac thi khong hien dong nay.
+// Cung dot: lam dep giao dien HE THONG bang CSS (the gradient nhe +
+// bong mem 2 lop, hang top 3 nen nhan + avatar ring gradient, chip
+// pill gradient navy, KPI/mini-stat co dai nhan mau theo ngu nghia,
+// tab day noi hon) — chi o index.css, khong doi logic/du lieu.
 // ─────────────────────────────────────────────────────────────
 import React, { useMemo, useState } from 'react'
 import { buildCases } from '../lib/cases'
-import { buildTeam, rankAgents, flattenAgents, filterLeaderUnits, ACTIVE_IP_TARGET } from '../lib/team'
+import { buildTeam, rankAgents, flattenAgents, filterLeaderUnits, ACTIVE_IP_TARGET, FYC_FLOOR } from '../lib/team'
 import { maskSensitive } from '../lib/analyze'
 import { isSuperAdmin, emailToMsdl, canViewUnitSection } from '../lib/firebaseConfig'
 
@@ -301,6 +313,26 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
                   {bar.pipeline > 0 ? <span className="bv-num-pipeline">Chưa lên phí <b>{fmtTr(bar.pipeline)}</b></span> : null}
                 </span>
               </>
+            ) : null}
+            {/* Chi khi dang SAP THEO FYC THANG moi hien dong nay: cho
+                thay bang chung cua thu tu xep hang (so to ben phai van
+                la tong nop nen neu khong co dong nay se tuong dang sap
+                theo IP — Lan phan hoi 09/11/2026). Kem MOC CANH BAO
+                FYC toi thieu FYC_FLOOR = 5tr (Lan chot 09/11/2026):
+                fyc < 5tr -> chip chuyen tong do (.lack), so to do
+                (num-short) + nhan so thieu; fyc >= 5tr hien xanh la
+                binh thuong (num-fyc). */}
+            {sortKey === 'fyc' ? (
+              <span className={`bv-fyc${a.fyc < FYC_FLOOR ? ' lack' : ''}`}>
+                FYC tháng: {a.fyc < FYC_FLOOR ? (
+                  <>
+                    <b className="num-short">{fmtTr(a.fyc)} tr</b>
+                    <span className="num-short">· Thiếu {fmtTr(FYC_FLOOR - a.fyc)} tr (mốc {FYC_FLOOR}tr FYC)</span>
+                  </>
+                ) : (
+                  <b className="num-fyc">{fmtTr(a.fyc)} tr</b>
+                )}
+              </span>
             ) : null}
           </span>
           <span className="bv-total">

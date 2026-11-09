@@ -225,6 +225,16 @@ const RANK_KEYS = {
 export const ACTIVE_IP_TARGET = 15
 
 /**
+ * Moc FYC THANG toi thieu cua 1 TVV: 5 trieu dong (Lan chot
+ * 09/11/2026). Hang Bang Vang o che do sap theo FYC thang (DoiNgu)
+ * dung moc nay lam CANH BAO: TVV co fyc < 5tr thi so FYC to do kem
+ * so thieu (FYC_FLOOR - fyc); fyc >= 5tr hien binh thuong. Chi ap o
+ * dong FYC cua hang Bang Vang — chi tiet TVV / trang Ca nhan khong
+ * dung moc nay, va khong anh huong cach chia danh sach.
+ */
+export const FYC_FLOOR = 5
+
+/**
  * Xep hang TVV toan GA (moi agentView tu moi Unit) theo sortKey:
  * 'ipNet' (IP phat hanh — mac dinh) | 'barTotal' (tong nop) | 'fyp' | 'fyc'.
  * Giam dan; hoa thi theo ten TVV (tieng Viet) tang dan cho on dinh.
