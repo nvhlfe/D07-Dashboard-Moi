@@ -4,10 +4,10 @@
 //   DailyStackChart  — cot xep chong theo ngay nop trong thang (mau D03):
 //                      Phat hanh (tim) / Pending (hong) / Chua len phi (xanh
 //                      duong), to theo TRANG THAI HIEN TAI cua ho so.
-//   YearJourneyChart — cot IP phat hanh theo thang + duong cam so hop dong.
+//   YearJourneyChart — cot FYP theo thang + duong cam so TVV Active.
 // Ca hai deu nhan so tho (trieu dong) tu lib/journey.js.
 // ─────────────────────────────────────────────────────────────
-import React from 'react'
+import React, { useState } from 'react'
 
 // Dinh dang tien kieu Viet: 1 so thap phan, bo phan thap phan neu nguyen
 // (khop fmtTr o HomNay): 1577.6 -> "1.577,6" · 264 -> "264".
@@ -140,40 +140,50 @@ export function DailyStackChart({ days, yyyyMm, daysInMonth, selected, onSelect 
 }
 
 /**
- * Hanh trinh nam: cot IP phat hanh theo thang + duong cam so hop dong.
- *   journey: { year, months: [{ month, ipIssued, contracts, dataDate }] } (lib/journey monthJourney)
- *   currentMonth: thang cua snapshot dang xem (in dam nhan thang).
+ * Hanh trinh nam: cot FYP theo thang + duong cam so TVV Active.
+ *   journey: { year, months: [{ month, fyp, act, source }] } (lib/journey buildYearJourney)
+ *   currentMonth: thang cua snapshot dang xem (in dam nhan thang + mac dinh
+ *   chon de hien chi tiet). Bam vao cot/thang de xem chi tiet thang do.
+ * Cot dung thang FYP; duong Active dung THANG RIENG (actMax) — khong chung
+ * thang voi FYP. Thang fyp null -> khong ve cot/diem, duong dut doan tai do.
  */
 export function YearJourneyChart({ journey, currentMonth }) {
+  const [sel, setSel] = useState(null)
   const W = 700
   const H = 288
   const mL = 10
   const mR = 10
   const mT = 30
-  const mB = 46
+  const mB = 30
   const plotW = W - mL - mR
   const plotH = H - mT - mB
   const baseY = mT + plotH
 
   const months = (journey && journey.months) || []
-  const present = months.filter((m) => m.ipIssued !== null && m.ipIssued !== undefined)
+  const has = (m) => m.fyp !== null && m.fyp !== undefined
+  const present = months.filter(has)
   if (!present.length) {
     return <div className="muted" style={{ marginTop: 4 }}>Chưa có dữ liệu tháng nào trong năm {journey ? journey.year : ''} để vẽ hành trình.</div>
   }
-  const ipMax = Math.max(0, ...present.map((m) => m.ipIssued))
-  const contractsMax = Math.max(0, ...present.map((m) => m.contracts || 0))
+  const fypMax = Math.max(0, ...present.map((m) => m.fyp))
+  const actMax = Math.max(0, ...present.map((m) => m.act || 0))
   const slot = plotW / 12
   const barW = Math.min(38, slot * 0.64)
   const cxOf = (i) => mL + slot * (i + 0.5)
-  const lineY = (contracts) => baseY - 6 - (contractsMax > 0 ? (contracts / contractsMax) * plotH * 0.55 : 0)
+  // Truc rieng cho Active: diem cao nhat cham ~82% chieu cao bieu do.
+  const lineY = (act) => baseY - 10 - (actMax > 0 ? (act / actMax) * plotH * 0.82 : 0)
+
+  const selMonth = sel !== null
+    ? months.find((m) => m.month === sel && has(m)) || null
+    : months.find((m) => m.month === currentMonth && has(m)) || present[present.length - 1]
 
   // Duong cam: chi noi cac thang LIEN TIEP deu co du lieu (thang trong thi
   // dut doan, khong noi xuyen qua).
   const runs = []
   let run = []
   months.forEach((m, i) => {
-    if (m.ipIssued !== null && m.ipIssued !== undefined) {
-      run.push(`${cxOf(i)},${lineY(m.contracts || 0)}`)
+    if (has(m)) {
+      run.push(`${cxOf(i)},${lineY(m.act || 0)}`)
     } else if (run.length) {
       runs.push(run)
       run = []
@@ -182,6 +192,7 @@ export function YearJourneyChart({ journey, currentMonth }) {
   if (run.length) runs.push(run)
 
   return (
+    <>
     <svg className="chart-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Biểu đồ hành trình năm">
       <defs>
         <linearGradient id="yjViolet" x1="0" y1="0" x2="0" y2="1">
@@ -200,58 +211,72 @@ export function YearJourneyChart({ journey, currentMonth }) {
       ))}
       <line x1={mL} x2={W - mR} y1={baseY} y2={baseY} stroke={C_AXIS} strokeWidth={1} />
 
-      {/* Cot IP tung thang */}
+      {/* Cot FYP tung thang */}
       {months.map((m, i) => {
-        if (m.ipIssued === null || m.ipIssued === undefined) return null
+        if (!has(m)) return null
         const cx = cxOf(i)
-        let h = ipMax > 0 ? (m.ipIssued / ipMax) * plotH : 0
-        if (m.ipIssued > 0 && h < 4) h = 4
-        const isMax = ipMax > 0 && m.ipIssued === ipMax
+        let h = fypMax > 0 ? (m.fyp / fypMax) * plotH : 0
+        if (m.fyp > 0 && h < 4) h = 4
+        const isMax = fypMax > 0 && m.fyp === fypMax
+        const isSel = selMonth && m.month === selMonth.month
         return (
           <g key={m.month}>
+            {isSel && <rect x={mL + slot * i} y={mT - 6} width={slot} height={plotH + 6} fill="rgba(15,46,82,0.07)" />}
             {h > 0 && (
               <path d={topRoundPath(cx - barW / 2, baseY - h, barW, h, 7)} fill={isMax ? 'url(#yjPink)' : 'url(#yjViolet)'} />
             )}
             <text x={cx} y={baseY - h - 8} textAnchor="middle" fontSize={15} fontWeight={800} fill={isMax ? '#db2777' : '#5b21b6'}>
-              {fmtTr(m.ipIssued)}
+              {fmtTr(m.fyp)}
             </text>
+            <rect
+              x={mL + slot * i} y={mT - 6} width={slot} height={plotH + 6 + 20}
+              fill="transparent" style={{ cursor: 'pointer' }}
+              onClick={() => setSel(m.month)}
+            />
           </g>
         )
       })}
 
-      {/* Duong cam so hop dong */}
+      {/* Duong cam so TVV Active (thang rieng actMax) + nhan so tren diem */}
       {runs.filter((r) => r.length > 1).map((r, i) => (
         <polyline key={i} points={r.join(' ')} fill="none" stroke={C_ORANGE} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
       ))}
       {months.map((m, i) => {
-        if (m.ipIssued === null || m.ipIssued === undefined) return null
-        return (
-          <circle key={m.month} cx={cxOf(i)} cy={lineY(m.contracts || 0)} r={4.5} fill="#ffffff" stroke={C_ORANGE} strokeWidth={2.5} />
-        )
-      })}
-
-      {/* Nhan thang + so hop dong */}
-      {months.map((m, i) => {
+        if (!has(m)) return null
         const cx = cxOf(i)
-        const has = m.ipIssued !== null && m.ipIssued !== undefined
-        const isMax = has && ipMax > 0 && m.ipIssued === ipMax
+        const cy = lineY(m.act || 0)
         return (
           <g key={m.month}>
-            <text
-              x={cx} y={baseY + 20} textAnchor="middle" fontSize={13.5}
-              fontWeight={m.month === currentMonth ? 800 : 600}
-              fill={has ? (m.month === currentMonth ? '#1e293b' : '#64748b') : '#cbd5e1'}
-            >
-              T{m.month}
+            <circle cx={cx} cy={cy} r={4.5} fill="#ffffff" stroke={C_ORANGE} strokeWidth={2.5} />
+            <text x={cx} y={cy - 10} textAnchor="middle" fontSize={12.5} fontWeight={700} fill="#ea580c">
+              {m.act}
             </text>
-            {has && (
-              <text x={cx} y={baseY + 40} textAnchor="middle" fontSize={13} fontWeight={700} fill={isMax ? '#db2777' : '#ea580c'}>
-                {fmtTr(m.contracts)}
-              </text>
-            )}
           </g>
         )
       })}
+
+      {/* Nhan thang */}
+      {months.map((m, i) => {
+        const cx = cxOf(i)
+        const ok = has(m)
+        return (
+          <text
+            key={m.month}
+            x={cx} y={baseY + 20} textAnchor="middle" fontSize={13.5}
+            fontWeight={m.month === currentMonth ? 800 : 600}
+            fill={ok ? (m.month === currentMonth ? '#1e293b' : '#64748b') : '#cbd5e1'}
+          >
+            T{m.month}
+          </text>
+        )
+      })}
     </svg>
+    {selMonth && (
+      <div className="chart-detail">
+        📅 Tháng <b>{selMonth.month}/{journey.year}</b>: FYP <b>{fmtTr(selMonth.fyp)} tr</b> · TVV Active <b>{selMonth.act}</b>
+        <span className="muted"> · {selMonth.source === 'ga' ? 'số liệu GA' : 'theo Daily Sales'}</span>
+      </div>
+    )}
+    </>
   )
 }

@@ -155,10 +155,6 @@ input, select, textarea { font-family: inherit; }
 .kpi.blue .k-ic { background: #dbeafe; } .kpi.green .k-ic { background: #dcfce7; }
 .kpi.violet .k-ic { background: #ede9fe; } .kpi.pink .k-ic { background: #fce7f3; }
 
-/* Delta */
-.delta { font-size: 13px; font-weight: 600; }
-.delta .up { color: var(--green); } .delta .down { color: var(--red); } .delta .flat { color: var(--text3); }
-
 /* Thanh xep chong — mau trang thai chuan: phat hanh tim / pending hong / chua len phi xanh */
 .stack-bar { display: flex; height: 22px; border-radius: 10px; overflow: hidden; background: var(--line2); margin: 8px 0; }
 .stack-bar .seg-issued { background: #7c3aed; } .stack-bar .seg-pending { background: #ec4899; } .stack-bar .seg-pipe { background: #06b6d4; }

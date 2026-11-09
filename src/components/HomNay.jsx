@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // HomNay — Man hinh "Hom Nay" (MVP): hero countdown + quote, tien do FYP,
-// 4 KPI, delta, Top 5 TVV, thanh xep chong, bieu do nhip nop theo ngay
+// 4 KPI, Top 5 TVV, thanh xep chong, bieu do nhip nop theo ngay
 // (cot xep chong SVG, thay heatmap APE cu — mau D03) + hanh trinh nam, canh bao.
 // Nguon so: snapshot Daily moi nhat (Firestore neu co, khong thi localStorage).
 // Logic KPI dung analyzeSoSanLuong (port tu So San Luong ban cu).
@@ -8,7 +8,7 @@
 import React, { useMemo, useState } from 'react'
 import { analyzeSoSanLuong } from '../lib/analyze'
 import { buildCases } from '../lib/cases'
-import { dailyStacks, monthJourney } from '../lib/journey'
+import { dailyStacks, buildYearJourney } from '../lib/journey'
 import { DailyStackChart, YearJourneyChart } from './Charts'
 import { QUOTES, quoteIndexForDate } from '../lib/quotes'
 import { getTarget } from '../lib/store'
@@ -38,12 +38,10 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
     if (!newest) return null
     const [year, month] = newest.id.split('-').map(Number)
     const ymPrefix = newest.id.slice(0, 7)
-    const prevSnap = [...snaps].reverse().find((s) => s.id < newest.id && s.id.startsWith(ymPrefix)) || null
     const pm = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 }
     const p = (n) => String(n).padStart(2, '0')
     const prevMonthDocs = snaps.filter((s) => s.id.startsWith(`${pm.y}-${p(pm.m)}-`))
     const analysis = analyzeSoSanLuong([newest], prevMonthDocs, { year, month })
-    const prevAnalysis = prevSnap ? analyzeSoSanLuong([prevSnap], [], { year, month }) : null
     const agentsObj = newest.data?.agents || {}
     const agentsList = Object.values(agentsObj)
     const fypTotal = agentsList.reduce((s, a) => s + (Number(a.fyp) || 0), 0)
@@ -62,13 +60,14 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
     // groupValue (IF = IP Net rong; PS/Pipeline = APE neu co, khong thi IP Sub)
     // — nhat quan voi thanh xep chong o Doi Ngu / Sales Report.
     const stacks = dailyStacks(buildCases(newest), ymPrefix)
-    // "Hanh trinh nam": moi thang lay snapshot MOI NHAT cua thang do (trong
-    // snaps da gop may + may) -> IP phat hanh + so hop dong phat hanh.
-    const journey = monthJourney(snaps, year)
+    // "Hanh trinh nam": cot FYP + duong so TVV Active theo thang. Thang co
+    // so GA (gaHistory: 2026 T1-T10) lay so GA; thang con lai lay snapshot
+    // MOI NHAT cua thang do (trong snaps da gop may + may).
+    const journey = buildYearJourney(snaps, year)
     const pendingOld = (analysis.pendingAll || []).filter((c) => (c.ageDays ?? 0) > 7)
     const tvvActive = agentsList.filter((a) => (Number(a.fyp) || 0) > 0 || (a.cIF || 0) + (a.cPS || 0) + (a.cOther || 0) > 0).length
     return {
-      year, month, daysInMonth, analysis, prevAnalysis, prevSnap,
+      year, month, daysInMonth, analysis,
       fypTotal, top, stacks, journey, pendingOld, tvvActive, tvvTotal: agentsList.length,
       agentsObj,
       snapDay: Number(newest.id.split('-')[2]),
@@ -89,7 +88,7 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
     )
   }
 
-  const { year, month, daysInMonth, analysis, prevAnalysis, fypTotal, top, stacks, journey, pendingOld } = view
+  const { year, month, daysInMonth, analysis, fypTotal, top, stacks, journey, pendingOld } = view
   const t = analysis.totals
   const target = getTarget(year, month)
 
@@ -136,18 +135,6 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
   const nopTr = t.subIp + t.pipeApe
   const stackTotal = t.netIp + t.pendIp + t.pipeApe
   const segPct = (v) => (stackTotal > 0 ? Math.max(0, (v / stackTotal) * 100) : 0)
-
-  const deltaRow = (label, cur, prev) => {
-    const d = cur - prev
-    const cls = d > 0 ? 'up' : d < 0 ? 'down' : 'flat'
-    const sign = d > 0 ? '▲ +' : d < 0 ? '▼ ' : ''
-    return (
-      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-        <span>{label}</span>
-        <span className={`delta ${cls}`}>{sign}{fmtInt(d)} HS</span>
-      </div>
-    )
-  }
 
   return (
     <div>
@@ -254,16 +241,6 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
         <div className="kpi pink"><span className="k-ic">💸</span><div className="k-body"><div className="k-label">Chưa lên phí</div><div className="k-val">{fmtTr(t.pipeApe)} tr</div><div className="k-sub">{fmtInt(t.pipeN)} hồ sơ</div></div></div>
       </div>
 
-      {/* ── Delta so voi snapshot truoc ── */}
-      {prevAnalysis && view.prevSnap && (
-        <div className="card">
-          <h2>📈 Thay đổi so với ngày {view.prevSnap.id.split('-').reverse().join('/')}</h2>
-          {deltaRow('Hồ sơ nộp', t.nopN, prevAnalysis.totals.nopN)}
-          {deltaRow('Hồ sơ phát hành (ròng)', t.netN, prevAnalysis.totals.netN)}
-          {deltaRow('Hồ sơ pending', t.pendN, prevAnalysis.totals.pendN)}
-        </div>
-      )}
-
       {/* ── Thanh xep chong ── */}
       <div className="card">
         <h2>🧱 Cơ cấu hồ sơ đã nộp</h2>
@@ -323,13 +300,13 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
         </div>
       </div>
 
-      {/* ── Hanh trinh nam: IP phat hanh + so hop dong theo thang ── */}
+      {/* ── Hanh trinh nam: cot FYP + duong so TVV Active theo thang ── */}
       <div className="card">
         <h2>🗓️ Hành trình {year} — Prudential Quận 7</h2>
-        <div className="chart-sub">IP phát hành (triệu) ghi trên đầu cột · đường cam là số hợp đồng phát hành mỗi tháng (số ghi dưới tên tháng) · tháng {month} tạm tính đến {view.snapDay}/{month} · mỗi tháng lấy bản Daily mới nhất của tháng đó.</div>
+        <div className="chart-sub">Cột: FYP (tr) · Đường: số TVV Active{year === 2026 ? <> · <span>T1–T10: số liệu GA · Từ T11: theo Daily Sales</span></> : null} · bấm vào một cột để xem chi tiết tháng.</div>
         <div className="legend chart-legend">
-          <span><span className="dot" style={{ background: '#7c3aed' }} />IP phát hành</span>
-          <span><span className="dash" />Số hợp đồng phát hành</span>
+          <span><span className="dot" style={{ background: '#7c3aed' }} />FYP (triệu)</span>
+          <span><span className="dash" />Số TVV Active</span>
         </div>
         <YearJourneyChart journey={journey} currentMonth={month} />
       </div>

@@ -2,7 +2,8 @@
 // journey.js — Du lieu cho 2 bieu do o man "Hom Nay" (theo mau D03 Lan gui):
 //   1) "Nhip nop theo ngay": cot xep chong theo ngay nop trong thang, to
 //      theo TRANG THAI HIEN TAI cua ho so (Phat hanh / Pending / Chua len phi).
-//   2) "Hanh trinh nam": IP phat hanh + so hop dong phat hanh theo tung thang.
+//   2) "Hanh trinh nam": cot FYP + duong so TVV Active theo tung thang
+//      (thang co so GA trong gaHistory.js -> so GA; con lai -> Daily Sales).
 // Logic THUAN (khong React / DOM) de test bang node duoc.
 // Gia tri dung groupValue cua cases.js de NHAT QUAN voi thanh xep chong o
 // man Doi Ngu (Bang Vang) va Sales Report:
@@ -10,7 +11,8 @@
 //   OTHER -> 0 (bo qua khoi bieu do).
 // Don vi tien: trieu dong (nhu du lieu Daily).
 // ─────────────────────────────────────────────────────────────
-import { buildCases, groupValue } from './cases.js'
+import { groupValue } from './cases.js'
+import { GA_HISTORY } from './gaHistory.js'
 
 /**
  * Cong don groupValue theo NGAY NOP (proposalDate) trong thang yyyyMm
@@ -45,19 +47,27 @@ export function dailyStacks(cases, yyyyMm) {
 const snapDateOf = (s) => (s && (s.id || s.dataDate || s.date)) || ''
 
 /**
- * Hanh trinh 12 thang cua 1 nam: moi thang lay snapshot MOI NHAT cua thang do
- * (dataDate thuoc thang; trung dataDate thi ban savedAt muon hon thang) roi
- * buildCases de tinh:
- *   ipIssued  = tong groupValue cac ho so IF (IP phat hanh, trieu dong)
- *   contracts = so ho so IF (so hop dong phat hanh)
- *   dataDate  = ngay du lieu cua snapshot da chon
- * Thang khong co snapshot -> { month, ipIssued: null, contracts: null, dataDate: null }.
- * Tra ve { year, months: [12 phan tu theo thu tu thang 1..12] }.
+ * Hanh trinh 12 thang cua 1 nam theo FYP + so TVV Active. Tra ve
+ * { year, months: [12 phan tu { month, fyp, act, source }] }, source:
+ *   'ga'    — thang co trong GA_HISTORY[year] (so lieu GA Lan gui, gaHistory.js):
+ *             lay so GA, UU TIEN hon snapshot Daily cua thang do.
+ *   'daily' — thang khong co so GA: lay snapshot MOI NHAT cua thang do
+ *             (dataDate thuoc thang; trung dataDate thi ban savedAt muon hon
+ *             thang), tinh tu sheet Agent cua snapshot (data.agents, khoa MSDL):
+ *               fyp = tong agent.fyp toan GA (trieu dong)
+ *               act = so agent co caseNet > 0 (logic Act dung khap app)
+ *   null    — khong co ca so GA lan snapshot -> fyp/act null.
  */
-export function monthJourney(snaps, year) {
+export function buildYearJourney(snaps, year) {
   const list = snaps || []
+  const gaYear = GA_HISTORY[year] || {}
   const months = []
   for (let m = 1; m <= 12; m++) {
+    const ga = gaYear[m]
+    if (ga) {
+      months.push({ month: m, fyp: ga.fyp, act: ga.act, source: 'ga' })
+      continue
+    }
     const prefix = `${year}-${String(m).padStart(2, '0')}`
     let best = null
     for (const s of list) {
@@ -69,18 +79,16 @@ export function monthJourney(snaps, year) {
       else if (d === bd && String(s.savedAt || '') > String(best.savedAt || '')) best = s
     }
     if (!best) {
-      months.push({ month: m, ipIssued: null, contracts: null, dataDate: null })
+      months.push({ month: m, fyp: null, act: null, source: null })
       continue
     }
-    let ipIssued = 0
-    let contracts = 0
-    for (const c of buildCases(best)) {
-      if (c.effectiveStatus === 'IF') {
-        ipIssued += groupValue(c)
-        contracts += 1
-      }
+    let fyp = 0
+    let act = 0
+    for (const a of Object.values(best.data?.agents || {})) {
+      fyp += Number(a && a.fyp) || 0
+      if ((Number(a && a.caseNet) || 0) > 0) act += 1
     }
-    months.push({ month: m, ipIssued, contracts, dataDate: snapDateOf(best) })
+    months.push({ month: m, fyp, act, source: 'daily' })
   }
   return { year, months }
 }
