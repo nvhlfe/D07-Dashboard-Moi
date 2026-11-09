@@ -1,6 +1,6 @@
 // Test: snapCache.js — tap doc can (neededSnapIds) + cat cache theo
 // dung luong (pruneSnapshots). Module thuan, chay bang node.
-const { neededSnapIds, pruneSnapshots, journeyMonthYms, prevMonthYm, nextMonthYm, LOCAL_CACHE_BUDGET } = await import('../src/lib/snapCache.js')
+const { neededSnapIds, pruneSnapshots, journeyMonthYms, prevMonthYm, nextMonthYm, LOCAL_CACHE_BUDGET, daysInMonth, shiftYmd, localTodayYmd, probeDaysBack, monthProbeDays } = await import('../src/lib/snapCache.js')
 
 const assert = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); process.exit(1) } console.log('ok -', msg) }
 
@@ -54,5 +54,27 @@ assert(p3.kept.length === 1 && p3.kept[0].id === '2026-11-09', 'prune: ngan sach
 // Du lieu nho hon ngan sach mac dinh: giu nguyen tat ca
 const p4 = pruneSnapshots([e('2026-11-09'), e('2026-11-05')])
 assert(p4.kept.length === 2 && p4.dropped === 0 && p4.json.length <= LOCAL_CACHE_BUDGET, 'prune: vua ngan sach mac dinh -> khong cat')
+
+// ── Ham ngay thuan cho co che DO getDoc theo ngay (store.js) ──
+// Query __name__ DESC thieu composite index -> store do lui tung ngay
+// bang getDoc; danh sach ngay ung vien sinh o snapCache (thuan, o day).
+assert(daysInMonth(2026, 11) === 30 && daysInMonth(2026, 10) === 31 && daysInMonth(2026, 2) === 28, 'daysInMonth: T11=30, T10=31, T2/2026=28')
+assert(daysInMonth(2024, 2) === 29, 'daysInMonth: T2/2024 nam nhuan = 29')
+assert(shiftYmd('2026-11-09', -1) === '2026-11-08' && shiftYmd('2026-11-09', 1) === '2026-11-10', 'shiftYmd: +/- 1 ngay trong thang')
+assert(shiftYmd('2026-03-01', -1) === '2026-02-28' && shiftYmd('2026-01-01', -1) === '2025-12-31', 'shiftYmd: lui qua dau thang / dau nam')
+assert(shiftYmd('2024-03-01', -1) === '2024-02-29', 'shiftYmd: lui vao 29/02 nam nhuan')
+assert(shiftYmd('khong-phai-ngay', -1) === '', 'shiftYmd: dinh dang sai -> ""')
+assert(localTodayYmd(new Date(2026, 10, 9, 23, 59)) === '2026-11-09', 'localTodayYmd: lay ngay theo gio dia phuong cua Date truyen vao')
+assert(JSON.stringify(probeDaysBack('2026-11-09', 3)) === JSON.stringify(['2026-11-09', '2026-11-08', '2026-11-07']), 'probeDaysBack: tu neo lui dan, gom ca neo')
+assert(JSON.stringify(probeDaysBack('2026-03-01', 3)) === JSON.stringify(['2026-03-01', '2026-02-28', '2026-02-27']), 'probeDaysBack: lui qua bien thang dung')
+assert(probeDaysBack('2026-11-09', 45).length === 45 && probeDaysBack('2026-11-09', 45)[44] === '2026-09-26', 'probeDaysBack: du 45 ngay, ngay cuoi = neo - 44')
+assert(probeDaysBack('sai', 5).length === 0 && probeDaysBack('2026-11-09', 0).length === 0, 'probeDaysBack: neo sai / count 0 -> []')
+const mp11 = monthProbeDays('2026-11')
+assert(mp11.length === 30 && mp11[0] === '2026-11-30' && mp11[29] === '2026-11-01', 'monthProbeDays T11/2026: 30 ngay, tu 30 lui ve 01')
+const mpLeap = monthProbeDays('2024-02')
+assert(mpLeap.length === 29 && mpLeap[0] === '2024-02-29' && mpLeap[28] === '2024-02-01', 'monthProbeDays T2/2024: 29 ngay (nhuan), bat dau 29/02')
+const mpOct = monthProbeDays('2026-10')
+assert(mpOct.length === 31 && mpOct[0] === '2026-10-31' && mpOct[1] === '2026-10-30', 'monthProbeDays T10/2026: 31 ngay — do tu 31 trung ngay 30 o lan do thu 2 (doc moi nhat T10 that)')
+assert(monthProbeDays('2026-13').length === 0 || monthProbeDays('xx').length === 0, 'monthProbeDays: thang sai dinh dang -> []')
 
 console.log('✅ TAT CA ASSERT DAT (test-cache)')

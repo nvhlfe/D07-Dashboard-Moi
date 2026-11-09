@@ -8,10 +8,10 @@
 // App LUON chay duoc chi bang localStorage (offline/demo) khi chua co Firebase.
 // ─────────────────────────────────────────────────────────────
 import { initializeApp, getApps } from 'firebase/app'
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, collection, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, where, limit, documentId } from 'firebase/firestore'
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, collection, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore'
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject, getBlob, listAll } from 'firebase/storage'
 import { resolveFirebaseConfig } from './firebaseConfig'
-import { pruneSnapshots, journeyMonthYms, prevMonthYm, nextMonthYm, LOCAL_CACHE_BUDGET } from './snapCache.js'
+import { pruneSnapshots, journeyMonthYms, prevMonthYm, monthProbeDays, probeDaysBack, shiftYmd, localTodayYmd, LOCAL_CACHE_BUDGET } from './snapCache.js'
 
 export const SNAP_KEY = 'd07moi_snapshots'
 export const HIST_KEY = 'd07moi_history'
@@ -196,33 +196,60 @@ export async function saveDailyToFirestore(ymd, payload, updatedBy = null) {
 }
 
 // ── Doc snapshot Daily tu Firestore — CHI TAI DUNG DOC CAN ──────────
-// Ban cu getDocs TOAN BO collection (~40 doc, ~20MB) chi de lay danh
-// sach id roi getDoc lai tung doc — thu pham cham chinh khi mo app.
-// Ban nay dung truy van GIOI HAN theo documentId():
-//   - documentId() la khoa chinh __name__ cua doc: sap xep/gioi han theo
-//     khoa nay dung index khoa chinh co san cua Firestore, KHONG can
-//     composite index; du lieu cua cac doc tra ve dung luon (khong tai lai).
+// Ban cu nhat truoc dung getDocs TOAN BO collection (~40 doc, ~20MB)
+// chi de lay danh sach id — thu pham cham chinh khi mo app.
+// Ban tiep theo dung query sap xep theo khoa __name__ (desc + limit)
+// NHUNG project nay KHONG co composite index cho __name__ DESC nen
+// Firestore nem FAILED-PRECONDITION ngay buoc dau -> fetch tra null
+// -> app chi con cache may (sua gap 09/11/2026, da kiem chung bang SDK
+// that tren project: ca desc+limit lan asc+limit-to-last deu loi index).
+// Ban nay: DO DOC BANG getDoc THEO NGAY — id doc chinh la ngay du lieu
+// 'yyyy-mm-dd' nen cu getDoc tung ngay ung vien (lui dan, danh sach
+// ngay sinh thuan o snapCache.js) cho den khi trung doc ton tai.
+// Khong dung bat ky query sap xep nao -> khong phu thuoc index.
 // Tap doc dich (neededSnapIds trong snapCache.js):
 //   1) 2 doc moi nhat tong the (moi nhat + lien truoc cho delta);
 //   2) doc moi nhat cua thang truoc thang cua doc moi nhat (CF lien thang);
 //   3) doc moi nhat cua tung thang trong nam cua doc moi nhat ma thang do
 //      khong co so GA (Hanh trinh nam — thang co so GA khong can Daily).
-const dailyCol = (fs) => collection(fs, 'daily_sales_tvv')
 const toEntry = (d) => ({ id: d.id, data: d.data(), savedAt: d.data()?.updatedAt || null })
 
-/** Doc moi nhat cua 1 thang 'yyyy-mm' (query khoang documentId, limit 1). */
+// Tran do doc moi nhat / lien truoc: lui toi da 45 ngay tu ngay neo.
+// Du lieu nap hang ngay nen dien hinh trung ngay o 1-2 lan do dau;
+// 45 ngay chi la tran an toan khi nghi dai ngay.
+const PROBE_MAX_DAYS = 45
+
+/**
+ * getDoc 1 doc daily_sales_tvv/{ymd}. Doc khong ton tai -> null (tiep
+ * tuc do); LOI THAT (mang / rules / index...) -> THROW ra ngoai de
+ * tang tren tra null TOAN CUC dung hanh vi cu (App roi ve cache may,
+ * khong lay du lieu nua voi nua chung).
+ */
+async function fetchDocById(fs, ymd) {
+  const d = await getDoc(doc(fs, 'daily_sales_tvv', ymd))
+  return d.exists() ? toEntry(d) : null
+}
+
+/** Doc ton tai moi nhat khi do lui tu ngay neo, toi da maxDays ngay. */
+async function fetchLatestDocBack(fs, anchorYmd, maxDays = PROBE_MAX_DAYS) {
+  for (const ymd of probeDaysBack(anchorYmd, maxDays)) {
+    const e = await fetchDocById(fs, ymd)
+    if (e) return e
+  }
+  return null
+}
+
+/**
+ * Doc moi nhat cua 1 thang 'yyyy-mm': do tu ngay cuoi thang lui ve
+ * ngay 01 (monthProbeDays tinh dung so ngay cua thang, gom nam nhuan).
+ * Ca thang khong co doc -> null.
+ */
 async function fetchLatestDocOfMonth(fs, ym) {
-  const next = nextMonthYm(ym)
-  if (!ym || !next) return null
-  const q = query(
-    dailyCol(fs),
-    where(documentId(), '>=', `${ym}-01`),
-    where(documentId(), '<', `${next}-01`),
-    orderBy(documentId(), 'desc'),
-    limit(1),
-  )
-  const snap = await getDocs(q)
-  return snap.empty ? null : toEntry(snap.docs[0])
+  for (const ymd of monthProbeDays(ym)) {
+    const e = await fetchDocById(fs, ymd)
+    if (e) return e
+  }
+  return null
 }
 
 /**
@@ -236,11 +263,14 @@ export async function fetchFirestoreSnapshots() {
   try {
     const byId = new Map()
     const add = (e) => { if (e && e.id && e.data) byId.set(e.id, e) }
-    // 1) Hai doc moi nhat tong the
-    const latest = await getDocs(query(dailyCol(fs), orderBy(documentId(), 'desc'), limit(2)))
-    latest.forEach((d) => add(toEntry(d)))
-    if (!byId.size) return []
-    const newest = [...byId.keys()].sort().pop()
+    // 1) Doc moi nhat tong the: do lui tu HOM NAY (gio dia phuong cua
+    // may chay). 45 ngay khong thay doc nao -> chua co du lieu tren may.
+    const newestEntry = await fetchLatestDocBack(fs, localTodayYmd(), PROBE_MAX_DAYS)
+    if (!newestEntry) return []
+    add(newestEntry)
+    const newest = newestEntry.id
+    // Lien truoc (delta): tiep tuc do lui tu ngay truoc doc moi nhat.
+    add(await fetchLatestDocBack(fs, shiftYmd(newest, -1), PROBE_MAX_DAYS))
     // 2) Doc moi nhat cua thang truoc (CF lien thang)
     add(await fetchLatestDocOfMonth(fs, prevMonthYm(newest)))
     // 3) Doc moi nhat cua cac thang Hanh trinh nam chua co trong tap

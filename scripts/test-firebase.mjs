@@ -12,6 +12,7 @@
 import { initializeApp } from 'firebase/app'
 import { getFirestore, collection, query, limit, getDocsFromServer } from 'firebase/firestore'
 import { EMBEDDED_FIREBASE_CONFIG } from '../src/lib/firebaseConfig.js'
+import { probeDaysBack, localTodayYmd } from '../src/lib/snapCache.js'
 
 const pid = EMBEDDED_FIREBASE_CONFIG.projectId
 const dbName = `projects/${pid}/databases/(default)`
@@ -78,6 +79,38 @@ try {
 if (!writeDenied) {
   console.log('⚠️ Probe ghi tra trang thai la (khong phai 403/PERMISSION_DENIED, khong phai 200) — can kiem tra lai.')
   process.exit(1)
+}
+
+// ── 4) Kiem chung CO CHE DO DOC cua store.js tren du lieu THAT ──
+// store.js khong con dung query sap xep __name__ (thieu composite
+// index -> FAILED-PRECONDITION) ma DO bang getDoc theo ngay. O day mo
+// phong dung co che do: GET REST tung doc = getDoc tuong duong, ngay
+// ung vien sinh bang CHINH helper thuan snapCache (probeDaysBack tu
+// localTodayYmd) ma store dung. Chi chay khi doc cong khai (public);
+// auth-only thi bo qua vi GET se bi 403 o ngay dau tien.
+// Khong thay doc trong 45 ngay -> chi CANH BAO (du lieu that co the
+// cu hon tran do neu Lan nghi nap dai ngay), khong fail smoke test.
+if (readState === 'public') {
+  let probedId = ''
+  let probeNote = ''
+  for (const ymd of probeDaysBack(localTodayYmd(), 45)) {
+    try {
+      const r = await fetch(`${base}/daily_sales_tvv/${ymd}`)
+      if (r.status === 200) { probedId = ymd; break }
+      if (r.status === 403) { probeNote = 'bi 403 giua chung — rules vua doi?'; break }
+      if (r.status !== 404) { probeNote = `HTTP ${r.status}`; break }
+    } catch (e) {
+      probeNote = `loi mang: ${e.cause?.code || e.message}`
+      break
+    }
+  }
+  if (probedId) {
+    console.log(`✅ Do doc theo ngay (co che store.js) tren project that: trung doc moi nhat ${probedId} — getDoc theo ngay chay, khong can index.`)
+  } else {
+    console.log(`⚠️ Do 45 ngay tu hom nay khong trung doc nao (${probeNote || 'du lieu moi nhat co the cu hon 45 ngay'}) — kiem tra lai neu Lan van dang nap hang ngay.`)
+  }
+} else {
+  console.log('ℹ️ Bo qua kiem chung do doc: rules doc cong khai chua publish (auth-only).')
 }
 
 // ── Ket luan ──

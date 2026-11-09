@@ -31,6 +31,72 @@ export function prevMonthYm(ymd) {
   return m === 1 ? `${y - 1}-12` : `${y}-${pad2(m - 1)}`
 }
 
+// ── Ham ngay THUAN cho co che DO DOC THEO NGAY (store.js) ─────
+// Firestore tren project nay KHONG co composite index cho __name__
+// DESC nen query sap xep theo khoa chinh (desc + limit) nem
+// FAILED-PRECONDITION ngay buoc dau.
+// Cach doc snapshot Daily chuyen sang getDoc DO THEO NGAY: sinh danh
+// sach ngay ung vien (lui dan) o day — thuan, test bang node duoc —
+// store.js chi viec getDoc tung ngay cho den khi trung doc ton tai.
+// Moi phep tinh ngay di qua Date.UTC de khong lech theo mui gio may chay.
+
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
+const YM_RE = /^\d{4}-\d{2}$/
+const DAY_MS = 86400000
+
+/** So ngay cua thang m (1-12) nam y — dung ca thang 2 nam nhuan. */
+export function daysInMonth(y, m) {
+  return new Date(Date.UTC(y, m, 0)).getUTCDate()
+}
+
+const ymdFromMs = (ms) => {
+  const d = new Date(ms)
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`
+}
+
+/** Cong/tru ngay cho 'yyyy-mm-dd' (delta am = lui). Sai dinh dang -> ''. */
+export function shiftYmd(ymd, delta) {
+  if (!YMD_RE.test(String(ymd || ''))) return ''
+  const [y, m, d] = String(ymd).split('-').map(Number)
+  return ymdFromMs(Date.UTC(y, m - 1, d) + Number(delta || 0) * DAY_MS)
+}
+
+/** 'yyyy-mm-dd' HOM NAY theo gio DIA PHUONG cua may chay (neo do doc moi nhat). */
+export function localTodayYmd(date = new Date()) {
+  const d = date instanceof Date ? date : new Date()
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
+
+/**
+ * Danh sach ngay DO doc moi nhat: tu ngay neo lui dan, toi da count ngay
+ * (gom ca ngay neo). Sai dinh dang / count <= 0 -> [].
+ */
+export function probeDaysBack(anchorYmd, count) {
+  if (!YMD_RE.test(String(anchorYmd || ''))) return []
+  const n = Math.floor(Number(count) || 0)
+  if (n <= 0) return []
+  const [y, m, d] = String(anchorYmd).split('-').map(Number)
+  const base = Date.UTC(y, m - 1, d)
+  const out = []
+  for (let i = 0; i < n; i++) out.push(ymdFromMs(base - i * DAY_MS))
+  return out
+}
+
+/**
+ * Danh sach ngay do doc moi nhat cua 1 thang 'yyyy-mm': tu NGAY CUOI
+ * THANG (tinh dung so ngay cua thang, gom 29/02 nam nhuan) lui ve
+ * ngay 01. Sai dinh dang -> [].
+ */
+export function monthProbeDays(ym) {
+  if (!YM_RE.test(String(ym || ''))) return []
+  const [y, m] = String(ym).split('-').map(Number)
+  const last = daysInMonth(y, m)
+  const base = Date.UTC(y, m - 1, last)
+  const out = []
+  for (let i = 0; i < last; i++) out.push(ymdFromMs(base - i * DAY_MS))
+  return out
+}
+
 /** 'yyyy-mm' cua thang sau thang 'yyyy-mm' (moc < doc id cho range query). */
 export function nextMonthYm(ym) {
   const [y, m] = String(ym || '').split('-').map(Number)

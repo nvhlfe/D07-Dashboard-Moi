@@ -324,10 +324,18 @@ console.log('Admin chinh = admin@prud07.top o code + firestore.rules + storage.r
 // ── Toi uu toc do tai du lieu (09/11/2026): chi tai dung doc can ──
 console.log('\n=== toi uu tai du lieu ===')
 assert.ok(!store.includes("getDocs(collection(fs, 'daily_sales_tvv'))"), 'store: fetchFirestoreSnapshots KHONG con getDocs toan bo collection daily_sales_tvv')
-assert.ok(!store.includes("await getDoc(doc(fs, 'daily_sales_tvv'"), 'store: khong con getDoc tai lai tung doc sau khi liet ke id')
-assert.ok(store.includes('documentId()'), 'store: truy van theo documentId() (khoa chinh, khong can composite index)')
-assert.ok(store.includes("orderBy(documentId(), 'desc')"), 'store: sap xep giam dan theo documentId de lay doc moi nhat')
-assert.ok(store.includes('limit(2)') && store.includes('limit(1)'), 'store: moi truy van snapshot deu co limit (2 doc moi nhat / 1 doc moi nhat cua thang)')
+assert.ok(!store.includes('getDocs(query(dailyCol'), 'store: KHONG con bat ky query getDocs nao tren daily_sales_tvv')
+// Sua gap 09/11/2026: query sap xep theo __name__ DESC doi composite index
+// ma project khong co -> FAILED-PRECONDITION ngay buoc dau, app chi con
+// cache may. Khoa che do cu: store KHONG duoc chua lai cac mau query do.
+assert.ok(!store.includes('documentId()'), 'store: KHONG con documentId() (query __name__ DESC thieu composite index -> FAILED-PRECONDITION)')
+assert.ok(!store.includes("orderBy(documentId()"), "store: KHONG con orderBy(documentId()...) sap xep theo khoa chinh")
+assert.ok(!store.includes('limitToLast'), 'store: KHONG con limitToLast (bien the asc cung loi index)')
+// Co che thay the: DO DOC bang getDoc theo ngay (id doc = ngay du lieu)
+assert.ok(store.includes("getDoc(doc(fs, 'daily_sales_tvv', ymd))"), "store: phai doc tung doc bang getDoc(doc(fs, 'daily_sales_tvv', ymd)) — co che do theo ngay")
+assert.ok(store.includes('probeDaysBack') && store.includes('monthProbeDays'), 'store: danh sach ngay do phai sinh tu snapCache (probeDaysBack / monthProbeDays)')
+assert.ok(store.includes('localTodayYmd()'), 'store: neo do doc moi nhat la HOM NAY theo gio dia phuong (localTodayYmd)')
+assert.ok(store.includes('PROBE_MAX_DAYS = 45'), 'store: tran do doc moi nhat/lien truoc la 45 ngay (PROBE_MAX_DAYS)')
 assert.ok(store.includes('fetchMonthSnapshots'), 'store: co fetchMonthSnapshots cho tai LAZY theo thang (Sales Report)')
 assert.ok(store.includes('persistentLocalCache') && store.includes('persistentMultipleTabManager'), 'store: Firestore bat persistent cache (IndexedDB) + multiple tab manager')
 assert.ok(store.includes('initializeFirestore'), 'store: dung initializeFirestore de cau hinh persistent cache')
