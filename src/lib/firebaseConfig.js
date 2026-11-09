@@ -15,7 +15,7 @@ export const EMBEDDED_FIREBASE_CONFIG = {
 
 // Tai khoan admin chinh (super admin): dang nhap bang email nay thi so ho so
 // hien DAY DU, khong che. Danh sach nay sua duoc tai day.
-export const SUPER_ADMIN_EMAILS = ['admin@d07.com'];
+export const SUPER_ADMIN_EMAILS = ['admin@prud07.top'];
 
 // Thu tu uu tien cau hinh: nguoi dung dan tay (fb_config, de thu project khac)
 // -> cau hinh nhung san o tren.

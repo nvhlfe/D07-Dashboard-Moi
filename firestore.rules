@@ -37,21 +37,25 @@ service cloud.firestore {
 
     // TVV Hàng Ngày — snapshot lũy kế theo ngày từ file Daily Sales (Proposal/Agent/Leader/Pending/Pipeline)
     // Đây cũng là nguồn "chính thức" mà ManMark có thể đọc trực tiếp (tuỳ chọn "Nguồn thực đạt")
+    // ĐỌC CÔNG KHAI (kể cả chưa đăng nhập — Lan chốt 09/11/2026: mở xem
+    // dữ liệu Trang Chủ / Tinh Anh không cần đăng nhập trên domain
+    // sales.prud07.top); GHI vẫn chỉ user đã đăng nhập (nạp dữ liệu
+    // qua tab Nạp — vốn chỉ Admin chính thấy).
     match /daily_sales_tvv/{docId} {
-      allow read:  if request.auth != null;
+      allow read:  if true;
       allow write: if request.auth != null;
     }
 
     // Hồ sơ cá nhân của từng user (Dashboard D07 Mới — cá nhân hoá theo TVV
     // + trạng thái duyệt tài khoản status: pending/approved/blocked):
-    // user chỉ đọc/ghi hồ sơ của chính mình; Admin chính (admin@d07.com)
+    // user chỉ đọc/ghi hồ sơ của chính mình; Admin chính (admin@prud07.top)
     // đọc/ghi được mọi hồ sơ để duyệt/khoá/thu hồi tài khoản TVV.
     match /user_profiles/{uid} {
       allow read: if request.auth != null
-                    && (request.auth.uid == uid || request.auth.token.email == 'admin@d07.com');
+                    && (request.auth.uid == uid || request.auth.token.email == 'admin@prud07.top');
       allow create, update: if request.auth != null
-                    && (request.auth.uid == uid || request.auth.token.email == 'admin@d07.com');
-      allow delete: if request.auth != null && request.auth.token.email == 'admin@d07.com';
+                    && (request.auth.uid == uid || request.auth.token.email == 'admin@prud07.top');
+      allow delete: if request.auth != null && request.auth.token.email == 'admin@prud07.top';
     }
 
     // Điều chỉnh hồ sơ của Sales Report (Dashboard D07 Mới) — user đã đăng nhập mới được dùng
@@ -63,11 +67,11 @@ service cloud.firestore {
     // file nằm ở Firebase Storage (xem storage.rules). AI CŨNG ĐỌC ĐƯỢC
     // (kể cả chưa đăng nhập — Lan chốt 08/11/2026: ai cũng xem được memo,
     // việc "đăng nhập mới tải được" do giao diện app kiểm soát); chỉ Admin
-    // chính (admin@d07.com) tạo/sửa/xoá.
+    // chính (admin@prud07.top) tạo/sửa/xoá.
     match /memos/{memoId} {
       allow read: if true;
       allow create, update, delete: if request.auth != null
-                    && request.auth.token.email == 'admin@d07.com';
+                    && request.auth.token.email == 'admin@prud07.top';
     }
 
     // Mặc định: từ chối tất cả những gì không khớp rule ở trên

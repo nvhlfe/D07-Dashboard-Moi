@@ -1,49 +1,89 @@
-// Smoke test ket noi Firebase THAT bang config nhung san:
-// doc Firestore daily_sales_tvv (limit 1) khi CHUA dang nhap.
-// Ky vong: 'permission-denied' — chung to config tro dung project that
-// va Rules dang bat (chi user dang nhap moi doc duoc).
-// CHI in MA LOI — tuyet doi khong in gia tri config / URL chua project.
+// Smoke test ket noi Firebase THAT bang config nhung san — trang thai
+// SAU dot mo xem cong khai (Lan chot 09/11/2026, domain sales.prud07.top):
+//  - DOC daily_sales_tvv khi CHUA dang nhap:
+//      + doc duoc  -> ban firestore.rules MOI (read: if true) DA publish.
+//      + permission-denied -> ban CU van con hieu luc (Lan chua publish
+//        ban moi) — khong phai loi config, test bao ro trang thai nay.
+//  - GHI khi CHUA dang nhap: o MOI trang thai deu phai bi chan — day la
+//    bat bien an toan cua dot nay (chi noi DOC). Probe bang DELETE 1 doc
+//    khong ton tai (xoa doc khong co that la no-op nen khong sua du lieu
+//    that ke ca khi rules loi mo ghi). Neu ghi duoc -> FAIL ngay.
+// CHI in MA LOI / trang thai — tuyet doi khong in gia tri config / URL chua project.
 import { initializeApp } from 'firebase/app'
 import { getFirestore, collection, query, limit, getDocsFromServer } from 'firebase/firestore'
 import { EMBEDDED_FIREBASE_CONFIG } from '../src/lib/firebaseConfig.js'
 
+const pid = EMBEDDED_FIREBASE_CONFIG.projectId
+const dbName = `projects/${pid}/databases/(default)`
+const base = `https://firestore.googleapis.com/v1/${dbName}/documents`
+
+// ── 1) Doc qua SDK (ep hoi thang may chu) ──
+let readState = '' // 'public' | 'auth-only'
 let sdkCode = '(none)'
 try {
   const app = initializeApp(EMBEDDED_FIREBASE_CONFIG)
   const fs = getFirestore(app)
-  // FromServer: ep hoi thang may chu (getDocs thuong co the tra cache offline
-  // va "thanh cong" rong khi mat mang — khong chung minh duoc gi).
   await getDocsFromServer(query(collection(fs, 'daily_sales_tvv'), limit(1)))
+  readState = 'public'
 } catch (e) {
   sdkCode = e?.code || '(unknown)'
+  if (sdkCode === 'permission-denied') readState = 'auth-only'
 }
-console.log('SDK error code:', sdkCode)
+console.log('SDK read code:', sdkCode)
 
-if (sdkCode === 'permission-denied') {
-  console.log('✅ DUNG KY VONG: config tro dung project that, Rules dang chan user chua dang nhap.')
-  process.exit(0)
+// ── 2) SDK khong ket luan duoc (vd 'unavailable' do moi truong chay chan
+// kenh WebChannel) -> doi chieu bang REST thuong ──
+if (!readState) {
+  try {
+    const r = await fetch(`${base}/daily_sales_tvv?pageSize=1`)
+    const body = await r.json().catch(() => ({}))
+    const status = body?.error?.status || '(none)'
+    console.log(`REST read cross-check: HTTP ${r.status} | status: ${status}`)
+    if (r.status === 200) readState = 'public'
+    else if (r.status === 403 && status === 'PERMISSION_DENIED') readState = 'auth-only'
+    else if (status === 'NOT_FOUND' || r.status === 404) {
+      console.log('❌ Project/collection khong ton tai — config nhung co the tro sai project.')
+      process.exit(1)
+    }
+  } catch (e) {
+    console.log('REST read cross-check loi mang:', e.cause?.code || e.message)
+    process.exit(1)
+  }
 }
-if (sdkCode === '(none)') {
-  console.log('⚠️ Doc duoc khi chua dang nhap?! Kiem tra lai Rules.')
-  process.exit(2)
+if (!readState) {
+  console.log('⚠️ Khong xac dinh duoc trang thai doc — can kiem tra lai.')
+  process.exit(1)
 }
 
-// SDK tra 'unavailable' thuong do moi truong chay chan kenh WebChannel cua
-// Firestore (khong phai loi config). Kiem chung lai bang REST API thuong:
-// request khong dang nhap toi cung collection — Rules dung se tra 403 PERMISSION_DENIED.
+// ── 3) Probe GHI khi chua dang nhap: DELETE 1 doc khong ton tai ──
+// (allow write bao gom ca delete; doc khong ton tai nen ke ca khi rules
+// loi mo ghi thi thao tac nay van la no-op — khong tao/sua du lieu that.
+// Luu y: id dang "__...__" bi Firestore cam vi la id du tru, nen dung
+// id thuong "guest-write-probe-000".)
+let writeDenied = false
 try {
-  const url = `https://firestore.googleapis.com/v1/projects/${EMBEDDED_FIREBASE_CONFIG.projectId}/databases/(default)/documents/daily_sales_tvv?pageSize=1`
-  const r = await fetch(url)
+  const r = await fetch(`${base}/daily_sales_tvv/guest-write-probe-000`, { method: 'DELETE' })
   const body = await r.json().catch(() => ({}))
   const status = body?.error?.status || '(none)'
-  console.log(`REST cross-check: HTTP ${r.status} | status: ${status}`)
-  if (r.status === 403 && status === 'PERMISSION_DENIED') {
-    console.log('✅ DUNG KY VONG (qua REST): project that ton tai, Rules dang chan user chua dang nhap. SDK unavailable chi la gioi han kenh truyen cua moi truong chay test.')
-    process.exit(0)
+  console.log(`REST write probe: HTTP ${r.status} | status: ${status}`)
+  if (r.status === 200) {
+    console.log('❌ NGUY HIEM: user CHUA dang nhap GHI duoc daily_sales_tvv — rules bi noi qua muc, phai khoa lai ngay (write van phai request.auth != null).')
+    process.exit(1)
   }
-  console.log('⚠️ REST tra ket qua khac 403/PERMISSION_DENIED — can kiem tra lai.')
-  process.exit(1)
+  writeDenied = r.status === 403 && status === 'PERMISSION_DENIED'
 } catch (e) {
-  console.log('REST cross-check loi mang:', e.cause?.code || e.message)
+  console.log('REST write probe loi mang:', e.cause?.code || e.message)
   process.exit(1)
 }
+if (!writeDenied) {
+  console.log('⚠️ Probe ghi tra trang thai la (khong phai 403/PERMISSION_DENIED, khong phai 200) — can kiem tra lai.')
+  process.exit(1)
+}
+
+// ── Ket luan ──
+if (readState === 'public') {
+  console.log('✅ Rules MOI da hieu luc tren project that: khach doc duoc daily_sales_tvv (Trang Chu/Tinh Anh khong can dang nhap); ghi van khoa theo dang nhap.')
+} else {
+  console.log('✅ Config dung project that + ghi van khoa. LUU Y: rules MOI chua publish — doc van chi user dang nhap; Lan publish firestore.rules (ban trong repo) la khach xem duoc ngay.')
+}
+process.exit(0)

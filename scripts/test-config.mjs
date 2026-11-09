@@ -7,7 +7,7 @@ globalThis.localStorage = {
   removeItem: (k) => store.delete(k),
 }
 
-const { EMBEDDED_FIREBASE_CONFIG, resolveFirebaseConfig, isSuperAdmin, msdlToEmail, emailToMsdl, isMsdlAccount, resolveLoginEmail, canViewSalesReport } = await import('../src/lib/firebaseConfig.js')
+const { EMBEDDED_FIREBASE_CONFIG, SUPER_ADMIN_EMAILS, resolveFirebaseConfig, isSuperAdmin, msdlToEmail, emailToMsdl, isMsdlAccount, resolveLoginEmail, canViewSalesReport } = await import('../src/lib/firebaseConfig.js')
 
 const assert = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); process.exit(1) } console.log('ok -', msg) }
 
@@ -29,9 +29,14 @@ assert(resolveFirebaseConfig() === EMBEDDED_FIREBASE_CONFIG, 'fb_config thieu ap
 store.set('fb_config', '{not json')
 assert(resolveFirebaseConfig() === EMBEDDED_FIREBASE_CONFIG, 'fb_config loi JSON -> config nhung san')
 
-// 5) isSuperAdmin
-assert(isSuperAdmin({ email: 'admin@d07.com' }) === true, 'admin@d07.com la Admin chinh')
-assert(isSuperAdmin({ email: 'Admin@D07.com' }) === true, 'email Admin chinh khong phan biet hoa thuong')
+// 5) isSuperAdmin — Admin chinh CHUYEN SANG admin@prud07.top (Lan chot
+// 09/11/2026, thay han email cu). Email cu kiem tra bang chuoi ghep de
+// file test khong chua literal email cu (test-access khoa viec nay).
+const OLD_ADMIN = 'admin@' + 'd07.com'
+assert(JSON.stringify(SUPER_ADMIN_EMAILS) === JSON.stringify(['admin@prud07.top']), 'SUPER_ADMIN_EMAILS chi con admin@prud07.top')
+assert(isSuperAdmin({ email: 'admin@prud07.top' }) === true, 'admin@prud07.top la Admin chinh')
+assert(isSuperAdmin({ email: OLD_ADMIN }) === false, 'email Admin CU khong con quyen Admin chinh')
+assert(isSuperAdmin({ email: 'Admin@Prud07.TOP' }) === true, 'email Admin chinh khong phan biet hoa thuong')
 assert(isSuperAdmin({ email: 'tvv@d07.com' }) === false, 'email thuong khong phai Admin chinh')
 assert(isSuperAdmin(null) === false, 'chua dang nhap -> khong phai Admin chinh')
 assert(isSuperAdmin({}) === false, 'user khong email -> khong phai Admin chinh')
@@ -39,15 +44,15 @@ assert(isSuperAdmin({}) === false, 'user khong email -> khong phai Admin chinh')
 // 6) Tai khoan TVV bang MSDL
 assert(msdlToEmail(' 12345678 ') === '12345678@d07.local', 'msdlToEmail: ma so -> email noi bo')
 assert(emailToMsdl('12345678@d07.local') === '12345678', 'emailToMsdl: trich lai MSDL')
-assert(emailToMsdl('admin@d07.com') === '', 'emailToMsdl: email quan tri -> rong')
+assert(emailToMsdl('admin@prud07.top') === '', 'emailToMsdl: email quan tri -> rong')
 assert(isMsdlAccount({ email: '87654321@d07.local' }) === true, 'isMsdlAccount: dung tai khoan MSDL')
-assert(isMsdlAccount({ email: 'admin@d07.com' }) === false, 'isMsdlAccount: email thuong -> false')
+assert(isMsdlAccount({ email: 'admin@prud07.top' }) === false, 'isMsdlAccount: email thuong -> false')
 assert(isMsdlAccount(null) === false, 'isMsdlAccount: chua dang nhap -> false')
 assert(resolveLoginEmail('12345678') === '12345678@d07.local', 'resolveLoginEmail: nhap MSDL -> email noi bo')
-assert(resolveLoginEmail('Admin@D07.com') === 'Admin@D07.com', 'resolveLoginEmail: nhap email -> giu nguyen')
+assert(resolveLoginEmail('Admin@Prud07.top') === 'Admin@Prud07.top', 'resolveLoginEmail: nhap email -> giu nguyen')
 
 // 7) Quyen xem Sales Report: Admin chinh luon duoc; TVV chi khi duoc cap quyen
-assert(canViewSalesReport({ email: 'admin@d07.com' }, null) === true, 'canViewSalesReport: Admin chinh -> true')
+assert(canViewSalesReport({ email: 'admin@prud07.top' }, null) === true, 'canViewSalesReport: Admin chinh -> true')
 assert(canViewSalesReport({ email: 'tvv@d07.com' }, { canSalesReport: true }) === true, 'canViewSalesReport: duoc cap quyen -> true')
 assert(canViewSalesReport({ email: 'tvv@d07.com' }, { canSalesReport: false }) === false, 'canViewSalesReport: bi thu hoi -> false')
 assert(canViewSalesReport({ email: 'tvv@d07.com' }, {}) === false, 'canViewSalesReport: chua cap -> false')

@@ -3,7 +3,7 @@
 // Shell mobile-first: 1 cot, max-width 560px, thanh dieu huong 4 nut co dinh
 // duoi day (nut >= 44px). 4 man hinh dung that theo SPEC v3: Hom Nay +
 // Sales Report + Doi Ngu + Nap du lieu.
-// Tai khoan: dang nhap Firebase Auth; Admin chinh (admin@d07.com) xem so ho
+// Tai khoan: dang nhap Firebase Auth; Admin chinh (admin@prud07.top) xem so ho
 // so DAY DU o Sales Report, thanh vien thuong bi che con 2 so cuoi.
 // Ho so ca nhan (ten hien thi + ma TVV) luu user_profiles/{uid} + cache may.
 // Thu vien 📌 Memo · Thi dua · Tai lieu (Firestore `memos` + Firebase
@@ -464,7 +464,7 @@ export default function App() {
                 </p>
                 <div className="field">
                   <label>MSĐL hoặc Email</label>
-                  <input autoComplete="username" value={loginForm.id} placeholder="VD: 12345678 hoặc admin@d07.com"
+                  <input autoComplete="username" value={loginForm.id} placeholder="VD: 12345678 hoặc admin@prud07.top"
                     onChange={(e) => setLoginForm((f) => ({ ...f, id: e.target.value }))} />
                 </div>
                 <div className="field">

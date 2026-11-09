@@ -77,7 +77,7 @@ const primaryNum = (c) => {
 }
 
 export default function SalesReport({ snaps, loading, onGoNap, user }) {
-  // Admin chinh (admin@d07.com) xem so ho so DAY DU; con lai che con 2 so cuoi.
+  // Admin chinh (admin@prud07.top) xem so ho so DAY DU; con lai che con 2 so cuoi.
   const canSeeFull = isSuperAdmin(user)
   const [selectedMonth, setSelectedMonth] = useState('')
   const [search, setSearch] = useState('')

@@ -1,7 +1,7 @@
 // Test RULES HIEN THI + DOI TEN (Lan chot 08/11/2026) bang cach doc
 // file tinh — node khong render duoc JSX nen assert tren noi dung file.
 // Chay: node scripts/test-access.mjs
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import assert from 'node:assert'
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8')
@@ -10,6 +10,7 @@ const doiNgu = read('../src/components/DoiNgu.jsx')
 const memo = read('../src/components/MemoThuVien.jsx')
 const html = read('../index.html')
 const fsRules = read('../firestore.rules')
+const stRules = read('../storage.rules')
 const store = read('../src/lib/store.js')
 const fbConfig = read('../src/lib/firebaseConfig.js')
 const team = read('../src/lib/team.js')
@@ -264,7 +265,56 @@ console.log('Responsive: phone giu nguyen (rule goc con nguyen); pad 640 khung 8
 console.log('\n=== firestore.rules memos ===')
 const memoBlock = fsRules.slice(fsRules.indexOf('match /memos/'))
 assert.ok(memoBlock.includes('allow read: if true;'), 'firestore.rules: memos phai cho doc cong khai (allow read: if true)')
-assert.ok(memoBlock.includes("request.auth.token.email == 'admin@d07.com'"), 'firestore.rules: memos ghi/xoa van chi Admin chinh')
+assert.ok(memoBlock.includes("request.auth.token.email == 'admin@prud07.top'"), 'firestore.rules: memos ghi/xoa van chi Admin chinh')
 console.log('memos: read public, write chi Admin chinh')
+
+// ── Rules: daily_sales_tvv DOC cong khai, GHI van khoa (Lan chot 09/11/2026) ──
+// Mo xem du lieu Trang Chu / Tinh Anh khong can dang nhap tren domain
+// sales.prud07.top — chi noi DUNG 1 khoi nay; cac collection khac
+// (dac biet user_profiles) TUYET DOI khong noi theo.
+console.log('\n=== firestore.rules daily_sales_tvv + user_profiles ===')
+const dailyBlock = fsRules.slice(fsRules.indexOf('match /daily_sales_tvv/'), fsRules.indexOf('match /user_profiles/'))
+assert.ok(/allow read:\s+if true;/.test(dailyBlock), 'firestore.rules: daily_sales_tvv phai cho doc cong khai (allow read: if true)')
+assert.ok(!/allow read:\s+if request\.auth != null;/.test(dailyBlock), 'firestore.rules: daily_sales_tvv KHONG con khoa doc theo dang nhap')
+assert.ok(/allow write:\s+if request\.auth != null;/.test(dailyBlock), 'firestore.rules: daily_sales_tvv GHI van chi user da dang nhap')
+assert.ok(!/allow write:\s+if true/.test(dailyBlock), 'firestore.rules: daily_sales_tvv KHONG duoc mo ghi cong khai')
+assert.ok(!dailyBlock.includes('allow read, write'), 'firestore.rules: daily_sales_tvv khong gop read,write (doc/ghi phai tach dieu kien)')
+console.log('daily_sales_tvv: read public (khach xem duoc), write van auth')
+// user_profiles KHONG bi noi: van chi chinh user + Admin chinh
+const profilesBlock = fsRules.slice(fsRules.indexOf('match /user_profiles/'), fsRules.indexOf('match /case_adjustments/'))
+assert.ok(profilesBlock.includes('request.auth.uid == uid'), 'firestore.rules: user_profiles van chi chinh user (request.auth.uid == uid)')
+assert.ok(profilesBlock.includes("request.auth.token.email == 'admin@prud07.top'"), 'firestore.rules: user_profiles van co lop Admin chinh (admin@prud07.top)')
+assert.ok(!/allow read:\s+if true/.test(profilesBlock), 'firestore.rules: user_profiles KHONG duoc noi doc cong khai')
+assert.ok(!/allow (create, update|write):\s+if true/.test(profilesBlock), 'firestore.rules: user_profiles KHONG duoc noi ghi cong khai')
+console.log('user_profiles: giu nguyen — chi minh + Admin chinh, khong doc/ghi cong khai')
+// Cac collection cua dashboard cu van khoa theo dang nhap (chot: khong noi khoi nao khac)
+const reportsBlock = fsRules.slice(fsRules.indexOf('match /reports/'), fsRules.indexOf('match /tvv_directory/'))
+assert.ok(/allow read:\s+if request\.auth != null;/.test(reportsBlock), 'firestore.rules: reports (dashboard cu) van chi user dang nhap moi doc')
+assert.ok(!/allow read:\s+if true/.test(reportsBlock), 'firestore.rules: reports KHONG bi noi doc cong khai')
+console.log('reports (dashboard cu): giu nguyen khoa dang nhap — chi daily_sales_tvv duoc noi')
+
+// ── Email Admin chinh: admin@prud07.top, email cu da thay han (Lan chot 09/11/2026) ──
+// Email cu kiem tra bang chuoi GHEP de chinh file test nay khong chua
+// literal email cu — assert nay khoa ca src/ lan 2 file rules.
+console.log('\n=== email Admin chinh moi ===')
+const OLD_ADMIN = 'admin@' + 'd07.com'
+assert.ok(fbConfig.includes("SUPER_ADMIN_EMAILS = ['admin@prud07.top']"), 'firebaseConfig: SUPER_ADMIN_EMAILS phai la admin@prud07.top')
+assert.ok(!fbConfig.includes(OLD_ADMIN), 'firebaseConfig: khong con email Admin cu')
+assert.ok(stRules.includes("request.auth.token.email == 'admin@prud07.top'"), 'storage.rules: ghi Memo van chi Admin chinh (email moi)')
+assert.ok(!stRules.includes(OLD_ADMIN), 'storage.rules: khong con email Admin cu')
+assert.ok(!fsRules.includes(OLD_ADMIN), 'firestore.rules: khong con email Admin cu')
+assert.ok(!app.includes(OLD_ADMIN), 'App.jsx: khong con email Admin cu (comment/placeholder)')
+{
+  const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const p = new URL(e.name + (e.isDirectory() ? '/' : ''), dir)
+    return e.isDirectory() ? walk(p) : [p]
+  })
+  const srcFiles = walk(new URL('../src/', import.meta.url)).filter((u) => /\.(js|jsx)$/.test(u.pathname))
+  assert.ok(srcFiles.length > 0, 'quyet src: phai co file .js/.jsx de quet')
+  for (const u of srcFiles) {
+    assert.ok(!readFileSync(u, 'utf8').includes(OLD_ADMIN), `src: ${u.pathname.split('/src/')[1]} khong con email Admin cu`)
+  }
+}
+console.log('Admin chinh = admin@prud07.top o code + firestore.rules + storage.rules; email cu khong con o bat ky file src nao')
 
 console.log('\n✅ TAT CA ASSERT DAT (test-access)')
