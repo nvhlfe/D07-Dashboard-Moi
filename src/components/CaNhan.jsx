@@ -373,16 +373,15 @@ export default function CaNhan({ snaps, loading, user, profile, onProfileUpdate 
           <div className="card">
             <h2>📊 Chỉ số cá nhân — tháng {view.month}/{view.year}</h2>
             <div className="bv-ref-grid" style={{ marginBottom: 0 }}>
-              <div className="bv-ref"><span>FYP tháng</span><b>{metTr('fyp')}</b></div>
-              <div className="bv-ref"><span>FYC tháng</span><b>{metTr('fyc')}</b></div>
-              <div className="bv-ref"><span>FYP năm</span><b>{metTr('fypYtd')}</b></div>
-              <div className="bv-ref"><span>FYC quý</span><b>{metTr('fycQtd')}</b></div>
-              <div className="bv-ref"><span>FYC năm</span><b>{metTr('fycYtd')}</b></div>
-              <div className="bv-ref"><span>FYC 12 tháng</span><b>{metTr('fycL12m')}</b></div>
+              <div className="bv-ref"><span>FYC tháng</span><b className="num-fyc">{metTr('fyc')}</b></div>
+              <div className="bv-ref"><span>FYP năm</span><b className="num-fyp">{metTr('fypYtd')}</b></div>
+              <div className="bv-ref"><span>FYC quý</span><b className="num-fyc">{metTr('fycQtd')}</b></div>
+              <div className="bv-ref"><span>FYC năm</span><b className="num-fyc">{metTr('fycYtd')}</b></div>
+              <div className="bv-ref"><span>FYC 12 tháng</span><b className="num-fyc">{metTr('fycL12m')}</b></div>
               <div className="bv-ref"><span>TLDTPTT</span><b>{metVal('tldtptt') === null ? '—' : fmtPct(metVal('tldtptt'))}</b></div>
               <div className="bv-ref"><span>Case Sub</span><b>{metVal('caseSub') === null ? '—' : fmtCase(metVal('caseSub'))}</b></div>
               <div className="bv-ref"><span>Case Net</span><b>{metVal('caseNet') === null ? '—' : fmtCase(metVal('caseNet'))}</b></div>
-              <div className="bv-ref"><span>IP phát hành</span><b>{metTr('ipNet')}</b></div>
+              <div className="bv-ref"><span>IP phát hành</span><b className="num-issued">{metTr('ipNet')}</b></div>
             </div>
           </div>
 

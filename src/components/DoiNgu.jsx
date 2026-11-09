@@ -9,7 +9,7 @@
 //    top 3, ten + "{Unit} · {Phan loai}", THANH XEP CHONG 3 nhom gia tri
 //    (Phat hanh tim / Pending hong / Chua len phi xanh duong — tinh bang
 //    groupValue cua lib/cases), tong gia tri + so HS (Case Sub) ben phai.
-//  - Sap xep: IP phat hanh (mac dinh) / Tong nop / FYP thang + tim kiem.
+//  - Sap xep: IP phat hanh (mac dinh) / Tong nop / FYC thang + tim kiem.
 //  - Bam vao 1 TVV -> mo rong: luoi chi so tham khao (FYP nam, FYC quy,
 //    FYC thang, FYC 12 thang, IP nop, IP phat hanh, TLDTPTT) + danh sach
 //    HO SO PENDING cua chinh TVV do (so Policy: Admin chinh + hang cua
@@ -34,10 +34,18 @@
 // '#Active Agent (FYC) Unit' cua sheet Leader (activeFycUnit),
 // chua co so thi hien "–". Nhom Active trong chi tiet GIU chuan
 // Case Net nhu cu.
+// DOT 09/11/2026 (Lan yeu cau tiep sau ban live f1d3bf57):
+// (1) CAP TVV dung FYC THANG thay FYP thang o moi cho: chip sap xep
+// Bang Vang 'fyc' (rankAgents da co key fyc trong lib/team.js);
+// (2) muc Phong them O LOC chon phong (select "UnitCode - LeaderName");
+// (3) TVV CHUA Active trong chi tiet Unit co nhan theo moc 15tr IP
+// phat hanh (ACTIVE_IP_TARGET trong lib/team.js): thieu bao nhieu /
+// da dat moc — nhom van chia theo Case Net, moc IP chi la nhan phu;
+// (4) so chinh duoc to mau theo ngu nghia bang class .num-* (index.css).
 // ─────────────────────────────────────────────────────────────
 import React, { useMemo, useState } from 'react'
 import { buildCases } from '../lib/cases'
-import { buildTeam, rankAgents, flattenAgents, filterLeaderUnits } from '../lib/team'
+import { buildTeam, rankAgents, flattenAgents, filterLeaderUnits, ACTIVE_IP_TARGET } from '../lib/team'
 import { maskSensitive } from '../lib/analyze'
 import { isSuperAdmin, emailToMsdl, canViewUnitSection } from '../lib/firebaseConfig'
 
@@ -59,7 +67,7 @@ const fmtDateVN = (iso) => {
 const SORTS = [
   { id: 'ipNet', label: 'IP phát hành' },
   { id: 'barTotal', label: 'Tổng nộp' },
-  { id: 'fyp', label: 'FYP tháng' },
+  { id: 'fyc', label: 'FYC tháng' },
 ]
 const MEDALS = ['🥇', '🥈', '🥉']
 const ROW_BG = ['bv-r1', 'bv-r2', 'bv-r3']
@@ -104,6 +112,10 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
   // khi bam vao Unit khong phai phong minh phu trach.
   const [openUnitCode, setOpenUnitCode] = useState('')
   const [unitNotice, setUnitNotice] = useState(false)
+  // O loc chon phong o muc Phong: '' = Tat ca phong. Gia tri hieu luc
+  // (activeUnitFilter ben duoi) tu ve '' neu phong dang chon khong con
+  // trong danh sach (snapshot/leaderUnits doi) — tranh danh sach rong.
+  const [unitFilter, setUnitFilter] = useState('')
 
   // ── Rules mo chi tiet TVV (Lan chot 08/11/2026) ──
   // Chua dang nhap: chi xem danh sach tong quan, khong mo duoc ai.
@@ -188,6 +200,13 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
       }))
       .sort((x, y) => y.fyp - x.fyp || String(x.unit).localeCompare(String(y.unit)))
   }, [view, newest])
+
+  // Loc phong theo o chon: phong dang chon phai con ton tai trong
+  // unitRows (da loc Leader), neu khong thi coi nhu "Tat ca phong".
+  const activeUnitFilter = unitFilter && unitRows.some((u) => u.unit === unitFilter) ? unitFilter : ''
+  const shownUnitRows = activeUnitFilter
+    ? unitRows.filter((u) => u.unit === activeUnitFilter)
+    : unitRows
 
   if (loading) {
     return <div className="card empty"><div className="e-ic">⏳</div>Đang tải dữ liệu…</div>
@@ -293,12 +312,12 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
         {open ? (
           <div className="bv-expand">
             <div className="bv-ref-grid">
-              <div className="bv-ref"><span>FYP năm</span><b>{fmtTr(a.fypYtd)} tr</b></div>
-              <div className="bv-ref"><span>FYC quý</span><b>{fmtTr(a.fycQtd)} tr</b></div>
-              <div className="bv-ref"><span>FYC tháng</span><b>{fmtTr(a.fyc)} tr</b></div>
-              <div className="bv-ref"><span>FYC 12 tháng</span><b>{fmtTr(a.fycL12m)} tr</b></div>
+              <div className="bv-ref"><span>FYP năm</span><b className="num-fyp">{fmtTr(a.fypYtd)} tr</b></div>
+              <div className="bv-ref"><span>FYC quý</span><b className="num-fyc">{fmtTr(a.fycQtd)} tr</b></div>
+              <div className="bv-ref"><span>FYC tháng</span><b className="num-fyc">{fmtTr(a.fyc)} tr</b></div>
+              <div className="bv-ref"><span>FYC 12 tháng</span><b className="num-fyc">{fmtTr(a.fycL12m)} tr</b></div>
               <div className="bv-ref"><span>IP nộp</span><b>{fmtTr(a.ipSub)} tr</b></div>
-              <div className="bv-ref"><span>IP phát hành</span><b>{fmtTr(a.ipNet)} tr</b></div>
+              <div className="bv-ref"><span>IP phát hành</span><b className="num-issued">{fmtTr(a.ipNet)} tr</b></div>
               <div className="bv-ref"><span>TLDTPTT</span><b>{a.tldtptt === null ? '—' : fmtPct(a.tldtptt)}</b></div>
               <div className="bv-ref"><span>MSĐL · Unit</span><b>{a.msdl} · {a.unit || '—'}</b></div>
             </div>
@@ -338,7 +357,13 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
   // thang (Lan chot 09/11/2026: FYC thay FYP o dong nay) + Case Net +
   // IP phat hanh; badge theo isAct (caseNet > 0 — dinh nghia Active
   // dung chung toan app, xem lib/team.js).
-  const renderUnitMember = (a) => (
+  // Rieng nhom CHUA Active (inactive = true): them nhan theo moc
+  // ACTIVE_IP_TARGET (15tr IP phat hanh — Lan chot 09/11/2026): con
+  // thieu bao nhieu IP nua, hoac "Da dat moc" neu ipNet da >= 15 du
+  // van nam nhom Chua Active (nhom chia theo Case Net, khong doi).
+  const renderUnitMember = (a, inactive = false) => {
+    const ipGap = ACTIVE_IP_TARGET - (Number(a.ipNet) || 0)
+    return (
     <div className="tvv-row" key={a.msdl}>
       <span className={`bv-avatar unit-av ${AVATAR_CLASS[segKey(a.agSeg)]}`}>
         {avatarOf(a.msdl)
@@ -351,12 +376,20 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
           {a.agSeg ? <span className="seg-chip">{a.agSeg}</span> : null}
         </span>
         <span className="tvv-nums">
-          MSĐL {a.msdl} · FYC {fmtTr(a.fyc)} tr · Case Net {fmtInt(a.caseNet)} · IP phát hành {fmtTr(a.ipNet)} tr
+          MSĐL {a.msdl} · FYC <b className="num-fyc">{fmtTr(a.fyc)}</b> tr · Case Net {fmtInt(a.caseNet)} · IP phát hành <b className="num-issued">{fmtTr(a.ipNet)}</b> tr
         </span>
+        {inactive ? (
+          ipGap > 0 ? (
+            <span className="tvv-short num-short">Thiếu {fmtTr(ipGap)} tr tới mốc Active ({ACTIVE_IP_TARGET}tr IP)</span>
+          ) : (
+            <span className="tvv-short num-active">Đã đạt mốc {ACTIVE_IP_TARGET}tr IP</span>
+          )
+        ) : null}
       </span>
       <span className={`act-badge ${a.isAct ? 'ok' : 'no'}`}>{a.isAct ? '✓ Active' : 'Chưa Active'}</span>
     </div>
-  )
+    )
+  }
 
   // The Unit o muc Phong: chi so tong (nhu ban truoc) + dau the BAM MO
   // CHI TIET khi co quyen mo (canOpenUnit): mo duoc thi co chu
@@ -387,13 +420,13 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
         </button>
         <div className="mini-stats" style={{ margin: '10px 0' }}>
           <div className="mini-stat"><div className="ms-num">{fmtInt(u.agentCount)}</div><div className="ms-label">TVV</div></div>
-          <div className="mini-stat"><div className="ms-num">{fmtTr(u.fyp)}</div><div className="ms-label">FYP tháng (tr)</div></div>
-          <div className="mini-stat"><div className="ms-num">{u.activeFycUnit === null || u.activeFycUnit === undefined ? '–' : fmtInt(u.activeFycUnit)}</div><div className="ms-label">Lượt Active</div></div>
+          <div className="mini-stat"><div className="ms-num num-fyp">{fmtTr(u.fyp)}</div><div className="ms-label">FYP tháng (tr)</div></div>
+          <div className="mini-stat"><div className="ms-num num-active">{u.activeFycUnit === null || u.activeFycUnit === undefined ? '–' : fmtInt(u.activeFycUnit)}</div><div className="ms-label">Lượt Active</div></div>
         </div>
         <div className="unit-nums">
-          <span>TVV đạt Act: <b>{fmtInt(u.actCount)}/{fmtInt(u.agentCount)}</b></span>
-          <span>IP phát hành: <b>{fmtTr(u.ipIssued)} tr</b></span>
-          <span>Đang pending: <b>{fmtTr(u.pendValue)} tr</b></span>
+          <span>TVV đạt Act: <b><span className="num-active">{fmtInt(u.actCount)}</span>/{fmtInt(u.agentCount)}</b></span>
+          <span>IP phát hành: <b className="num-issued">{fmtTr(u.ipIssued)} tr</b></span>
+          <span>Đang pending: <b className="num-pending">{fmtTr(u.pendValue)} tr</b></span>
         </div>
         {open ? (
           <div className="unit-detail">
@@ -402,7 +435,7 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
             ) : (
               <>
                 <div className="unit-sum">
-                  Tổng: <b>{fmtInt(u.agentCount)} TVV</b> · Đang Active <b>{fmtInt(u.actCount)} ({actPct}%)</b> · FYP <b>{fmtTr(u.fyp)} tr</b>
+                  Tổng: <b>{fmtInt(u.agentCount)} TVV</b> · Đang Active <b><span className="num-active">{fmtInt(u.actCount)} ({actPct}%)</span></b> · FYP <b className="num-fyp">{fmtTr(u.fyp)} tr</b>
                 </div>
                 <div className="unit-group-title">✅ Đang Active ({actList.length})</div>
                 {actList.length === 0
@@ -411,7 +444,7 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
                 <div className="unit-group-title">⬜ Chưa Active ({inactList.length})</div>
                 {inactList.length === 0
                   ? <div className="muted">Tất cả TVV trong phòng đều đã Active 🎉</div>
-                  : inactList.map(renderUnitMember)}
+                  : inactList.map((a) => renderUnitMember(a, true))}
               </>
             )}
           </div>
@@ -442,6 +475,23 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
               Chỉ gồm các phòng có trong sheet Leader (có trưởng phòng).
               Lượt Active: số TVV Active theo FYC của phòng (theo sheet Leader); phòng hiện “–” là file chưa có số.
             </div>
+            {unitRows.length > 0 ? (
+              <div className="field unit-filter">
+                <label htmlFor="unit-filter-select">Chọn phòng</label>
+                <select
+                  id="unit-filter-select"
+                  value={activeUnitFilter}
+                  onChange={(e) => setUnitFilter(e.target.value)}
+                >
+                  <option value="">🏢 Tất cả phòng</option>
+                  {unitRows.map((u) => (
+                    <option key={u.unit || '—'} value={u.unit}>
+                      {u.leaderName ? `${u.unit} - ${u.leaderName}` : (u.unit || '—')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
           </div>
           {unitNotice ? (
             <div className="msg info" style={{ marginBottom: 12 }}>
@@ -450,7 +500,7 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
           ) : null}
           {unitRows.length === 0 ? (
             <div className="card empty"><div className="e-ic">📭</div>Chưa có Unit nào trong dữ liệu tháng này.</div>
-          ) : unitRows.map(renderUnitCard)}
+          ) : shownUnitRows.map(renderUnitCard)}
         </>
       ) : (
       <>
@@ -459,7 +509,7 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
         <h2>🌟 Tinh Anh — tháng {month}/{year}</h2>
         <div className="mini-stats" style={{ marginBottom: 0 }}>
           <div className="mini-stat"><div className="ms-num">{fmtInt(listed.length)}</div><div className="ms-label">TVV có số liệu tháng</div></div>
-          <div className="mini-stat"><div className="ms-num">{fmtTr(totalIpNet)}</div><div className="ms-label">Tổng IP phát hành (tr)</div></div>
+          <div className="mini-stat"><div className="ms-num num-issued">{fmtTr(totalIpNet)}</div><div className="ms-label">Tổng IP phát hành (tr)</div></div>
           <div className="mini-stat"><div className="ms-num">{fmtInt(pendCount)}</div><div className="ms-label">Hồ sơ pending · {fmtTr(pendValue)} tr</div></div>
         </div>
       </div>

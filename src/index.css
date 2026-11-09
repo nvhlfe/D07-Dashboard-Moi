@@ -570,6 +570,29 @@ button.unit-head { font-family: inherit; }
 .av-hint { text-align: center; margin-top: 6px; }
 .av-actions { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
 
+/* ── Mau sac cho CAC CHU SO CHINH (Lan yeu cau 09/11/2026) ──────
+   Anh xa co dinh theo NGU NGHIA so, chi to mau GIA TRI — nhan chu
+   giu mau mac dinh. Dung ban DAM cua palette hien tai (tuong phan
+   tren nen sang da kiem chung o dot palette 09/11/2026):
+   FYP -> navy dam · FYC -> xanh la · IP phat hanh -> tim ·
+   Pending -> hong · Chua len phi/Pipeline -> ho phach ·
+   Luot Active/so Active -> xanh la · So thieu -> do.
+   Bien the container (.bv-ref b..., .unit-nums b...) de thang cac
+   rule mau mac dinh cua tung khoi. */
+.num-fyp, .bv-ref b.num-fyp, .unit-nums b.num-fyp, .unit-sum b.num-fyp { color: #0c2a4e; }
+.num-fyc, .bv-ref b.num-fyc, .unit-nums b.num-fyc, .unit-sum b.num-fyc { color: var(--green); }
+.num-issued, .bv-ref b.num-issued, .unit-nums b.num-issued, .unit-sum b.num-issued, .top-row .ip.num-issued { color: var(--violet); }
+.num-pending, .bv-ref b.num-pending, .unit-nums b.num-pending, .unit-sum b.num-pending { color: var(--pink); }
+.num-pipe, .bv-ref b.num-pipe, .unit-nums b.num-pipe, .unit-sum b.num-pipe { color: var(--amber); }
+.num-active, .bv-ref b.num-active, .unit-nums b.num-active, .unit-sum b.num-active { color: var(--green); }
+.num-short, .bv-ref b.num-short, .unit-nums b.num-short, .unit-sum b.num-short { color: var(--red); }
+
+/* Nhan moc 15tr IP o dong TVV Chua Active (chi tiet Unit) */
+.tvv-short { display: block; font-size: 12px; font-weight: 700; margin-top: 2px; }
+
+/* O loc chon phong o dau muc Phong */
+.unit-filter { margin-top: 12px; margin-bottom: 0; }
+
 /* Form dang memo (Admin chinh) */
 .memo-form .field textarea { font-family: inherit; font-size: 14px; min-height: 44px; }
 .memo-checks { display: flex; flex-wrap: wrap; gap: 4px 18px; }

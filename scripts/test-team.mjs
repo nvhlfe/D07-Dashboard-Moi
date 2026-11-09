@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs'
 import assert from 'node:assert'
 import { parseWorkbook } from '../src/lib/parseDaily.js'
 import { buildCases } from '../src/lib/cases.js'
-import { buildTeam, flattenAgents, rankAgents, filterLeaderUnits, MOC_TARGET } from '../src/lib/team.js'
+import { buildTeam, flattenAgents, rankAgents, filterLeaderUnits, MOC_TARGET, ACTIVE_IP_TARGET } from '../src/lib/team.js'
 
 const path = process.env.HOME + '/workspace/user/files/Daily_Sales_25.10.xlsx'
 const wb = XLSX.read(readFileSync(path), { type: 'buffer', cellDates: false })
@@ -174,6 +174,37 @@ const sumActFyc811 = team811.units.reduce((s, u) => s + (u.activeFycUnit || 0), 
 assert.strictEqual(shown811.length, 20, 'Muc Phong file 8.11: sau loc theo Leader phai con 20 Unit')
 assert.strictEqual(sumActFyc811, 7, 'Tong activeFycUnit toan GA file 8.11 phai = 7 (doi soat doc lap tu file tho)')
 console.log(`Muc Phong 8.11: ${team811.units.length} Unit (buildTeam) -> loc Leader con ${shown811.length} · tong Luot Active (cot BD) = ${sumActFyc811}`)
+
+// ── Dot 09/11/2026 (tieptheo): sap xep Bang Vang theo FYC thang + moc 15tr IP ──
+console.log('\n=== rankAgents theo FYC thang + moc ACTIVE_IP_TARGET (15tr IP) ===')
+assert.strictEqual(ACTIVE_IP_TARGET, 15, 'ACTIVE_IP_TARGET phai = 15 (trieu dong IP phat hanh)')
+// rankAgents('fyc') o file 25.10: giam dan theo fyc, top1 khop max dem doc lap tu sheet Agent.
+const byFyc = rankAgents(team, 'fyc')
+for (let i = 1; i < byFyc.length; i++) {
+  assert.ok(byFyc[i - 1].fyc >= byFyc[i].fyc, `rankAgents('fyc') phai giam dan theo fyc (lech o vi tri ${i})`)
+}
+const maxFycRaw = Math.max(...agentsArr.map((a) => Number(a.fyc) || 0))
+assert.strictEqual(byFyc[0].fyc, maxFycRaw, "rankAgents('fyc') top1 phai = FYC thang lon nhat dem doc lap tu data.agents")
+console.log(`rankAgents('fyc') 25.10: giam dan dung · top1 ${byFyc[0].agName} fyc=${byFyc[0].fyc} (khop max doc lap ${maxFycRaw})`)
+// Doi soat moc 15tr IP tren Unit TUQ file 8.11: 4 TVV, 1 Active, 3 Chua
+// Active — ca 3 co ipNet = 0 (doi chieu thang sheet Agent tho) nen so
+// thieu theo cong thuc ACTIVE_IP_TARGET - ipNet deu = 15tr.
+const tuq811 = team811.units.find((u) => u.unit === 'TUQ')
+assert.ok(tuq811, 'File 8.11 phai co Unit TUQ')
+assert.strictEqual(tuq811.agentCount, 4, 'TUQ (8.11): phai co 4 TVV')
+assert.strictEqual(tuq811.leaderName, 'HOÀNG VĂN HƯNG', 'TUQ (8.11): leaderName phai la HOÀNG VĂN HƯNG (nhan loc phong "TUQ - HOÀNG VĂN HƯNG")')
+const tuqInact = tuq811.agents.filter((a) => !a.isAct)
+assert.strictEqual(tuqInact.length, 3, 'TUQ (8.11): nhom Chua Active phai co 3 TVV')
+for (const a of tuqInact) {
+  const rawIp = Number(parsed811.agents[a.msdl].ipNet) || 0
+  assert.strictEqual(a.ipNet, rawIp, `TUQ (8.11) ${a.msdl}: ipNet agentView phai khop sheet Agent tho`)
+  const gap = ACTIVE_IP_TARGET - a.ipNet
+  assert.strictEqual(gap, 15, `TUQ (8.11) ${a.msdl}: thieu = 15 - ipNet(${a.ipNet}) phai = 15`)
+  console.log(`  TUQ Chua Active: ${a.agName} (${a.msdl}) ipNet=${a.ipNet} · thieu = 15 - ${a.ipNet} = ${gap} tr`)
+}
+const tuqAct = tuq811.agents.filter((a) => a.isAct)
+assert.strictEqual(tuqAct.length, 1, 'TUQ (8.11): nhom Dang Active phai co 1 TVV')
+console.log(`TUQ (8.11): ${tuq811.agentCount} TVV · Active ${tuqAct.length} · Chua Active ${tuqInact.length} (ca 3 ipNet=0 -> thieu 15tr/nguoi)`)
 
 console.log('Top Unit theo luot Act:', [...team.units].sort((x, y) => y.actCount - x.actCount).slice(0, 3).map((u) => `${u.unit}:${u.actCount}/${MOC_TARGET}`).join(' · '))
 console.log(`TVV chua co ho so (nop=0): ${flat.filter((a) => a.nop === 0).length}`)

@@ -8,6 +8,7 @@ import assert from 'node:assert'
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8')
 const app = read('../src/App.jsx')
 const caNhan = read('../src/components/CaNhan.jsx')
+const homNay = read('../src/components/HomNay.jsx')
 const store = read('../src/lib/store.js')
 const storageRules = read('../storage.rules')
 const html = read('../index.html')
@@ -61,5 +62,26 @@ assert.ok(caNhan.includes('uploadAvatar'), 'CaNhan: doi anh phai goi uploadAvata
 assert.ok(caNhan.includes('groupValue'), 'CaNhan: gia tri ho so phai tinh bang groupValue nhu cac man khac')
 assert.ok(caNhan.includes('viewerMsdl'), 'CaNhan: phai doi chieu viewerMsdl cua chinh user dang dang nhap')
 console.log('Tab me chi cho TVV MSDL (khong Admin chinh); tu nhay 1 lan khi dang nhap; 3 nhom ho so + Doi anh')
+
+// ── Phan 4: Cap TVV dung FYC THANG thay FYP thang (Lan chot 09/11/2026) ──
+console.log('\n=== FYC thang cap TVV (CaNhan + khoi Cua toi) ===')
+// CaNhan: luoi chi so khong con o "FYP thang", o dau doi thanh FYC thang (metTr('fyc'))
+assert.ok(!caNhan.includes('<span>FYP tháng</span>'), 'CaNhan: luoi chi so KHONG con o FYP thang cap TVV')
+assert.ok(caNhan.includes('<span>FYC tháng</span><b className="num-fyc">{metTr(\'fyc\')}</b>'), "CaNhan: o FYC thang phai dung metTr('fyc') + to mau xanh la (num-fyc)")
+assert.equal(caNhan.split('<span>FYC tháng</span>').length - 1, 1, 'CaNhan: luoi chi so chi con DUNG 1 o FYC thang (da bo o trung)')
+assert.ok(caNhan.includes('<span>FYP năm</span>'), 'CaNhan: o FYP nam GIU NGUYEN (chi doi FYP thang)')
+assert.ok(caNhan.includes('<span>IP phát hành</span><b className="num-issued">'), 'CaNhan: o IP phat hanh phai to mau tim (num-issued)')
+// HomNay khoi Cua toi: "FYP thang cua toi" -> "FYC thang cua toi" (myAgent.fyc)
+assert.ok(!homNay.includes('FYP tháng của tôi'), 'HomNay: khoi Cua toi KHONG con "FYP thang cua toi"')
+assert.ok(homNay.includes('FYC tháng của tôi'), 'HomNay: khoi Cua toi phai co "FYC thang cua toi"')
+assert.equal(homNay.split('FYC tháng của tôi').length - 1, 1, 'HomNay: khoi Cua toi chi con DUNG 1 mini-stat FYC thang cua toi (da bo o trung)')
+assert.ok(homNay.includes('fmtTr(myAgent?.fyc)'), 'HomNay: so o khoi Cua toi phai lay myAgent.fyc (FYC thang)')
+// Cap GA giu nguyen: tien do FYP thang toan GA khong doi nhan
+assert.ok(homNay.includes('Tiến độ FYP tháng'), 'HomNay: khoi Tien do FYP thang cap GA GIU NGUYEN (khong doi thanh FYC)')
+// KPI Trang Chu to mau theo ngu nghia
+assert.ok(homNay.includes('k-val num-issued'), 'HomNay: KPI Phat hanh phai to mau tim (num-issued)')
+assert.ok(homNay.includes('k-val num-pending'), 'HomNay: KPI Pending phai to mau hong (num-pending)')
+assert.ok(homNay.includes('k-val num-pipe'), 'HomNay: KPI Chua len phi phai to mau ho phach (num-pipe)')
+console.log('CaNhan + Cua toi: cap TVV dung FYC thang; cap GA (Tien do FYP) giu nguyen; KPI to mau theo ngu nghia')
 
 console.log('\n✅ TAT CA ASSERT DAT (test-me)')

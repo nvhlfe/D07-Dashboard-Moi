@@ -15,6 +15,7 @@ const fbConfig = read('../src/lib/firebaseConfig.js')
 const team = read('../src/lib/team.js')
 const parseDaily = read('../src/lib/parseDaily.js')
 const napDuLieu = read('../src/components/NapDuLieu.jsx')
+const css = read('../src/index.css')
 
 // ── Doi ten hien thi ──
 console.log('=== doi ten hien thi ===')
@@ -116,7 +117,7 @@ assert.ok(!doiNgu.includes('MOC_TARGET'), 'DoiNgu: KHONG con dung MOC_TARGET (mo
 assert.ok(!doiNgu.includes('số MOC chính thức'), 'DoiNgu: KHONG con ghi chu MOC uoc tinh o muc Phong')
 console.log('The Unit: Luot Active = cot BD sheet Leader (null -> "–"); da bo moc /6 + badge MOC + ghi chu uoc tinh')
 // (1) Dong TVV trong chi tiet Unit hien FYC thang thay FYP thang
-assert.ok(doiNgu.includes('FYC {fmtTr(a.fyc)} tr'), 'DoiNgu: dong TVV chi tiet Unit phai hien FYC thang (fmtTr(a.fyc))')
+assert.ok(doiNgu.includes('FYC <b className="num-fyc">{fmtTr(a.fyc)}</b> tr'), 'DoiNgu: dong TVV chi tiet Unit phai hien FYC thang (fmtTr(a.fyc), to mau num-fyc)')
 assert.ok(!doiNgu.includes('FYP {fmtTr(a.fyp)} tr · Case Net'), 'DoiNgu: dong TVV chi tiet Unit KHONG con hien FYP thang')
 console.log('Chi tiet Unit: dong TVV hien FYC thang; nhom Active giu chuan Case Net')
 
@@ -139,6 +140,45 @@ assert.ok(doiNgu.includes('✅ Đang Active ('), 'DoiNgu: chi tiet Unit phai co 
 assert.ok(doiNgu.includes('⬜ Chưa Active ('), 'DoiNgu: chi tiet Unit phai co nhom Chua Active kem so dem')
 assert.ok(doiNgu.includes('Xem chi tiết'), 'DoiNgu: the Unit mo duoc phai co dau hieu bam duoc (Xem chi tiet)')
 console.log('Admin thay avatar moi TVV qua avatarMap; chi tiet Unit: Admin mo tat ca, UM chi mo Unit minh dung dau (leaderCode); 2 nhom Active')
+
+// ── Dot 09/11/2026 (tiep theo): FYC thang cap TVV + loc phong + moc 15tr IP + mau so ──
+console.log('\n=== FYC thang cap TVV + loc phong + moc 15tr IP + mau so ===')
+// Chip sap xep Bang Vang: FYC thang thay FYP thang (rankAgents co key fyc)
+assert.ok(doiNgu.includes("{ id: 'fyc', label: 'FYC tháng' }"), "DoiNgu: chip sap xep phai la FYC thang (id 'fyc')")
+assert.ok(!doiNgu.includes("{ id: 'fyp', label: 'FYP tháng' }"), "DoiNgu: KHONG con chip sap xep FYP thang cap TVV")
+assert.ok(team.includes('fyc: (a) => num(a.fyc)'), 'team.js: RANK_KEYS phai co key fyc (sap theo FYC thang cua agentView)')
+// O loc chon phong: select o dau muc Phong, nhan "UnitCode - LeaderName"
+assert.ok(doiNgu.includes('unitFilter'), 'DoiNgu: muc Phong phai co state loc phong (unitFilter)')
+assert.ok(doiNgu.includes('activeUnitFilter'), 'DoiNgu: phong dang chon khong con ton tai thi tu ve Tat ca (activeUnitFilter)')
+assert.ok(doiNgu.includes('shownUnitRows'), 'DoiNgu: danh sach the Phong phai loc theo phong dang chon (shownUnitRows)')
+assert.ok(doiNgu.includes('shownUnitRows.map(renderUnitCard)'), 'DoiNgu: render the Phong phai dung shownUnitRows da loc')
+assert.ok(doiNgu.includes('🏢 Tất cả phòng'), 'DoiNgu: select loc phong phai co lua chon Tat ca phong')
+assert.ok(doiNgu.includes('`${u.unit} - ${u.leaderName}`'), 'DoiNgu: nhan phong trong select phai dang "UnitCode - LeaderName" (nguyen van leaderName)')
+assert.ok(doiNgu.includes('unit-filter-select'), 'DoiNgu: select loc phong phai co id unit-filter-select')
+console.log('Muc Phong: o loc chon phong (Tat ca / "TUQ - HOÀNG VĂN HƯNG"...), tu ve Tat ca khi phong chon khong con')
+// Moc 15tr IP cho TVV Chua Active trong chi tiet Unit
+assert.ok(team.includes('ACTIVE_IP_TARGET = 15'), 'team.js: phai co hang ACTIVE_IP_TARGET = 15 (trieu dong IP)')
+assert.ok(doiNgu.includes('ACTIVE_IP_TARGET'), 'DoiNgu: phai dung ACTIVE_IP_TARGET cho nhan moc IP')
+assert.ok(doiNgu.includes('ACTIVE_IP_TARGET - (Number(a.ipNet) || 0)'), 'DoiNgu: so thieu phai tinh = ACTIVE_IP_TARGET - ipNet')
+assert.ok(doiNgu.includes('Thiếu {fmtTr(ipGap)} tr tới mốc Active'), 'DoiNgu: TVV Chua Active thieu IP phai co nhan "Thieu ... tr toi moc Active"')
+assert.ok(doiNgu.includes('Đã đạt mốc'), 'DoiNgu: TVV Chua Active nhung ipNet >= 15 phai co nhan "Da dat moc"')
+assert.ok(doiNgu.includes('renderUnitMember(a, true)'), 'DoiNgu: chi nhom Chua Active moi truyen co nhan moc IP (renderUnitMember(a, true))')
+assert.ok(doiNgu.includes('num-short'), 'DoiNgu: so thieu phai to mau do (num-short)')
+console.log('Chi tiet Unit: TVV Chua Active co nhan thieu IP toi moc 15tr (cong thuc kiem chung so that o test-team: TUQ 8.11)')
+// Mau sac chu so chinh: bo class .num-* trong index.css + dung o cac vi tri chinh
+for (const cls of ['.num-fyp', '.num-fyc', '.num-issued', '.num-pending', '.num-pipe', '.num-active', '.num-short']) {
+  assert.ok(css.includes(cls), `index.css: phai co class mau so ${cls}`)
+}
+assert.ok(css.includes('.num-fyc') && css.includes('var(--green)'), 'index.css: FYC -> xanh la (--green)')
+assert.ok(css.includes('.num-issued') && css.includes('var(--violet)'), 'index.css: IP phat hanh -> tim (--violet)')
+assert.ok(css.includes('.num-pending') && css.includes('var(--pink)'), 'index.css: Pending -> hong (--pink)')
+assert.ok(css.includes('.num-pipe') && css.includes('var(--amber)'), 'index.css: Chua len phi -> ho phach (--amber)')
+assert.ok(css.includes('.num-short') && css.includes('var(--red)'), 'index.css: So thieu -> do (--red)')
+assert.ok(doiNgu.includes('ms-num num-fyp'), 'DoiNgu: mini-stat FYP the Unit phai to mau navy (num-fyp)')
+assert.ok(doiNgu.includes('ms-num num-active'), 'DoiNgu: mini-stat Luot Active the Unit phai to mau xanh la (num-active)')
+assert.ok(doiNgu.includes('num-issued'), 'DoiNgu: so IP phat hanh phai to mau tim (num-issued)')
+assert.ok(doiNgu.includes('num-pending'), 'DoiNgu: so pending phai to mau hong (num-pending)')
+console.log('Mau so: index.css co bo .num-* (FYP navy / FYC+Active xanh la / IP tim / Pending hong / Pipe ho phach / Thieu do); DoiNgu da ap dung')
 
 // ── Rules: memos doc cong khai ──
 console.log('\n=== firestore.rules memos ===')

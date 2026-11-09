@@ -194,12 +194,11 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
           ) : (
             <>
               <div className="mini-stats" style={{ marginBottom: 4 }}>
-                <div className="mini-stat"><div className="ms-num">{fmtTr(myAgent?.fyp)} tr</div><div className="ms-label">FYP tháng của tôi</div></div>
-                <div className="mini-stat"><div className="ms-num">{fmtTr(myAgent?.fyc)} tr</div><div className="ms-label">FYC tháng của tôi</div></div>
+                <div className="mini-stat"><div className="ms-num num-fyc">{fmtTr(myAgent?.fyc)} tr</div><div className="ms-label">FYC tháng của tôi</div></div>
                 <div className="mini-stat"><div className="ms-num">{myRankIdx >= 0 ? `${myRankIdx + 1}/${analysis.agents.length}` : '—'}</div><div className="ms-label">Hạng phát hành</div></div>
               </div>
               <div className="my-line">
-                Hồ sơ tháng này của tôi: nộp <b>{fmtInt(myCounts.nop)}</b> · phát hành <b>{fmtInt(myCounts.ph)}</b> · pending <b>{fmtInt(myCounts.pend)}</b>
+                Hồ sơ tháng này của tôi: nộp <b>{fmtInt(myCounts.nop)}</b> · phát hành <b className="num-issued">{fmtInt(myCounts.ph)}</b> · pending <b className="num-pending">{fmtInt(myCounts.pend)}</b>
                 {myRankIdx >= 0 ? <> · hạng được tính theo IP phát hành ròng toàn Quận 7</> : null}
               </div>
             </>
@@ -235,9 +234,9 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
       {/* ── 4 KPI ── */}
       <div className="kpi-grid">
         <div className="kpi blue"><span className="k-ic">📥</span><div className="k-body"><div className="k-label">Nộp</div><div className="k-val">{fmtTr(nopTr)} tr</div><div className="k-sub">{fmtInt(t.nopN)} hồ sơ</div></div></div>
-        <div className="kpi green"><span className="k-ic">✅</span><div className="k-body"><div className="k-label">Phát hành</div><div className="k-val">{fmtTr(t.netIp)} tr</div><div className="k-sub">{fmtInt(t.netN)} hợp đồng</div></div></div>
-        <div className="kpi violet"><span className="k-ic">⏳</span><div className="k-body"><div className="k-label">Pending</div><div className="k-val">{fmtTr(t.pendIp)} tr</div><div className="k-sub">{fmtInt(t.pendN)} hồ sơ</div></div></div>
-        <div className="kpi pink"><span className="k-ic">💸</span><div className="k-body"><div className="k-label">Chưa lên phí</div><div className="k-val">{fmtTr(t.pipeApe)} tr</div><div className="k-sub">{fmtInt(t.pipeN)} hồ sơ</div></div></div>
+        <div className="kpi green"><span className="k-ic">✅</span><div className="k-body"><div className="k-label">Phát hành</div><div className="k-val num-issued">{fmtTr(t.netIp)} tr</div><div className="k-sub">{fmtInt(t.netN)} hợp đồng</div></div></div>
+        <div className="kpi violet"><span className="k-ic">⏳</span><div className="k-body"><div className="k-label">Pending</div><div className="k-val num-pending">{fmtTr(t.pendIp)} tr</div><div className="k-sub">{fmtInt(t.pendN)} hồ sơ</div></div></div>
+        <div className="kpi pink"><span className="k-ic">💸</span><div className="k-body"><div className="k-label">Chưa lên phí</div><div className="k-val num-pipe">{fmtTr(t.pipeApe)} tr</div><div className="k-sub">{fmtInt(t.pipeN)} hồ sơ</div></div></div>
       </div>
 
       {/* ── Thanh xep chong ── */}
@@ -267,7 +266,7 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
           <div className="top-row" key={`${a.name}-${i}`}>
             {i < 3 ? <span className="medal">{MEDALS[i]}</span> : <span className="rank">{i + 1}</span>}
             <div className="who"><div className="nm">{a.name || '—'}</div><div className="un">{a.unit || ''}</div></div>
-            <div className="ip">{fmtTr(a.ip)} tr</div>
+            <div className="ip num-issued">{fmtTr(a.ip)} tr</div>
           </div>
         ))}
       </div>

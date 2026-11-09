@@ -211,12 +211,22 @@ export function flattenAgents(team) {
 const RANK_KEYS = {
   ipNet: (a) => num(a.ipNet), // IP phat hanh (mac dinh, nhu bang chi so D03)
   barTotal: (a) => num(a.bar && a.bar.total), // tong nop theo groupValue
-  fyp: (a) => num(a.fyp), // FYP thang
+  fyp: (a) => num(a.fyp), // FYP thang (giu cho tuong thich nguoc)
+  fyc: (a) => num(a.fyc), // FYC thang (chip sap xep Bang Vang — Lan chot 09/11/2026: cap TVV dung FYC thang thay FYP thang)
 }
 
 /**
+ * Moc IP phat hanh de TVV duoc coi la "toi Active" theo doanh so:
+ * 15 trieu dong IP phat hanh rong trong thang (Lan chot 09/11/2026).
+ * Chi tiet Unit (DoiNgu) dung moc nay de ghi so thieu cho TVV CHUA
+ * Active (nhom van chia theo Case Net nhu toan app — moc IP chi la
+ * nhan giai thich bo sung, khong doi dinh nghia nhom).
+ */
+export const ACTIVE_IP_TARGET = 15
+
+/**
  * Xep hang TVV toan GA (moi agentView tu moi Unit) theo sortKey:
- * 'ipNet' (IP phat hanh — mac dinh) | 'barTotal' (tong nop) | 'fyp'.
+ * 'ipNet' (IP phat hanh — mac dinh) | 'barTotal' (tong nop) | 'fyp' | 'fyc'.
  * Giam dan; hoa thi theo ten TVV (tieng Viet) tang dan cho on dinh.
  */
 export function rankAgents(team, sortKey = 'ipNet') {
