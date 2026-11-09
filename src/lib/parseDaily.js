@@ -98,7 +98,12 @@ export function parseWorkbook(wb) {
     if (!isYearMonth(r['YearMonth']) || !r['UnitCode']) continue
     const unitCode = r['UnitCode']
     units[unitCode] = {
-      unit: unitCode, leaderName: r['LeaderName'] || '', agSeg: r['AGSegName'] || '',
+      unit: unitCode, leaderName: r['LeaderName'] || '',
+      // LeaderCode = MSDL cua truong Unit (sheet Leader co cot nay, da doi
+      // chieu file that 25.10: 21/21 LeaderCode trung AGCode cua 1 agent
+      // co AGLevel UM/BM) — dung nhan dien UM/BM cho quyen xem muc Phong.
+      leaderCode: r['LeaderCode'] ? String(r['LeaderCode']) : '',
+      agSeg: r['AGSegName'] || '',
       manpower: num(r['#Manpower']),
       caseSubUnit: num(r['Case Sub Unit']), caseNetUnit: num(r['Case Net Unit']),
       apeSubUnit: num(r['APE Sub Unit']), apeNetUnit: num(r['APE Net Unit']),
@@ -107,7 +112,7 @@ export function parseWorkbook(wb) {
   }
   for (const msdl in agents) {
     const a = agents[msdl]
-    if (!units[a.unit]) units[a.unit] = { unit: a.unit, leaderName: '', agSeg: '', manpower: 0, caseSubUnit: 0, caseNetUnit: 0, apeSubUnit: 0, apeNetUnit: 0, ipSubUnit: 0, ipNetUnit: 0, cIF: 0, cPS: 0, cOther: 0 }
+    if (!units[a.unit]) units[a.unit] = { unit: a.unit, leaderName: '', leaderCode: '', agSeg: '', manpower: 0, caseSubUnit: 0, caseNetUnit: 0, apeSubUnit: 0, apeNetUnit: 0, ipSubUnit: 0, ipNetUnit: 0, cIF: 0, cPS: 0, cOther: 0 }
     const u = units[a.unit]
     u.ipSubUnit += a.ipSub; u.ipNetUnit += a.ipNet
     u.cIF += a.cIF; u.cPS += a.cPS; u.cOther += a.cOther

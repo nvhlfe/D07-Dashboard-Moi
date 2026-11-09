@@ -66,3 +66,16 @@ export function canViewSalesReport(user, profile) {
   if (isSuperAdmin(user)) return true;
   return !!profile && profile.canSalesReport === true;
 }
+
+// ── Quyen xem muc Phong (Unit) trong tab Tinh Anh ──
+// Khoa mac dinh: chi Admin chinh, tai khoan duoc Admin cap quyen
+// (truong canViewUnit trong user_profiles), hoac UM/BM moi vao duoc.
+// isLeader do UI tinh tu snapshot Daily hien tai: AGLevel cua chinh TVV
+// la 'UM'/'BM' (sheet Agent) hoac MSDL trung LeaderCode cua 1 Unit
+// (sheet Leader) — da doi chieu file that 25.10: 2 nguon nay khop nhau.
+export function canViewUnitSection(user, profile, isLeader) {
+  if (!user) return false;
+  if (isSuperAdmin(user)) return true;
+  if (!!profile && profile.canViewUnit === true) return true;
+  return isLeader === true;
+}

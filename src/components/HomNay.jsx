@@ -167,7 +167,6 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
           <hr className="divider" />
           <div className="quote" onClick={() => setQuoteOffset((o) => o + 1)} title="Bấm để đổi câu khác">
             “{quote.text}”{quote.author ? <span className="author"> — {quote.author}</span> : null}
-            <div className="quote-hint">Câu hay mỗi ngày · bấm vào để đổi câu khác</div>
           </div>
         </div>
       </div>
@@ -284,7 +283,6 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
       {/* ── Bieu do nhip nop theo ngay (cot xep chong, thay heatmap) ── */}
       <div className="card">
         <h2>🌊 Nhịp nộp theo ngày — tháng {month}/{year}</h2>
-        <div className="chart-sub">Giá trị hồ sơ theo ngày nộp, tô theo trạng thái hiện tại — Phát hành tính IP ròng, Pending/Chưa lên phí tính APE (chưa có APE thì tính IP Sub). Bấm vào một cột để xem số của ngày đó.</div>
         <div className="legend chart-legend">
           <span><span className="dot" style={{ background: '#7c3aed' }} />Đã phát hành</span>
           <span><span className="dot" style={{ background: '#ec4899' }} />Pending</span>
@@ -303,10 +301,11 @@ export default function HomNay({ snaps, loading, onGoNap, user, profile, onOpenL
       {/* ── Hanh trinh nam: cot FYP + duong so TVV Active theo thang ── */}
       <div className="card">
         <h2>🗓️ Hành trình {year} — Prudential Quận 7</h2>
-        <div className="chart-sub">Cột: FYP (tr) · Đường: số TVV Active{year === 2026 ? <> · <span>T1–T10: số liệu GA · Từ T11: theo Daily Sales</span></> : null} · bấm vào một cột để xem chi tiết tháng.</div>
+        <div className="chart-sub">Cột: FYP (tr) · Đường cam + số dưới tháng: TVV Active{year === 2026 ? <> · <span>T1–T10: số liệu GA · Từ T11: theo Daily Sales</span></> : null} · bấm vào một cột để xem chi tiết tháng.</div>
         <div className="legend chart-legend">
           <span><span className="dot" style={{ background: '#7c3aed' }} />FYP (triệu)</span>
-          <span><span className="dash" />Số TVV Active</span>
+          <span><span style={{ display: 'inline-block', width: 18, borderTop: '3px solid #c2410c', borderRadius: 2, marginRight: 5, verticalAlign: 'middle' }} />TVV Active (đường cam)</span>
+          <span><span className="act-sample">52</span>Số Active dưới tháng</span>
         </div>
         <YearJourneyChart journey={journey} currentMonth={month} />
       </div>

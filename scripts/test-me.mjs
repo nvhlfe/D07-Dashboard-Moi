@@ -34,7 +34,15 @@ assert.ok(storageRules.includes('/avatars/{userId}/avatar.jpg'), 'storage.rules:
 assert.ok(store.includes('avatarUrl'), 'store.js: phai ghi truong avatarUrl vao user_profiles')
 assert.ok(storageRules.includes('/avatars/'), 'storage.rules: phai co match avatars')
 assert.ok(storageRules.includes('request.auth.uid == userId'), 'storage.rules: chi chinh user moi ghi avatar cua minh')
-console.log('uploadAvatar nen canvas -> avatars/{uid}.jpg; rules: doc public, ghi chi chinh chu')
+assert.ok(store.includes('uploadAvatar(uid, blob)'), 'store.js: uploadAvatar phai nhan Blob (anh da cat/canh o khung chinh, khong nen trong store nua)')
+assert.ok(!store.includes('compressAvatarImage'), 'store.js: khong con compressAvatarImage (cat giua + tai ngay da bo)')
+assert.ok(caNhan.includes('AvatarEditor'), 'CaNhan: phai co khung chinh anh AvatarEditor')
+assert.ok(caNhan.includes('💾 Lưu ảnh'), "CaNhan: khung chinh phai co nut '💾 Lưu ảnh' — chi bam Luu moi tai len")
+assert.ok(caNhan.includes('type="range"'), 'CaNhan: khung chinh phai co thanh truot ZOOM')
+assert.ok(caNhan.includes('createObjectURL'), 'CaNhan: anh nguon doc bang URL.createObjectURL')
+assert.ok(caNhan.includes('onPointerMove'), 'CaNhan: khung chinh phai keo duoc bang pointer (cam ung + chuot)')
+assert.ok(!caNhan.includes('Ảnh đại diện được nén nhỏ'), 'CaNhan: da bo dong ghi chu "Ảnh đại diện được nén nhỏ..." (Lan yeu cau)')
+console.log('uploadAvatar nhan Blob tu AvatarEditor -> avatars/{uid}/avatar.jpg; rules: doc public, ghi chi chinh chu')
 
 // ── Phan 3: Trang ca nhan TVV (tab me) ──
 console.log('\n=== trang ca nhan TVV ===')

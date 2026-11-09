@@ -16,7 +16,7 @@ import SalesReport from './components/SalesReport.jsx'
 import DoiNgu from './components/DoiNgu.jsx'
 import MemoThuVien from './components/MemoThuVien.jsx'
 import CaNhan from './components/CaNhan.jsx'
-import { loadLocalSnapshots, fetchFirestoreSnapshots, mergeSnapshots, getFbConfig, fetchUserProfile, saveUserProfile, fetchAllProfiles, adminSetProfileStatus, adminSetSalesReport } from './lib/store'
+import { loadLocalSnapshots, fetchFirestoreSnapshots, mergeSnapshots, getFbConfig, fetchUserProfile, saveUserProfile, fetchAllProfiles, adminSetProfileStatus, adminSetSalesReport, adminSetUnitView } from './lib/store'
 import { useAuth } from './lib/auth'
 import { emailToMsdl, isMsdlAccount, isSuperAdmin, msdlToEmail, canViewSalesReport } from './lib/firebaseConfig'
 import { LOGO_D07 } from './lib/logoData'
@@ -101,6 +101,21 @@ export default function App() {
     setAdminBusyUid('')
     if (ok) {
       setAdminMsg(allowed ? '✓ Đã cấp quyền xem Sales Report.' : '✓ Đã thu hồi quyền xem Sales Report.')
+      await loadAdminList()
+    } else {
+      setAdminMsg('Không ghi được lên mây — kiểm tra mạng / Rules rồi thử lại.')
+    }
+  }
+
+  // Admin chinh: cap / thu hoi quyen xem muc Phong (Unit) trong tab
+  // Tinh Anh cho 1 tai khoan (UM/BM thi tu co quyen theo du lieu Daily,
+  // khong can cap tay — nut nay danh cho cac truong hop con lai).
+  const handleAdminUnitView = async (uid, allowed) => {
+    setAdminBusyUid(uid)
+    const ok = await adminSetUnitView(uid, allowed)
+    setAdminBusyUid('')
+    if (ok) {
+      setAdminMsg(allowed ? '✓ Đã cấp quyền xem mục Phòng (Unit).' : '✓ Đã thu hồi quyền xem mục Phòng (Unit).')
       await loadAdminList()
     } else {
       setAdminMsg('Không ghi được lên mây — kiểm tra mạng / Rules rồi thử lại.')
@@ -291,7 +306,10 @@ export default function App() {
           {st === 'approved' && (
             <>
               <button className={`btn-mini ${p.canSalesReport ? 'primary' : ''}`} disabled={busy} onClick={() => handleAdminSalesReport(p.uid, !p.canSalesReport)}>
-                📊 SR: {p.canSalesReport ? 'Đang bật' : 'Đang tắt'}
+                📊 Sales Report: {p.canSalesReport ? 'Đang bật' : 'Đang tắt'}
+              </button>
+              <button className={`btn-mini ${p.canViewUnit ? 'primary' : ''}`} disabled={busy} onClick={() => handleAdminUnitView(p.uid, !p.canViewUnit)}>
+                🏢 Phòng (Unit): {p.canViewUnit ? 'Đang bật' : 'Đang tắt'}
               </button>
               <button className="btn-mini" disabled={busy} onClick={() => handleAdminStatus(p.uid, 'pending')}>Thu hồi</button>
               <button className="btn-mini" disabled={busy} onClick={() => handleAdminStatus(p.uid, 'blocked')}>Khoá</button>
@@ -329,7 +347,7 @@ export default function App() {
               <span className={`role-badge ${superAdmin ? 'super' : ''}`}>{superAdmin ? '⭐ Admin chính' : msdlAccount ? 'TVV' : 'Thành viên'}</span>
               {superAdmin && (
                 <button className="btn-mini" onClick={() => { setAdminMsg(''); loadAdminList(); setShowAdmin(true) }}>
-                  🛂 Duyệt TK{pendingCount > 0 ? ` (${pendingCount})` : ''}
+                  🛂 Duyệt TK{adminList.length > 0 ? ` (${adminList.length} tài khoản` : ''}{pendingCount > 0 ? `${adminList.length > 0 ? ' · ' : ' ('}⏳ ${pendingCount} chờ duyệt` : ''}{adminList.length > 0 || pendingCount > 0 ? ')' : ''}
                 </button>
               )}
               <button className="btn-mini" onClick={openAccount}>Tài khoản</button>
@@ -506,9 +524,6 @@ export default function App() {
                 onChange={(e) => setAcctForm((f) => ({ ...f, msdl: e.target.value }))} />
               {msdlAccount ? <p className="muted" style={{ marginTop: 4 }}>MSĐL chính là tên đăng nhập của bạn nên không đổi tại đây.</p> : null}
             </div>
-            <p className="muted" style={{ marginBottom: 10 }}>
-              Có mã TVV, màn hình Trang Chủ sẽ hiện thẻ “Của tôi”: FYP/FYC của riêng bạn, số hồ sơ nộp/phát hành/pending và hạng phát hành trong Quận 7.
-            </p>
             <button className="btn-primary" disabled={acctBusy} onClick={handleSaveAccount}>
               {acctBusy ? 'Đang lưu…' : '💾 Lưu hồ sơ'}
             </button>
@@ -522,6 +537,11 @@ export default function App() {
         <div className="modal-overlay" onClick={() => setShowAdmin(false)}>
           <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title">🛂 Duyệt tài khoản TVV</div>
+            <p className="muted" style={{ marginBottom: 4 }}>
+              Với tài khoản <b>đã duyệt</b>: bấm <b>📊 Sales Report</b> để bật/tắt quyền xem tab Sales Report,
+              bấm <b>🏢 Phòng (Unit)</b> để bật/tắt quyền xem mục Phòng trong tab Tinh Anh.
+              (UM/BM tự có quyền xem Phòng theo dữ liệu Daily, không cần bật tay.)
+            </p>
             {adminErr ? (
               <div className="msg error">
                 Chưa đọc được danh sách — Admin cần publish bản firestore.rules mới trên Firebase Console (file firestore.rules trong repo).

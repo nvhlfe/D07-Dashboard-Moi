@@ -12,7 +12,7 @@
 // Nguon: snapshot Daily moi nhat, dung chung buildCases + buildTeam voi
 // cac man khac (App truyen snaps xuong nhu DoiNgu).
 // ─────────────────────────────────────────────────────────────
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { buildCases, groupValue } from '../lib/cases'
 import { buildTeam, flattenAgents } from '../lib/team'
 import { uploadAvatar } from '../lib/store'
@@ -58,11 +58,128 @@ const PILL_CLASS = { IF: 'pill-if', PS: 'pill-ps', PIPELINE: 'pill-pipe' }
 const CARD_CLASS = { IF: 'st-if', PS: 'st-ps', PIPELINE: 'st-pipe' }
 const PILL_LABEL = { IF: 'Phát hành', PS: 'Pending', PIPELINE: 'Chưa lên phí' }
 
+// ─────────────────────────────────────────────────────────────
+// AvatarEditor — Khung chinh anh avatar (Lan yeu cau 09/11/2026: canh
+// chinh anh VAO O roi moi bam Luu, khong tu cat giua + tai len ngay).
+// Khung TRON (khop cach avatar hien khap app). Nguoi dung KEO (pointer:
+// cam ung + chuot) de doi vi tri, truot ZOOM 1x–3x; anh luon phu kin
+// khung (cover, offset bi kep de khong ho canh). Bam "💾 Lưu ảnh" moi ve
+// vung dang hien thi vao canvas 256x256 -> Blob JPEG 0.85 -> onSave(blob).
+// Anh nguon doc bang URL.createObjectURL, giai phong khi dong khung.
+// ─────────────────────────────────────────────────────────────
+function AvatarEditor({ file, saving, onCancel, onSave }) {
+  const frameRef = useRef(null)
+  const imgRef = useRef(null)
+  const dragRef = useRef(null)
+  const [src] = useState(() => URL.createObjectURL(file))
+  const [nat, setNat] = useState(null) // kich thuoc that cua anh nguon
+  const [frameW, setFrameW] = useState(0) // canh khung (px hien thi)
+  const [zoom, setZoom] = useState(1)
+  const [off, setOff] = useState({ x: 0, y: 0 })
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => () => URL.revokeObjectURL(src), [src])
+  useEffect(() => {
+    if (frameRef.current) setFrameW(frameRef.current.clientWidth)
+  }, [])
+
+  const base = nat && frameW ? Math.max(frameW / nat.w, frameW / nat.h) : 0
+  const scale = base * zoom
+  const dispW = nat ? nat.w * scale : 0
+  const dispH = nat ? nat.h * scale : 0
+  const clampOff = (o) => {
+    if (!nat || !frameW) return o
+    const mx = Math.max(0, (dispW - frameW) / 2)
+    const my = Math.max(0, (dispH - frameW) / 2)
+    return { x: Math.min(mx, Math.max(-mx, o.x)), y: Math.min(my, Math.max(-my, o.y)) }
+  }
+  // Zoom thay doi -> kep lai offset de anh khong ho canh khung.
+  useEffect(() => { setOff((o) => clampOff(o)) }, [zoom, nat, frameW])
+
+  const onPointerDown = (e) => {
+    dragRef.current = { px: e.clientX, py: e.clientY, ox: off.x, oy: off.y }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  const onPointerMove = (e) => {
+    const d = dragRef.current
+    if (!d) return
+    setOff(clampOff({ x: d.ox + (e.clientX - d.px), y: d.oy + (e.clientY - d.py) }))
+  }
+  const endDrag = () => { dragRef.current = null }
+
+  const handleSave = () => {
+    const img = imgRef.current
+    if (!img || !nat || !frameW || busy) return
+    // Vung anh nguon (toa do that) dang nam trong khung hien thi:
+    const left = frameW / 2 + off.x - dispW / 2
+    const top = frameW / 2 + off.y - dispH / 2
+    const sx = -left / scale
+    const sy = -top / scale
+    const sw = frameW / scale
+    const canvas = document.createElement('canvas')
+    canvas.width = 256
+    canvas.height = 256
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(img, sx, sy, sw, sw, 0, 0, 256, 256)
+    setBusy(true)
+    canvas.toBlob(async (b) => {
+      if (b) await onSave(b)
+      setBusy(false)
+    }, 'image/jpeg', 0.85)
+  }
+
+  const disabled = saving || busy
+  return (
+    <div className="av-editor">
+      <div
+        ref={frameRef}
+        className="av-frame"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+      >
+        <img
+          ref={imgRef}
+          src={src}
+          alt=""
+          draggable={false}
+          onLoad={(e) => {
+            setNat({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })
+            if (frameRef.current) setFrameW(frameRef.current.clientWidth)
+          }}
+          style={nat ? {
+            width: dispW,
+            height: dispH,
+            transform: `translate(calc(-50% + ${off.x}px), calc(-50% + ${off.y}px))`,
+          } : { visibility: 'hidden' }}
+        />
+      </div>
+      <div className="av-zoom">
+        <span aria-hidden="true">🔍</span>
+        <input
+          type="range" min="1" max="3" step="0.01" value={zoom}
+          onChange={(e) => setZoom(Number(e.target.value))}
+          aria-label="Phóng to / thu nhỏ ảnh"
+        />
+      </div>
+      <p className="muted av-hint">Kéo ảnh để canh vị trí · trượt thanh để phóng to/thu nhỏ.</p>
+      <div className="av-actions">
+        <button type="button" className="btn-mini" disabled={disabled} onClick={onCancel}>Huỷ</button>
+        <button type="button" className="btn-mini primary" disabled={disabled || !nat} onClick={handleSave}>
+          {disabled ? 'Đang lưu...' : '💾 Lưu ảnh'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function CaNhan({ snaps, loading, user, profile, onProfileUpdate }) {
   const viewerMsdl = String((profile && profile.msdl) || emailToMsdl(user && user.email) || '').trim().toUpperCase()
   const avatarUrl = profile?.avatarUrl || ''
   const [avBusy, setAvBusy] = useState(false)
   const [avMsg, setAvMsg] = useState('')
+  const [editFile, setEditFile] = useState(null)
   const fileRef = useRef(null)
 
   const newest = snaps && snaps.length ? snaps[snaps.length - 1] : null
@@ -89,17 +206,31 @@ export default function CaNhan({ snaps, loading, user, profile, onProfileUpdate 
     return { year, month, myView, rawAgent, issued, pending, pipeline }
   }, [newest, viewerMsdl])
 
-  const handleAvatarFile = async (e) => {
+  // Chon file xong CHI mo khung chinh anh (AvatarEditor) — CHUA tai len.
+  // Nguoi dung keo/zoom canh khung xong bam Luu moi tai (handleAvatarSave).
+  const handleAvatarFile = (e) => {
     const f = e.target.files && e.target.files[0]
     e.target.value = ''
     if (!f || !user) return
-    setAvBusy(true)
+    if (!String(f.type || '').startsWith('image/')) {
+      setAvMsg('File đã chọn không phải ảnh — vui lòng chọn file ảnh (JPG/PNG…).')
+      return
+    }
     setAvMsg('')
-    const res = await uploadAvatar(user.uid, f)
+    setEditFile(f)
+  }
+
+  // Nhan Blob JPEG 256x256 tu AvatarEditor -> tai len + cap nhat profile.
+  // Thanh cong thi dong khung chinh; that bai giu khung + hien loi.
+  const handleAvatarSave = async (blob) => {
+    if (!user) return
+    setAvBusy(true)
+    const res = await uploadAvatar(user.uid, blob)
     setAvBusy(false)
     if (res.ok) {
       if (onProfileUpdate && res.profile) onProfileUpdate(res.profile)
       setAvMsg(res.cloud ? '✓ Đã đổi ảnh đại diện.' : '✓ Đã đổi ảnh trên máy này; bản mây sẽ cập nhật khi Rules sẵn sàng.')
+      setEditFile(null)
     } else {
       setAvMsg(res.error || 'Đổi ảnh không thành công.')
     }
@@ -188,16 +319,16 @@ export default function CaNhan({ snaps, loading, user, profile, onProfileUpdate 
             <div className="me-sub">MSĐL {viewerMsdl || '—'}</div>
             <div style={{ marginTop: 9 }}>
               <button type="button" className="btn-mini" disabled={avBusy} onClick={() => fileRef.current && fileRef.current.click()}>
-                {avBusy ? 'Đang tải ảnh…' : '📷 Đổi ảnh'}
+                📷 Đổi ảnh
               </button>
               <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarFile} />
             </div>
           </div>
         </div>
         {avMsg ? <div className={`msg ${avMsg.startsWith('✓') ? 'success' : 'error'}`}>{avMsg}</div> : null}
-        <p className="muted" style={{ marginTop: 10 }}>
-          Ảnh đại diện được nén nhỏ và lưu trên hệ thống — hiện ở đây, ở khối “Của tôi” trên Trang Chủ và ở hàng của bạn bên tab Tinh Anh.
-        </p>
+        {editFile ? (
+          <AvatarEditor file={editFile} saving={avBusy} onCancel={() => setEditFile(null)} onSave={handleAvatarSave} />
+        ) : null}
       </div>
 
       {!newest || !view ? (

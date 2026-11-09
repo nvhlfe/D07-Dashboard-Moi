@@ -16,7 +16,7 @@ import React, { useRef, useState } from 'react'
 import { parseArrayBuffer, inferDateFromFileName } from '../lib/parseDaily'
 import {
   saveLocalSnapshot, saveDailyToFirestore, addHistory, loadHistory,
-  getTarget, setTarget, getFbConfig, getFbOverride, setFbConfig, clearFbConfig, parseFirebaseConfigPaste,
+  getTarget, setTarget, getFbOverride, setFbConfig, clearFbConfig, parseFirebaseConfigPaste,
 } from '../lib/store'
 
 const todayKey = () => {
@@ -265,16 +265,10 @@ export default function NapDuLieu({ onSaved, user, snaps }) {
 
       <div className="card">
         <h2>☁️ Firebase — đồng bộ nhiều thiết bị</h2>
-        <p style={{ fontSize: 14 }}>
-          Cấu hình Firebase của D07 <b>đã được nhúng sẵn trong app</b> (project <b>{getFbConfig()?.projectId || 'd07-sales-dashboard'}</b>) — không cần dán config trên từng máy nữa.
-        </p>
-        <p className="muted" style={{ marginTop: 6 }}>
+        <p className="muted">
           Trạng thái: {user
             ? <>đã đăng nhập <b>{user.email}</b> — nạp dữ liệu sẽ <b>đồng bộ lên mây</b>, máy khác đăng nhập là thấy.</>
             : <>chưa đăng nhập — dữ liệu nạp chỉ lưu trên máy này. <b>Đăng nhập</b> (nút ở đầu trang) để đồng bộ lên mây cho các thiết bị khác.</>}
-        </p>
-        <p className="muted" style={{ marginTop: 6 }}>
-          Dữ liệu mây nằm ở Firestore <b>daily_sales_tvv</b> — dùng chung với dashboard cũ, không mất dữ liệu đã nạp trước đây.
         </p>
         {getFbOverride() && (
           <div className="msg info">Đang dùng cấu hình GHI ĐÈ do bạn dán (project {getFbOverride().projectId || ''}) thay cho cấu hình nhúng sẵn.</div>

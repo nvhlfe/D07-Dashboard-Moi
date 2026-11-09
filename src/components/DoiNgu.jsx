@@ -10,16 +10,21 @@
 //  - Sap xep: IP phat hanh (mac dinh) / Tong nop / FYP thang + tim kiem.
 //  - Bam vao 1 TVV -> mo rong: luoi chi so tham khao (FYP nam, FYC quy,
 //    FYC thang, FYC 12 thang, IP nop, IP phat hanh, TLDTPTT) + danh sach
-//    HO SO PENDING cua chinh TVV do (so Policy che theo quyen nhu
-//    Sales Report, kem ly do + tuoi pending).
-// Logic MOC/Unit van con trong lib/team.js (buildTeam) nhung UI khong
-// dung nua — Lan chot bo hien theo nhom.
+//    HO SO PENDING cua chinh TVV do (so Policy: Admin chinh + hang cua
+//    chinh TVV dang dang nhap thi hien DAY DU, con lai che 2 so cuoi;
+//    kem ly do + tuoi pending).
+// Logic MOC/Unit van con trong lib/team.js (buildTeam).
+// DOT 09/11/2026 (Lan yeu cau): them MUC PHONG (Unit) trong cung tab —
+// thanh chuyen che do [Ca nhan | Phong]; muc Phong KHOA theo quyen
+// (Admin chinh / duoc cap canViewUnit / UM-BM tu nhan dien qua Daily),
+// khong co quyen thi an han nut Phong. Chi xem chi so Unit, khong
+// drill-down tung TVV trong dot nay.
 // ─────────────────────────────────────────────────────────────
 import React, { useMemo, useState } from 'react'
 import { buildCases } from '../lib/cases'
-import { buildTeam, rankAgents } from '../lib/team'
+import { buildTeam, rankAgents, flattenAgents, MOC_TARGET } from '../lib/team'
 import { maskSensitive } from '../lib/analyze'
-import { isSuperAdmin, emailToMsdl } from '../lib/firebaseConfig'
+import { isSuperAdmin, emailToMsdl, canViewUnitSection } from '../lib/firebaseConfig'
 
 const fmtTr = (n) => {
   const v = Number(n) || 0
@@ -66,12 +71,17 @@ const initials = (name) => {
 }
 
 export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuperAdmin: adminProp, onOpenLogin }) {
-  // Admin chinh xem so Policy DAY DU trong phan pending; con lai che 2 so cuoi.
+  // So Policy DAY DU: Admin chinh (moi hang) + CHINH TVV do o hang cua
+  // minh (Lan yeu cau 09/11/2026: xem day du so ho so trong data cua
+  // minh); cac truong hop con lai che con 2 so cuoi.
   const isAdmin = typeof adminProp === 'boolean' ? adminProp : isSuperAdmin(user)
   const canSeeFull = isAdmin
   const [sortKey, setSortKey] = useState('ipNet')
   const [search, setSearch] = useState('')
   const [openRows, setOpenRows] = useState(() => new Set())
+  // Che do xem: 'personal' (Bang Vang TVV — mac dinh) | 'unit' (muc
+  // Phong, chi nguoi co quyen moi thay nut chuyen — xem canUnit duoi).
+  const [viewMode, setViewMode] = useState('personal')
   // Thong bao khi bam vao TVV ma minh khong co quyen mo chi tiet:
   // 'login' = chua dang nhap, 'own' = da dang nhap nhung khong phai chinh minh.
   const [gateNotice, setGateNotice] = useState('')
@@ -99,6 +109,40 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
     () => (view ? rankAgents(view.team, sortKey) : []),
     [view, sortKey],
   )
+
+  // ── Quyen xem muc Phong (Unit) — Lan chot 09/11/2026 ──
+  // isLeader tu snapshot Daily hien tai, 2 nguon doi chieu file that
+  // 25.10 khop nhau: (1) AGLevel cua chinh TVV trong sheet Agent la
+  // 'UM'/'BM'; (2) MSDL trung LeaderCode cua 1 Unit trong sheet Leader.
+  const isLeader = useMemo(() => {
+    if (!viewerMsdl || !view) return false
+    const mine = flattenAgents(view.team).find(
+      (a) => String(a.msdl || '').trim().toUpperCase() === viewerMsdl,
+    )
+    const lv = String((mine && mine.level) || '').trim().toUpperCase()
+    if (lv === 'UM' || lv === 'BM') return true
+    const unitsObj = (newest && newest.data && newest.data.units) || {}
+    return Object.values(unitsObj).some(
+      (u) => String((u && u.leaderCode) || '').trim().toUpperCase() === viewerMsdl,
+    )
+  }, [viewerMsdl, view, newest])
+  const canUnit = canViewUnitSection(user, profile, isLeader)
+  // Khong co quyen thi che do hieu luc luon la Ca nhan (nut Phong an han).
+  const mode = viewMode === 'unit' && canUnit ? 'unit' : 'personal'
+
+  // Danh sach Unit cho muc Phong: tai dung buildTeam (da co leaderName,
+  // agentCount, fyp, actCount, actNeed, actEnough + bar tung TVV), cong
+  // don IP phat hanh / gia tri pending theo groupValue, sap xep FYP giam dan.
+  const unitRows = useMemo(() => {
+    if (!view) return []
+    return view.team.units
+      .map((u) => ({
+        ...u,
+        ipIssued: u.agents.reduce((s, a) => s + ((a.bar && a.bar.issued) || 0), 0),
+        pendValue: u.agents.reduce((s, a) => s + ((a.bar && a.bar.pending) || 0), 0),
+      }))
+      .sort((x, y) => y.fyp - x.fyp || String(x.unit).localeCompare(String(y.unit)))
+  }, [view])
 
   if (loading) {
     return <div className="card empty"><div className="e-ic">⏳</div>Đang tải dữ liệu…</div>
@@ -156,6 +200,8 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
 
   const renderRow = ({ a, rank }) => {
     const open = openRows.has(a.msdl)
+    // Hang cua chinh minh -> so Policy hien DAY DU (khong che).
+    const rowFull = canSeeFull || isMine(a)
     const sk = segKey(a.agSeg)
     const bar = a.bar
     const pctOf = (v) => (bar.total > 0 ? (v / bar.total) * 100 : 0)
@@ -218,7 +264,7 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
             ) : a.pendingCases.map((pc) => (
               <div className="bv-pend" key={pc.proposalNum}>
                 <div className="bv-pend-main">
-                  <b>{maskSensitive(pc.policyNum || pc.proposalNum, canSeeFull)}</b>
+                  <b>{maskSensitive(pc.policyNum || pc.proposalNum, rowFull)}</b>
                   {pc.policyNum ? null : <span className="muted"> (HSYC)</span>}
                   <span className="pill pill-ps">Pending</span>
                   <span className="bv-pend-val">{fmtTr(pc.value)} tr</span>
@@ -244,6 +290,55 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
 
   return (
     <div>
+      {/* ── Thanh chuyen che do Ca nhan / Phong ──
+          Nut Phong CHI hien khi co quyen (Admin chinh / duoc cap quyen
+          canViewUnit / UM-BM theo Daily) — khong quyen thi an han, nhat
+          quan voi cach tab Sales Report va tab Nap bi an. */}
+      {canUnit ? (
+        <div className="chips-row" style={{ marginBottom: 12 }}>
+          <button className={`fchip ${mode === 'personal' ? 'active' : ''}`} onClick={() => setViewMode('personal')}>👤 Cá nhân</button>
+          <button className={`fchip ${mode === 'unit' ? 'active' : ''}`} onClick={() => setViewMode('unit')}>🏢 Phòng</button>
+        </div>
+      ) : null}
+
+      {mode === 'unit' ? (
+        <>
+          {/* ── Muc Phong (Unit): chi so tung Unit, sap xep FYP giam dan ── */}
+          <div className="card">
+            <h2>🏢 Phòng (Unit) — tháng {month}/{year}</h2>
+            <div className="muted">
+              Lượt Act / MOC tự tính từ Daily Sales (ước tính) — ngưỡng MOC ≥ {MOC_TARGET} lượt/Unit;
+              số MOC chính thức nằm ở file Compensation.
+            </div>
+          </div>
+          {unitRows.length === 0 ? (
+            <div className="card empty"><div className="e-ic">📭</div>Chưa có Unit nào trong dữ liệu tháng này.</div>
+          ) : unitRows.map((u) => (
+            <div className="card unit-card" key={u.unit || '—'}>
+              <div className="unit-head">
+                <div>
+                  <div className="unit-name">🏢 Unit {u.unit || '—'}</div>
+                  {u.leaderName ? <div className="muted">Trưởng phòng: {u.leaderName}</div> : null}
+                </div>
+                {u.actEnough
+                  ? <span className="pill pill-ok">✓ Đủ MOC</span>
+                  : <span className="pill pill-warn">Thiếu {fmtInt(u.actNeed)} lượt Act</span>}
+              </div>
+              <div className="mini-stats" style={{ margin: '10px 0' }}>
+                <div className="mini-stat"><div className="ms-num">{fmtInt(u.agentCount)}</div><div className="ms-label">TVV</div></div>
+                <div className="mini-stat"><div className="ms-num">{fmtTr(u.fyp)}</div><div className="ms-label">FYP tháng (tr)</div></div>
+                <div className="mini-stat"><div className="ms-num">{fmtInt(u.actCount)}/{MOC_TARGET}</div><div className="ms-label">Lượt Act / MOC</div></div>
+              </div>
+              <div className="unit-nums">
+                <span>TVV đạt Act: <b>{fmtInt(u.actCount)}/{fmtInt(u.agentCount)}</b></span>
+                <span>IP phát hành: <b>{fmtTr(u.ipIssued)} tr</b></span>
+                <span>Đang pending: <b>{fmtTr(u.pendValue)} tr</b></span>
+              </div>
+            </div>
+          ))}
+        </>
+      ) : (
+      <>
       {/* ── Tong quan doi ngu thang ── */}
       <div className="card">
         <h2>🌟 Tinh Anh — tháng {month}/{year}</h2>
@@ -293,11 +388,8 @@ export default function DoiNgu({ snaps, loading, onGoNap, user, profile, isSuper
           <div className="muted" style={{ paddingTop: 10 }}>… và {fmtInt(hiddenCount)} TVV chưa có số liệu tháng này</div>
         ) : null}
       </div>
-      <p className="muted" style={{ margin: '0 2px' }}>
-        Thanh màu trên mỗi TVV: tím = giá trị đã phát hành · hồng = đang pending · xanh dương = chưa lên phí
-        (tính theo giá trị trưng bày của từng hồ sơ). Chi tiết từng TVV (chỉ số tham khảo + hồ sơ pending)
-        chỉ Admin chính hoặc chính TVV đó — khi đã đăng nhập — mới mở xem được.
-      </p>
+      </>
+      )}
     </div>
   )
 }

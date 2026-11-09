@@ -4,7 +4,8 @@
 //   DailyStackChart  — cot xep chong theo ngay nop trong thang (mau D03):
 //                      Phat hanh (tim) / Pending (hong) / Chua len phi (xanh
 //                      duong), to theo TRANG THAI HIEN TAI cua ho so.
-//   YearJourneyChart — cot FYP theo thang + duong cam so TVV Active.
+//   YearJourneyChart — cot FYP theo thang + duong TVV Active (thang rieng,
+//                      KHONG nhan so tren diem) + so Active de DUOI thang.
 // Ca hai deu nhan so tho (trieu dong) tu lib/journey.js.
 // ─────────────────────────────────────────────────────────────
 import React, { useState } from 'react'
@@ -19,10 +20,10 @@ const fmtTr = (n) => {
 const C_ISSUED = '#7c3aed'
 const C_PENDING = '#ec4899'
 const C_PIPELINE = '#06b6d4'
-const C_GRID = '#e3e8f0'
-const C_AXIS = '#cbd5e1'
-const C_LABEL = '#94a3b8'
-const C_ORANGE = '#f97316'
+const C_GRID = '#dfe7f1'
+const C_AXIS = '#a9bcd2'
+const C_LABEL = '#677b94'
+const C_ACT = '#c2410c'
 
 // Moc tran "dep" cho truc Y: chon moc nho nhat >= v trong thang bac nay.
 function niceMax(v) {
@@ -111,7 +112,7 @@ export function DailyStackChart({ days, yyyyMm, daysInMonth, selected, onSelect 
             {isSel && <rect x={mL + slot * (d - 1)} y={mT} width={slot} height={plotH} fill="rgba(15,46,82,0.07)" />}
             {drawn}
             {isSel && acc > 0 && (
-              <rect x={x - 1.5} y={baseY - acc - 1.5} width={barW + 3} height={acc + 1.5} fill="none" stroke="#0f2e52" strokeWidth={1.4} />
+              <rect x={x - 1.5} y={baseY - acc - 1.5} width={barW + 3} height={acc + 1.5} fill="none" stroke="#0a1f33" strokeWidth={1.4} />
             )}
             <rect
               x={mL + slot * (d - 1)} y={mT} width={slot} height={plotH}
@@ -129,7 +130,7 @@ export function DailyStackChart({ days, yyyyMm, daysInMonth, selected, onSelect 
         return (
           <text
             key={d} x={cx} y={H - 6} textAnchor="middle" fontSize={12.5}
-            fontWeight={isSel ? 800 : 600} fill={isSel ? '#0f2e52' : C_LABEL}
+            fontWeight={isSel ? 800 : 600} fill={isSel ? '#0a1f33' : C_LABEL}
           >
             {d}
           </text>
@@ -140,68 +141,72 @@ export function DailyStackChart({ days, yyyyMm, daysInMonth, selected, onSelect 
 }
 
 /**
- * Hanh trinh nam: cot FYP theo thang + duong cam so TVV Active.
+ * Hanh trinh nam: cot FYP theo thang + so TVV Active de DUOI nhan thang.
  *   journey: { year, months: [{ month, fyp, act, source }] } (lib/journey buildYearJourney)
  *   currentMonth: thang cua snapshot dang xem (in dam nhan thang + mac dinh
  *   chon de hien chi tiet). Bam vao cot/thang de xem chi tiet thang do.
- * Cot dung thang FYP; duong Active dung THANG RIENG (actMax) — khong chung
- * thang voi FYP. Thang fyp null -> khong ve cot/diem, duong dut doan tai do.
+ * Duong Active: GIU lai theo dinh chinh cua Lan (09/11/2026) — polyline
+ * cam dam thang RIENG theo actMax, dut doan tai thang khong co du lieu,
+ * nhung TUYET DOI khong ve nhan so tren cac diem (phan chong cheo Lan che
+ * truoc do). So Active nam thanh 1 hang rieng ngay duoi nhan thang
+ * T1..T12, dam, cam dam, canh giua theo cot. Thang khong co du lieu ->
+ * khong ve cot/diem, o Active hien '–' mo.
  */
 export function YearJourneyChart({ journey, currentMonth }) {
   const [sel, setSel] = useState(null)
   const W = 700
-  const H = 288
+  const H = 308
   const mL = 10
   const mR = 10
   const mT = 30
-  const mB = 30
+  const mB = 50
   const plotW = W - mL - mR
   const plotH = H - mT - mB
   const baseY = mT + plotH
 
   const months = (journey && journey.months) || []
   const has = (m) => m.fyp !== null && m.fyp !== undefined
+  const hasAct = (m) => has(m) && m.act !== null && m.act !== undefined
   const present = months.filter(has)
   if (!present.length) {
     return <div className="muted" style={{ marginTop: 4 }}>Chưa có dữ liệu tháng nào trong năm {journey ? journey.year : ''} để vẽ hành trình.</div>
   }
   const fypMax = Math.max(0, ...present.map((m) => m.fyp))
-  const actMax = Math.max(0, ...present.map((m) => m.act || 0))
+  // Thang RIENG cho duong Active (doc lap voi thang FYP cua cot)
+  const actMax = Math.max(0, ...months.filter(hasAct).map((m) => m.act))
+  const lineY = (act) => baseY - (actMax > 0 ? (act / actMax) * plotH : 0)
   const slot = plotW / 12
   const barW = Math.min(38, slot * 0.64)
   const cxOf = (i) => mL + slot * (i + 0.5)
-  // Truc rieng cho Active: diem cao nhat cham ~82% chieu cao bieu do.
-  const lineY = (act) => baseY - 10 - (actMax > 0 ? (act / actMax) * plotH * 0.82 : 0)
+  // Gom cac thang LIEN TIEP co so Active thanh tung doan duong rieng —
+  // gap thang trong thi ngat doan, khong noi duong qua thang trong.
+  const actSegs = []
+  let actRun = []
+  months.forEach((m, i) => {
+    if (hasAct(m)) {
+      actRun.push({ x: cxOf(i), y: lineY(m.act) })
+    } else if (actRun.length) {
+      actSegs.push(actRun)
+      actRun = []
+    }
+  })
+  if (actRun.length) actSegs.push(actRun)
 
   const selMonth = sel !== null
     ? months.find((m) => m.month === sel && has(m)) || null
     : months.find((m) => m.month === currentMonth && has(m)) || present[present.length - 1]
-
-  // Duong cam: chi noi cac thang LIEN TIEP deu co du lieu (thang trong thi
-  // dut doan, khong noi xuyen qua).
-  const runs = []
-  let run = []
-  months.forEach((m, i) => {
-    if (has(m)) {
-      run.push(`${cxOf(i)},${lineY(m.act || 0)}`)
-    } else if (run.length) {
-      runs.push(run)
-      run = []
-    }
-  })
-  if (run.length) runs.push(run)
 
   return (
     <>
     <svg className="chart-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Biểu đồ hành trình năm">
       <defs>
         <linearGradient id="yjViolet" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#a78bfa" />
-          <stop offset="100%" stopColor="#7c3aed" />
+          <stop offset="0%" stopColor="#8b5cf6" />
+          <stop offset="100%" stopColor="#6d28d9" />
         </linearGradient>
         <linearGradient id="yjPink" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#f9a8d4" />
-          <stop offset="100%" stopColor="#ec4899" />
+          <stop offset="0%" stopColor="#f472b6" />
+          <stop offset="100%" stopColor="#db2777" />
         </linearGradient>
       </defs>
 
@@ -221,15 +226,15 @@ export function YearJourneyChart({ journey, currentMonth }) {
         const isSel = selMonth && m.month === selMonth.month
         return (
           <g key={m.month}>
-            {isSel && <rect x={mL + slot * i} y={mT - 6} width={slot} height={plotH + 6} fill="rgba(15,46,82,0.07)" />}
+            {isSel && <rect x={mL + slot * i} y={mT - 6} width={slot} height={plotH + 6 + 48} fill="rgba(15,46,82,0.07)" />}
             {h > 0 && (
               <path d={topRoundPath(cx - barW / 2, baseY - h, barW, h, 7)} fill={isMax ? 'url(#yjPink)' : 'url(#yjViolet)'} />
             )}
-            <text x={cx} y={baseY - h - 8} textAnchor="middle" fontSize={15} fontWeight={800} fill={isMax ? '#db2777' : '#5b21b6'}>
+            <text x={cx} y={baseY - h - 8} textAnchor="middle" fontSize={15} fontWeight={800} fill={isMax ? '#db2777' : '#4c1d95'}>
               {fmtTr(m.fyp)}
             </text>
             <rect
-              x={mL + slot * i} y={mT - 6} width={slot} height={plotH + 6 + 20}
+              x={mL + slot * i} y={mT - 6} width={slot} height={plotH + 6 + 48}
               fill="transparent" style={{ cursor: 'pointer' }}
               onClick={() => setSel(m.month)}
             />
@@ -237,23 +242,24 @@ export function YearJourneyChart({ journey, currentMonth }) {
         )
       })}
 
-      {/* Duong cam so TVV Active (thang rieng actMax) + nhan so tren diem */}
-      {runs.filter((r) => r.length > 1).map((r, i) => (
-        <polyline key={i} points={r.join(' ')} fill="none" stroke={C_ORANGE} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+      {/* Duong TVV Active (thang rieng actMax, dut doan o thang trong) —
+          KHONG ve nhan so tren diem: so Active da nam o hang duoi thang */}
+      {actSegs.map((seg, si) => (
+        <polyline
+          key={si}
+          points={seg.map((p) => `${p.x},${p.y}`).join(' ')}
+          fill="none" stroke={C_ACT} strokeWidth={2.2}
+          strokeLinejoin="round" strokeLinecap="round" pointerEvents="none"
+        />
       ))}
-      {months.map((m, i) => {
-        if (!has(m)) return null
-        const cx = cxOf(i)
-        const cy = lineY(m.act || 0)
-        return (
-          <g key={m.month}>
-            <circle cx={cx} cy={cy} r={4.5} fill="#ffffff" stroke={C_ORANGE} strokeWidth={2.5} />
-            <text x={cx} y={cy - 10} textAnchor="middle" fontSize={12.5} fontWeight={700} fill="#ea580c">
-              {m.act}
-            </text>
-          </g>
+      {months.map((m, i) => (
+        hasAct(m) && (
+          <circle
+            key={m.month} cx={cxOf(i)} cy={lineY(m.act)} r={3.6}
+            fill={C_ACT} stroke="#fff" strokeWidth={1.4} pointerEvents="none"
+          />
         )
-      })}
+      ))}
 
       {/* Nhan thang */}
       {months.map((m, i) => {
@@ -262,11 +268,27 @@ export function YearJourneyChart({ journey, currentMonth }) {
         return (
           <text
             key={m.month}
-            x={cx} y={baseY + 20} textAnchor="middle" fontSize={13.5}
+            x={cx} y={baseY + 19} textAnchor="middle" fontSize={13.5}
             fontWeight={m.month === currentMonth ? 800 : 600}
-            fill={ok ? (m.month === currentMonth ? '#1e293b' : '#64748b') : '#cbd5e1'}
+            fill={ok ? (m.month === currentMonth ? '#0a1f33' : '#52667c') : '#b9c7d8'}
           >
             T{m.month}
+          </text>
+        )
+      })}
+
+      {/* Hang so TVV Active DUOI nhan thang (so lieu cua duong cam nam o day) */}
+      {months.map((m, i) => {
+        const cx = cxOf(i)
+        const ok = hasAct(m)
+        return (
+          <text
+            key={m.month}
+            x={cx} y={baseY + 40} textAnchor="middle" fontSize={13.5}
+            fontWeight={800}
+            fill={ok ? C_ACT : '#d3dce7'}
+          >
+            {ok ? m.act : '–'}
           </text>
         )
       })}

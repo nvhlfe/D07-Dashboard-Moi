@@ -4,30 +4,33 @@
    nguyen thoi quen nhin so: phat hanh tim #7c3aed · pending hong #ec4899 ·
    chua len phi xanh #06b6d4. */
 :root {
-  --navy: #0f2e52;
-  --navy-dark: #0b2a4a;
-  --navy-deep: #081f38;
-  --navy-soft: #e8eef7;
+  /* 09/11/2026: Lan che mau "nhat nhoa" -> tang bao hoa + tuong phan:
+     chu chinh gan den-navy, muted dam len 1 bac, navy/primary dam hon,
+     vien ro hon. Nen tong the van SANG. */
+  --navy: #0c2a4e;
+  --navy-dark: #082440;
+  --navy-deep: #051a30;
+  --navy-soft: #dae5f3;
   --brand-red: #e4002b;
   --bg: #f4f6fa;
   --card: #ffffff;
-  --text: #16283c;
-  --text2: #51606f;
-  --text3: #8b98a5;
-  --border: #e3e8f0;
-  --line: #e3e8f0;
-  --line2: #eef2f7;
-  --primary: #1d4e89;
-  --primary-dark: #173e6e;
-  --violet: #7c3aed;
-  --green: #059669;
-  --amber: #d97706;
-  --red: #dc2626;
-  --pink: #db2777;
+  --text: #0a1f33;
+  --text2: #3c4e62;
+  --text3: #63768c;
+  --border: #d3dce8;
+  --line: #d3dce8;
+  --line2: #e5ecf4;
+  --primary: #1a56a8;
+  --primary-dark: #123f74;
+  --violet: #6d28d9;
+  --green: #047857;
+  --amber: #b45309;
+  --red: #b91c1c;
+  --pink: #be185d;
   --radius: 16px;
   --radius-sm: 12px;
-  --shadow-card: 0 1px 2px rgba(11, 42, 74, 0.05), 0 4px 14px rgba(11, 42, 74, 0.05);
-  --shadow-pop: 0 12px 36px rgba(11, 42, 74, 0.18);
+  --shadow-card: 0 1px 2px rgba(8, 36, 64, 0.07), 0 4px 14px rgba(8, 36, 64, 0.07);
+  --shadow-pop: 0 12px 36px rgba(8, 36, 64, 0.24);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { -webkit-text-size-adjust: 100%; }
@@ -48,7 +51,7 @@ body {
 .btn-primary, .btn-ghost, .btn-mini, .fchip, .nav-btn, .memo-card { transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
 .btn-primary:active, .btn-ghost:active, .btn-mini:active, .fchip:active, .nav-btn:active { transform: scale(0.98); }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 2px solid rgba(29, 78, 137, 0.55); outline-offset: 2px;
+  outline: 2px solid rgba(26, 86, 168, 0.6); outline-offset: 2px;
 }
 button { font-family: inherit; }
 input, select, textarea { font-family: inherit; }
@@ -94,7 +97,7 @@ input, select, textarea { font-family: inherit; }
   border-radius: 12px; white-space: nowrap;
 }
 .nav-btn .ic { font-size: 20px; line-height: 1; }
-.nav-btn.active { color: var(--navy-dark); background: var(--navy-soft); font-weight: 700; }
+.nav-btn.active { color: var(--navy-dark); background: var(--navy-soft); font-weight: 800; }
 .nav-btn.active::before {
   content: ''; position: absolute; top: 5px; left: 50%; transform: translateX(-50%);
   width: 5px; height: 5px; border-radius: 50%; background: var(--brand-red);
@@ -110,7 +113,7 @@ input, select, textarea { font-family: inherit; }
 /* The hero: vien gradient navy thuong hieu, nen sang */
 .hero {
   border-radius: 18px; padding: 2px; margin-bottom: 14px;
-  background: linear-gradient(120deg, var(--navy-dark), #1d4e89 55%, #2f6fb4);
+  background: linear-gradient(120deg, var(--navy-dark), #1a56a8 55%, #2e6fc2);
   box-shadow: 0 6px 18px rgba(11, 42, 74, 0.14);
 }
 .hero-inner { background: #fff; border-radius: 16px; padding: 16px; text-align: center; }
@@ -125,10 +128,9 @@ input, select, textarea { font-family: inherit; }
 .hero .divider { border: none; border-top: 1px solid var(--border); margin: 14px 0 10px; }
 .hero .quote { font-style: italic; font-size: 14px; color: var(--text2); cursor: pointer; }
 .hero .quote .author { font-style: normal; font-weight: 600; color: var(--text3); }
-.hero .quote-hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
 
 /* Tien do FYP */
-.progress-track { background: #e6ebf2; border-radius: 999px; height: 12px; overflow: hidden; margin: 8px 0; }
+.progress-track { background: #dde5ef; border-radius: 999px; height: 12px; overflow: hidden; margin: 8px 0; }
 .progress-fill { background: linear-gradient(90deg, var(--primary), var(--violet)); height: 100%; border-radius: 999px; }
 .big-num { font-size: 27px; font-weight: 800; color: var(--navy-dark); }
 .chip {
@@ -152,8 +154,8 @@ input, select, textarea { font-family: inherit; }
 .kpi .k-label { font-size: 11.5px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
 .kpi .k-val { font-size: 23px; font-weight: 800; margin-top: 1px; color: var(--navy-dark); line-height: 1.15; }
 .kpi .k-sub { font-size: 12px; color: var(--text3); font-weight: 600; }
-.kpi.blue .k-ic { background: #dbeafe; } .kpi.green .k-ic { background: #dcfce7; }
-.kpi.violet .k-ic { background: #ede9fe; } .kpi.pink .k-ic { background: #fce7f3; }
+.kpi.blue .k-ic { background: #bfd9fe; } .kpi.green .k-ic { background: #b7f4cd; }
+.kpi.violet .k-ic { background: #ddd2fe; } .kpi.pink .k-ic { background: #fbcfe8; }
 
 /* Thanh xep chong — mau trang thai chuan: phat hanh tim / pending hong / chua len phi xanh */
 .stack-bar { display: flex; height: 22px; border-radius: 10px; overflow: hidden; background: var(--line2); margin: 8px 0; }
@@ -193,20 +195,20 @@ input, select, textarea { font-family: inherit; }
 .btn-primary {
   min-height: 48px; padding: 12px 18px; border: none; border-radius: 12px; cursor: pointer;
   background: var(--navy); color: #fff; font-weight: 700; font-size: 15px; width: 100%;
-  box-shadow: 0 4px 12px rgba(11, 42, 74, 0.22);
+  box-shadow: 0 5px 14px rgba(8, 36, 64, 0.32);
 }
 .btn-primary:hover { background: var(--navy-dark); }
 .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 .btn-ghost {
-  min-height: 44px; padding: 10px 14px; border: 1px solid #d4dce6; border-radius: 10px; cursor: pointer;
+  min-height: 44px; padding: 10px 14px; border: 1px solid #bfcfe2; border-radius: 10px; cursor: pointer;
   background: #fff; color: var(--navy); font-weight: 600; font-size: 14px;
 }
-.btn-ghost:hover { background: var(--navy-soft); border-color: #b9c8dd; }
+.btn-ghost:hover { background: var(--navy-soft); border-color: #9fb8d8; }
 
 /* Form nap du lieu */
 .dropzone {
-  border: 2px dashed #b9c8dd; border-radius: 14px; padding: 22px 14px; text-align: center;
-  background: #eef3fa; cursor: pointer; transition: background 0.15s;
+  border: 2px dashed #a3bde0; border-radius: 14px; padding: 22px 14px; text-align: center;
+  background: #e6effa; cursor: pointer; transition: background 0.15s;
 }
 .dropzone.drag { background: var(--navy-soft); border-color: var(--primary); }
 .dropzone .dz-ic { font-size: 34px; }
@@ -218,7 +220,7 @@ input, select, textarea { font-family: inherit; }
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .field input:focus, .field textarea:focus, .field select:focus {
-  border-color: var(--primary); box-shadow: 0 0 0 3px rgba(29, 78, 137, 0.15); outline: none;
+  border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26, 86, 168, 0.18); outline: none;
 }
 .field textarea { font-family: monospace; font-size: 12px; }
 .msg { border-radius: 10px; padding: 10px 12px; font-size: 13.5px; margin-top: 10px; white-space: pre-line; }
@@ -243,7 +245,7 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
   min-height: 44px; padding: 9px 14px; border-radius: 999px; border: 1.5px solid var(--border);
   background: #fff; color: var(--text2); font-size: 13.5px; font-weight: 700; cursor: pointer;
 }
-.fchip:hover { border-color: #b9c8dd; }
+.fchip:hover { border-color: #9fb8d8; }
 .fchip.active { background: var(--navy); border-color: var(--navy); color: #fff; }
 .fchip.sm { min-height: 38px; padding: 6px 12px; font-size: 12.5px; }
 .mini-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
@@ -251,7 +253,7 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
 .mini-stat .ms-num { font-size: 20px; font-weight: 800; color: var(--navy-dark); }
 .mini-stat .ms-label { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.3px; }
 .case-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow-card); }
-.case-card:hover { border-color: #d4dce6; }
+.case-card:hover { border-color: #bfcfe2; }
 .case-head { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; min-height: 44px; }
 .case-main { flex: 1; min-width: 0; }
 .case-num { font-weight: 800; font-size: 14px; letter-spacing: 0.2px; }
@@ -259,11 +261,19 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
 .case-meta { font-size: 12px; color: var(--text3); margin-top: 2px; }
 .case-ip { font-weight: 800; color: var(--navy-dark); white-space: nowrap; font-size: 14px; }
 .pill { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
-.pill-if { background: #ede9fe; color: #5b21b6; }
-.pill-ps { background: #fce7f3; color: #be185d; }
-.pill-pipe { background: #cffafe; color: #155e75; }
-.pill-other { background: #f1f5f9; color: #475569; }
-.badge-adj { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #ede9fe; color: #5b21b6; margin-left: 6px; }
+.pill-if { background: #e3d9fd; color: #4c1d95; }
+.pill-ps { background: #fadcec; color: #a3144f; }
+.pill-pipe { background: #bfeefb; color: #0c4a5e; }
+.pill-other { background: #e6edf5; color: #3f5468; }
+.pill-ok { background: #d1fae5; color: #065f46; }
+.pill-warn { background: #fef3c7; color: #92400e; }
+/* Muc Phong (Unit) trong tab Tinh Anh */
+.unit-card { margin-bottom: 12px; }
+.unit-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.unit-name { font-size: 16px; font-weight: 800; color: var(--navy-dark); }
+.unit-nums { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--text2); }
+.unit-nums b { color: var(--navy-dark); }
+.badge-adj { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #e3d9fd; color: #4c1d95; margin-left: 6px; }
 .badge-stale { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #ecfdf5; color: #065f46; margin-left: 6px; }
 .age-chip { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: #fef3c7; color: #92400e; margin-left: 6px; }
 .age-chip.hot { background: #fee2e2; color: #991b1b; }
@@ -283,7 +293,7 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
 /* ── Tai khoan / dang nhap / ca nhan hoa ── */
 .header-acct { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .header-acct .greet { font-weight: 800; font-size: 14px; }
-.role-badge { display: inline-block; font-size: 11.5px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: #f1f5f9; color: #475569; }
+.role-badge { display: inline-block; font-size: 11.5px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: #e6edf5; color: #3f5468; }
 .role-badge.super { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
 .btn-mini {
   min-height: 44px; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border);
@@ -300,12 +310,9 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
   box-shadow: var(--shadow-pop);
 }
 .modal-title { font-size: 17px; font-weight: 800; margin-bottom: 8px; color: var(--navy-dark); }
-.my-card { border: 1.5px solid #b9c8dd; background: linear-gradient(180deg, #eef3fa, #ffffff); }
+.my-card { border: 1.5px solid #a3bde0; background: linear-gradient(180deg, #e6effa, #ffffff); }
 .my-line { font-size: 13.5px; margin-top: 6px; }
-.lock-note {
-  border: 1px dashed #f59e0b; background: #fffbeb; color: #92400e;
-  border-radius: 10px; padding: 10px 12px; font-size: 13.5px; font-weight: 600; margin-bottom: 10px;
-}
+
 
 /* ── Doi ngu: the Unit xo TVV + luot Act / MOC uoc tinh ── */
 .unit-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; margin-bottom: 10px; overflow: hidden; box-shadow: var(--shadow-card); }
@@ -331,7 +338,7 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
 .tvv-name .nm { font-weight: 700; font-size: 14px; }
 .tvv-name .medal { font-size: 17px; line-height: 1; }
 .tvv-name .rank { font-weight: 800; color: var(--text3); font-size: 13px; min-width: 18px; }
-.seg-chip { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: #ede9fe; color: #5b21b6; }
+.seg-chip { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: #e3d9fd; color: #4c1d95; }
 .tvv-nums { font-size: 12.5px; color: var(--text2); margin-top: 2px; }
 .act-badge { font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; white-space: nowrap; margin-top: 2px; flex-shrink: 0; }
 .act-badge.ok { background: #dcfce7; color: #166534; }
@@ -360,7 +367,7 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
 .bv-av-gold { background: linear-gradient(135deg, #fde68a, #fef3c7); border-color: #fbbf24; color: #92400e; }
 .bv-av-oth { background: linear-gradient(135deg, #eef2f7, #f8fafc); border-color: #e2e8f0; color: #64748b; }
 /* Hang cua chinh minh (nhan "Ban"): nen nhan navy nhat + vien trong */
-.bv-mine { background: linear-gradient(135deg, var(--navy-soft), #ffffff 78%); box-shadow: inset 0 0 0 1px #c9d6ea; }
+.bv-mine { background: linear-gradient(135deg, var(--navy-soft), #ffffff 78%); box-shadow: inset 0 0 0 1px #a9c2e2; }
 .bv-medal { position: absolute; right: -5px; bottom: -5px; font-size: 15px; line-height: 1; }
 .bv-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .bv-name { font-size: 15px; font-weight: 800; color: var(--text); line-height: 1.25; }
@@ -374,7 +381,7 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
 .bv-seg-pending { background: #ec4899; min-width: 4px; }
 .bv-seg-pipeline { background: #06b6d4; min-width: 4px; }
 .bv-nums { display: flex; flex-wrap: wrap; gap: 1px 12px; font-size: 11.5px; font-weight: 600; margin-top: 4px; }
-.bv-num-issued { color: #7c3aed; }
+.bv-num-issued { color: #6d28d9; }
 .bv-num-pending { color: #db2777; }
 .bv-num-pipeline { color: #0891b2; }
 .bv-total { flex: 0 0 auto; text-align: right; padding-top: 2px; }
@@ -409,13 +416,10 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
 /* ── Bieu do SVG tu ve (Charts.jsx): nhip nop theo ngay + hanh trinh nam ── */
 .chart-sub { font-size: 12.5px; color: var(--text2); margin: -4px 0 8px; line-height: 1.45; }
 .chart-legend { margin-bottom: 4px; }
-.legend .dash {
-  display: inline-block; width: 16px; height: 3px; border-radius: 2px;
-  background: #f97316; margin-right: 5px; vertical-align: middle;
-}
+.legend .act-sample { font-size: 13.5px; font-weight: 800; color: #c2410c; margin-right: 5px; }
 .chart-svg { display: block; width: 100%; height: auto; }
 .chart-detail {
-  margin-top: 8px; font-size: 13.5px; background: #f8fafc;
+  margin-top: 8px; font-size: 13.5px; background: #eef3f9;
   border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px;
 }
 
@@ -438,7 +442,7 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
   position: relative; background: var(--card); border: 1px solid var(--border); border-radius: 14px;
   padding: 12px; cursor: pointer; box-shadow: var(--shadow-card);
 }
-.memo-card:hover { border-color: #b9c8dd; box-shadow: var(--shadow-pop); transform: translateY(-1px); }
+.memo-card:hover { border-color: #9fb8d8; box-shadow: var(--shadow-pop); transform: translateY(-1px); }
 .memo-del {
   position: absolute; top: 6px; right: 6px; z-index: 2;
   width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border);
@@ -530,6 +534,24 @@ details.collapse summary { cursor: pointer; font-weight: 700; font-size: 14px; m
 /* Avatar anh that trong vong tron avatar cua Bang Vang (DoiNgu) —
    chi hang cua chinh minh moi co (profile nguoi khac khong doc duoc) */
 .bv-avatar-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+
+/* ── Khung chinh anh avatar (CaNhan AvatarEditor): keo + zoom, Luu moi tai ── */
+.av-editor { margin-top: 14px; }
+.av-frame {
+  position: relative; width: min(272px, 80vw); aspect-ratio: 1; margin: 0 auto;
+  border-radius: 50%; overflow: hidden; border: 2px solid var(--border);
+  background: #e6edf5; box-shadow: var(--shadow-card);
+  touch-action: none; cursor: grab;
+}
+.av-frame:active { cursor: grabbing; }
+.av-frame img {
+  position: absolute; left: 50%; top: 50%; max-width: none;
+  user-select: none; -webkit-user-select: none; -webkit-user-drag: none;
+}
+.av-zoom { display: flex; align-items: center; gap: 10px; max-width: 320px; margin: 12px auto 0; font-size: 16px; }
+.av-zoom input[type="range"] { flex: 1; min-height: 32px; accent-color: var(--primary); cursor: pointer; }
+.av-hint { text-align: center; margin-top: 6px; }
+.av-actions { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
 
 /* Form dang memo (Admin chinh) */
 .memo-form .field textarea { font-family: inherit; font-size: 14px; min-height: 44px; }

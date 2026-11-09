@@ -222,7 +222,6 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
           {c.pendingReasons.map((r) => <span className="reason-chip" key={r}>{r}</span>)}
         </div>
       )}
-      <div className="lock-note">Chi tiết chỉ để xem. Số liệu tự cập nhật khi có bản Daily Sales mới ở tab Nạp dữ liệu.</div>
     </div>
     )
   }
@@ -289,7 +288,7 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
           {gaBar.other > 0 ? <span className="muted"> · Khác {fmtTr(gaBar.other)} tr (không tính vào thanh)</span> : null}
         </div>
 
-        <div className="muted" style={{ marginTop: 6 }}>Dữ liệu đến {fmtDateVN(snap.id)} · nhật ký từng hồ sơ, không nhập tay tổng số theo TVV</div>
+        <div className="muted" style={{ marginTop: 6 }}>Dữ liệu đến {fmtDateVN(snap.id)}</div>
         {months.length > 1 && (
           <div className="field" style={{ marginTop: 10, marginBottom: 0 }}>
             <label>Tháng xem</label>
@@ -320,8 +319,8 @@ export default function SalesReport({ snaps, loading, onGoNap, user }) {
 
       {/* ── Danh sach ho so thong nhat ── */}
       <div className="muted" style={{ marginBottom: 8 }}>
-        {filteredAll.length} hồ sơ · bấm vào thẻ để xem hành trình hồ sơ
-        {isPendingView ? ' · đang sắp xếp chờ lâu nhất trước' : ' · nhóm theo ngày nộp'}
+        {filteredAll.length} hồ sơ
+        {isPendingView ? ' · đang sắp xếp chờ lâu nhất trước' : ''}
       </div>
       {filteredAll.length === 0 && <div className="card empty"><div className="e-ic">🔍</div>Không có hồ sơ nào khớp bộ lọc.</div>}
       {isPendingView

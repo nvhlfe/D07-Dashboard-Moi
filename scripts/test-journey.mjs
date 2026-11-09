@@ -138,4 +138,21 @@ assert.ok(!homNaySrc.includes('Thay đổi so với ngày'), 'HomNay.jsx khong d
 assert.ok(homNaySrc.includes('buildYearJourney'), 'HomNay.jsx phai dung buildYearJourney cho Hanh trinh nam')
 console.log('HomNay: khong con "Thay doi so voi ngay"; dung buildYearJourney — dung')
 
+// ── YearJourneyChart: GIU duong Active (dinh chinh cua Lan 09/11), chi
+//    chuyen SO LIEU xuong duoi thang — tren duong KHONG co nhan so ──
+console.log('\n=== YearJourneyChart — duong Active + so duoi thang ===')
+const chartsSrc = readFileSync(new URL('../src/components/Charts.jsx', import.meta.url), 'utf8')
+assert.ok(chartsSrc.includes('<polyline'), 'Charts.jsx: duong Active (polyline) phai duoc KHOI PHUC')
+assert.ok(chartsSrc.includes('actMax') && chartsSrc.includes('lineY'), 'Charts.jsx: duong Active phai dung thang rieng actMax + ham lineY')
+assert.ok(chartsSrc.includes('actSegs'), 'Charts.jsx: duong Active phai dut doan o thang trong (actSegs — khong noi qua thang khong co du lieu)')
+assert.ok(!/y=\{lineY\(m\.act\)\s*-/.test(chartsSrc), 'Charts.jsx: KHONG duoc ve nhan so tai diem cua duong Active (so chi nam o hang duoi thang)')
+assert.ok(chartsSrc.includes('C_ACT'), 'Charts.jsx: duong + so Active dung hang mau cam dam C_ACT')
+assert.ok(chartsSrc.includes('baseY + 40'), 'Charts.jsx: hang so Active phai nam DUOI nhan thang (baseY + 40)')
+assert.ok(homNaySrc.includes('Đường cam + số dưới tháng: TVV Active'), 'HomNay: chu thich Hanh trinh phai noi ro duong cam + so duoi thang la TVV Active')
+assert.ok(homNaySrc.includes('Số Active dưới tháng'), 'HomNay: legend phai co mau so "Số Active dưới tháng"')
+assert.ok(homNaySrc.includes('TVV Active (đường cam)'), 'HomNay: legend phai co mau duong cam TVV Active')
+assert.ok(homNaySrc.includes('T1–T10: số liệu GA · Từ T11: theo Daily Sales'), 'HomNay: dong NGUON so lieu GA/Daily phai duoc GIU LAI')
+assert.ok(!homNaySrc.includes('Giá trị hồ sơ theo ngày nộp, tô theo trạng thái hiện tại'), 'HomNay: da bo dong ghi chu giai thich cach tinh o bieu do nhip nop')
+console.log('YearJourneyChart: duong Active da khoi phuc (thang rieng, dut doan, khong nhan tren diem); so Active o hang duoi thang; chu thich + dong nguon dung')
+
 console.log('\n✅ TAT CA ASSERT DAT (test-journey)')
