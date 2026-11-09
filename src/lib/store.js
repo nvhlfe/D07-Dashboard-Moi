@@ -8,7 +8,7 @@
 // App LUON chay duoc chi bang localStorage (offline/demo) khi chua co Firebase.
 // ─────────────────────────────────────────────────────────────
 import { initializeApp, getApps } from 'firebase/app'
-import { getFirestore, doc, collection, setDoc, getDoc, getDocs, addDoc, deleteDoc, query, orderBy } from 'firebase/firestore'
+import { getFirestore, doc, collection, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore'
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject, getBlob, listAll } from 'firebase/storage'
 import { resolveFirebaseConfig } from './firebaseConfig'
 
@@ -506,9 +506,9 @@ export async function uploadMemoCover(memoId, blob) {
 }
 
 /**
- * Tai 1 anh trang memo (da nen JPEG phia trinh duyet) len Storage
- * memos/{id}/page-{index}.jpg — index tu 1, dung thu tu trang cua memo
- * dang bang NHIEU ANH (sourceType 'images'). Tra { ok, url, path }.
+ * Tai 1 anh trang memo (JPEG do pdfjs tach tu PDF goc) len Storage
+ * memos/{id}/page-{index}.jpg — index tu 1, dung thu tu trang cua
+ * memo. Tra { ok, url, path }.
  */
 export async function uploadMemoPageImage(memoId, index, blob) {
   const st = getFirebaseStorage()
@@ -549,6 +549,50 @@ export async function setMemoCoverUrl(memoId, coverUrl) {
   } catch (e) {
     console.warn('[store] setMemoCoverUrl:', e)
     return { ok: false, error: memoErrMsg(e, 'Lưu ảnh bìa memo không thành công.') }
+  }
+}
+
+/**
+ * Ghi ket qua TACH TRANG ANH vao doc memos/{id} (merge): pages[] +
+ * pagePaths[] + pageCount + coverUrl (= trang 1). Dung cho ca luong
+ * dang PDF moi (tach ngay khi dang) lan luong tu tach cho memo cu
+ * chua co pages[] khi Admin mo chi tiet.
+ */
+export async function setMemoPages(memoId, { pages, pagePaths, pageCount, coverUrl } = {}) {
+  const fs = getFirebaseFs()
+  if (!fs || !memoId || !Array.isArray(pages) || !pages.length) {
+    return { ok: false, error: 'Thiếu dữ liệu để lưu trang ảnh memo.' }
+  }
+  try {
+    await setDoc(doc(fs, 'memos', memoId), {
+      pages,
+      pagePaths: Array.isArray(pagePaths) ? pagePaths : [],
+      pageCount: Number(pageCount) || pages.length,
+      coverUrl: coverUrl || pages[0],
+    }, { merge: true })
+    return { ok: true }
+  } catch (e) {
+    console.warn('[store] setMemoPages:', e)
+    return { ok: false, error: memoErrMsg(e, 'Lưu trang ảnh memo không thành công.') }
+  }
+}
+
+/**
+ * Sua cac truong CHU cua doc memos/{id} (nut ✏️ Sửa cho Admin):
+ * chi ghi cac truong truyen vao bang updateDoc — file PDF goc, trang
+ * anh, coverUrl... giu nguyen vi khong nam trong fields.
+ */
+export async function updateMemoDoc(memoId, fields) {
+  const fs = getFirebaseFs()
+  if (!fs || !memoId || !fields || typeof fields !== 'object') {
+    return { ok: false, error: 'Thiếu dữ liệu để sửa memo.' }
+  }
+  try {
+    await updateDoc(doc(fs, 'memos', memoId), fields)
+    return { ok: true }
+  } catch (e) {
+    console.warn('[store] updateMemoDoc:', e)
+    return { ok: false, error: memoErrMsg(e, 'Lưu chỉnh sửa memo không thành công.') }
   }
 }
 

@@ -1,6 +1,8 @@
-// Test lib/memoLib.js (logic thuan thu vien Memo) + kiem tra luong xem
-// PDF truc tiep (khong con pdfjs-dist/pdfSplit —
-// node khong co canvas nen KHONG render PDF o day).
+// Test lib/memoLib.js (logic thuan thu vien Memo) + kiem tra luong
+// dang PDF -> TU TACH TUNG TRANG thanh anh, nut Sua, panel tom tat
+// khong bia (assert tinh tren source; node khong co canvas nen
+// KHONG render PDF o day — render that kiem chung rieng bang
+// pdfjs + @napi-rs/canvas tren PDF memo that).
 // Chay: node scripts/test-memo.mjs
 import { readFileSync } from 'node:fs'
 import assert from 'node:assert'
@@ -60,91 +62,115 @@ assert.deepStrictEqual(summaryLines(null), [])
 assert.deepStrictEqual(summaryLines('\n \n'), [])
 console.log('Bo dong rong + trim — dung')
 
-// ── Xem PDF truc tiep + anh bia tu dong tu trang 1 ──
-// XEM memo van doc PDF goc truc tiep (khung iframe) nhu Lan chot
-// 08/11/2026. RIENG anh bia thu vien duoc tao tu trang 1 bang
-// pdfjs-dist IMPORT TINH qua lib/pdfCover (KHONG React.lazy/dynamic
-// import nhu ban pdfSplit cu bi 404 chunk).
-console.log('\n=== xem PDF truc tiep + bia trang 1 (pdfjs tinh) ===')
+// ── Dang PDF -> TU TACH TUNG TRANG thanh anh (cach cu, Lan chot
+// quay ve 09/11/2026) + nut Sua + panel tom tat khong con bia ──
+// Dang: chi nhan PDF goc (uploadMemoPdf); ngay sau khi tao doc,
+// pdfjs IMPORT TINH (lib/pdfCover) render MOI trang thanh JPEG
+// 1000px/0.82, tai tung trang page-{i}.jpg, ghi pages[] + coverUrl
+// (= trang 1) qua setMemoPages. Tran 50 trang; loi tach trang KHONG
+// chan dang. Memo cu chua co pages[]: Admin mo chi tiet -> tu tach
+// lai 1 lan/phien (thay co che tu tao bia cu). Kieu dang bang NHIEU
+// ANH (sourceType 'images') da GO.
+console.log('\n=== dang PDF + tu tach trang anh (pdfjs tinh) ===')
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
-assert.ok(pkg.dependencies && pkg.dependencies['pdfjs-dist'], 'package.json CO dependency pdfjs-dist (dung cho tao bia)')
+assert.ok(pkg.dependencies && pkg.dependencies['pdfjs-dist'], 'package.json CO dependency pdfjs-dist (dung cho tach trang/bia)')
 const memoSrc = readFileSync(new URL('../src/components/MemoThuVien.jsx', import.meta.url), 'utf8')
 assert.ok(!memoSrc.includes('pdfSplit'), 'MemoThuVien khong con tham chieu pdfSplit')
 assert.ok(memoSrc.includes('uploadMemoPdf'), 'MemoThuVien dang bang uploadMemoPdf (chi tai PDF goc)')
-assert.ok(memoSrc.includes('memo-pdf-frame'), 'Man hinh chi tiet co khung xem PDF truc tiep')
+assert.ok(memoSrc.includes('memo-pdf-frame'), 'Chi tiet van giu khung iframe PDF (du phong khi chua/khong tach duoc trang)')
 
-// pdfCover: module rieng, import tinh, worker qua ?url
+// pdfCover: module rieng, import tinh, worker qua ?url, du 2 ham render
 const coverSrc = readFileSync(new URL('../src/lib/pdfCover.js', import.meta.url), 'utf8')
 assert.ok(coverSrc.includes("from 'pdfjs-dist'"), 'pdfCover import tinh pdfjs-dist')
 assert.ok(coverSrc.includes('pdf.worker.min.mjs?url'), 'pdfCover cau hinh worker qua ?url (chuan Vite)')
-assert.ok(coverSrc.includes('getDocument'), 'pdfCover dung getDocument de render trang 1')
-assert.ok(coverSrc.includes('renderPdfFirstPageToJpegBlob'), 'pdfCover export renderPdfFirstPageToJpegBlob')
+assert.ok(coverSrc.includes('getDocument'), 'pdfCover dung getDocument de render')
+assert.ok(coverSrc.includes('renderPdfFirstPageToJpegBlob'), 'pdfCover van export renderPdfFirstPageToJpegBlob (giu nguyen)')
+assert.ok(coverSrc.includes('export async function renderPdfAllPagesToJpegBlobs'), 'pdfCover export renderPdfAllPagesToJpegBlobs (render MOI trang)')
+assert.ok(coverSrc.includes('export const MEMO_MAX_SPLIT_PAGES = 50'), 'Tran tach trang = 50 trang')
+assert.ok(coverSrc.includes('const PAGE_WIDTH = 1000') && coverSrc.includes('const PAGE_QUALITY = 0.82'), 'Trang anh: rong 1000px, JPEG quality 0.82')
+assert.ok(coverSrc.includes('tooManyPages: true'), 'PDF hon tran -> tra tooManyPages, bo qua tach trang')
 assert.ok(memoSrc.includes("from '../lib/pdfCover'"), 'MemoThuVien import tinh pdfCover')
 assert.ok(!memoSrc.includes("import('../lib/pdfCover')") && !memoSrc.includes("import('../lib/pdfSplit"), 'MemoThuVien KHONG dynamic-import pdfCover (tranh loi chunk 404 cu)')
-console.log('pdfCover import tinh + worker ?url — khong lazy chunk')
+console.log('pdfCover import tinh + worker ?url; render all pages 1000px/0.82, tran 50 trang')
 
-// Thu vien: bia uu tien coverUrl truoc pages[0]
-assert.ok(memoSrc.includes('m.coverUrl || (Array.isArray(m.pages) && m.pages[0])'), 'The thu vien lay bia = coverUrl || pages[0]')
-assert.ok(memoSrc.includes('selected.coverUrl || selected.pages[0]'), 'Chi tiet hien bia = coverUrl || pages[0]')
-console.log('Thu vien + chi tiet: coverUrl uu tien truoc pages[0]')
+// GO kieu dang bang NHIEU ANH (dot truoc bi loi tren may Lan)
+assert.ok(!memoSrc.includes('🖼 Nhiều ảnh'), 'Form dang KHONG con kieu "Nhieu anh"')
+assert.ok(!memoSrc.includes('compressMemoImage'), 'Da go compressMemoImage (nen anh thu cong)')
+assert.ok(!memoSrc.includes('MEMO_MAX_IMAGES'), 'Da go gioi han anh dang thu cong')
+assert.ok(!memoSrc.includes('handlePickImages'), 'Da go handlePickImages (input multiple)')
+assert.ok(!memoSrc.includes("sourceType: 'images'"), "Khong con tao doc sourceType 'images'")
+assert.ok(memoSrc.includes("sourceType: 'pdf'"), "Doc moi ghi sourceType: 'pdf'")
+assert.ok(memoSrc.includes('＋ Đăng memo'), 'Nut mo form giu nhan "＋ Đăng memo"')
+console.log('Form chi con 1 kieu nguon: file PDF; da go han luong anh thu cong')
 
-// Luong dang PDF: sau khi upload PDF + tao doc thi moi tao bia tu File
-// goc. Khoanh vung tim kiem TU vi tri upload PDF tro di (createMemoDoc
-// con xuat hien o nhanh dang bang anh nam truoc trong file).
+// Luong dang PDF: upload PDF -> tao doc -> tach moi trang -> ghi pages.
 const iUpload = memoSrc.indexOf('uploadMemoPdf(memoId, pdfFile)')
 const iDoc = memoSrc.indexOf('createMemoDoc({', iUpload)
-const iCoverRender = memoSrc.indexOf('renderPdfFirstPageToJpegBlob(pdfFile)', iDoc)
+const iSplit = memoSrc.indexOf('splitAndUploadPages(memoId, pdfFile, setBusy)', iDoc)
 assert.ok(iUpload > -1 && iDoc > iUpload, 'Dang: upload PDF truoc, tao doc sau')
-assert.ok(iCoverRender > iDoc, 'Dang: tao bia SAU khi tao doc thanh cong')
-assert.ok(memoSrc.includes('uploadMemoCover(memoId, coverBlob)'), 'Dang: upload bia bang uploadMemoCover')
-assert.ok(memoSrc.includes('setMemoCoverUrl(memoId, upCover.coverUrl)'), 'Dang: ghi coverUrl vao doc sau khi upload bia')
-console.log('Luong dang: upload PDF -> tao doc -> render trang 1 -> upload cover -> ghi coverUrl')
+assert.ok(iSplit > iDoc, 'Dang: tach trang SAU khi tao doc thanh cong')
+assert.ok(memoSrc.includes('renderPdfAllPagesToJpegBlobs(source, {'), 'splitAndUploadPages render moi trang bang renderPdfAllPagesToJpegBlobs')
+assert.ok(memoSrc.includes('Đang tách trang ${i}/${n}'), 'Tien trinh tach: "Dang tach trang i/n"')
+assert.ok(memoSrc.includes('Đang tải trang ${i + 1}/${blobs.length}'), 'Tien trinh tai: "Dang tai trang i/n"')
+assert.ok(memoSrc.includes('uploadMemoPageImage(memoId, i + 1, blobs[i])'), 'Tai tung trang theo thu tu bang uploadMemoPageImage')
+assert.ok(memoSrc.includes('setMemoPages(memoId, { pages: urls, pagePaths: paths, pageCount: urls.length, coverUrl: urls[0] })'), 'Ghi pages[]/pagePaths/pageCount/coverUrl (= trang 1) qua setMemoPages')
+assert.ok(memoSrc.includes('cleanupMemoFiles(paths)'), 'Tach/tai loi giua chung -> don cac trang da lo tai (cleanupMemoFiles)')
+console.log('Luong dang: upload PDF -> tao doc -> tach moi trang -> tai page-{i}.jpg -> setMemoPages (coverUrl = trang 1)')
 
-// Chi tiet: Admin mo memo thieu bia -> tu bo sung bia 1 lan qua SDK
-assert.ok(memoSrc.includes('fetchMemoPdfBlob(selected.id)'), 'Chi tiet lay PDF goc qua fetchMemoPdfBlob (Storage SDK, tranh CORS)')
-assert.ok(memoSrc.includes('coverTriedRef'), 'Chi tiet chi thu tao bia 1 lan/memo (coverTriedRef)')
-assert.ok(memoSrc.includes('uploadMemoCover(selected.id, coverBlob)'), 'Chi tiet upload bia bang uploadMemoCover')
-assert.ok(memoSrc.includes('setMemoCoverUrl(selected.id, up.coverUrl)'), 'Chi tiet ghi coverUrl vao doc')
-console.log('Chi tiet: tu bo sung bia cho memo cu thieu coverUrl (chi Admin kich hoat)')
+// Loi tach trang / tran trang KHONG chan viec dang
+assert.ok(memoSrc.includes('nhưng chưa tách được trang ảnh — mở memo bằng tài khoản Admin, hệ thống sẽ tự tách lại'), 'Tach loi: van bao dang thanh cong + noi ro Admin mo memo se tu tach lai')
+assert.ok(memoSrc.includes('hơn ${MEMO_MAX_SPLIT_PAGES} trang'), 'PDF hon 50 trang: bao ro chua tach anh, van dang xong')
+console.log('Loi/tran tach trang khong chan dang — thong bao ro trong ket qua dang')
 
-// store: du cac ham bia + xoa memo don ca cover.jpg
+// Chi tiet: uu tien xem ANH TUNG TRANG (pages[]) truoc iframe PDF
+const iPagesView = memoSrc.indexOf('selected.pages.map((url, i)')
+const iIframe = memoSrc.indexOf('memo-pdf-frame')
+assert.ok(iPagesView > -1 && iIframe > iPagesView, 'Chi tiet: nhanh pages[] (anh tung trang) dung truoc nhanh iframe PDF')
+assert.ok(memoSrc.includes('m.coverUrl || (Array.isArray(m.pages) && m.pages[0])'), 'The thu vien lay bia = coverUrl || pages[0] (bia CHI con o thu vien)')
+console.log('Chi tiet uu tien pages[]; thu vien giu bia coverUrl/pages[0]')
+
+// TU TACH TRANG cho memo cu chua co pages (thay co che tu tao bia cu)
+assert.ok(memoSrc.includes('splitTriedRef'), 'Chi tiet chi thu tach trang 1 lan/memo/phien (splitTriedRef)')
+assert.ok(memoSrc.includes('fetchMemoPdfBlob(selected.id)'), 'Tu tach: lay PDF goc qua fetchMemoPdfBlob (Storage SDK, tranh CORS)')
+assert.ok(memoSrc.includes('splitAndUploadPages(selected.id, pdfBlob'), 'Tu tach: dung chung splitAndUploadPages nhu luong dang')
+assert.ok(memoSrc.includes('hasPages'), 'Tu tach chi chay khi memo CHUA co pages[] (memo co coverUrl nhung chua co pages van duoc tach)')
+assert.ok(!memoSrc.includes('coverTriedRef'), 'Da GO co che tu tao bia cu (coverTriedRef)')
+assert.ok(!memoSrc.includes('uploadMemoCover('), 'Component khong con goi uploadMemoCover')
+assert.ok(!memoSrc.includes('setMemoCoverUrl('), 'Component khong con goi setMemoCoverUrl')
+assert.ok(!memoSrc.includes('renderPdfFirstPageToJpegBlob'), 'Component khong con render rieng trang 1 de lam bia (bia = trang 1 cua luong tach trang)')
+console.log('Chi tiet: Admin mo memo chua co pages -> tu tach trang 1 lan/phien; da go co che bia cu')
+
+// Panel tom tat KHONG con anh bia (trung voi trang 1 o cot noi dung)
+const cssSrc = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8')
+assert.ok(!memoSrc.includes('memo-detail-cover'), 'Panel tom tat khong con render anh bia (memo-detail-cover)')
+assert.ok(!cssSrc.includes('.memo-detail-cover'), 'CSS khong con class .memo-detail-cover (thua)')
+assert.ok(!cssSrc.includes('.memo-img-list'), 'CSS khong con class .memo-img-list cua form anh cu (thua)')
+console.log('Panel tom tat: da bo anh bia — bia chi con o the thu vien')
+
+// Nut SUA memo (chi Admin) + nut Xoa trong chi tiet
+assert.ok(memoSrc.includes('✏️ Sửa') && memoSrc.includes('onClick={openEdit}'), 'Chi tiet co nut "✏️ Sửa" mo form sua')
+assert.ok(memoSrc.includes('🗑 Xoá'), 'Chi tiet co nut Xoa canh nut Sua (dung chung handleDelete)')
+assert.ok(memoSrc.includes('updateMemoDoc(selected.id, fields)'), 'Luu sua qua updateMemoDoc')
+for (const field of ['title:', 'note:', 'summary:', 'warnings:', 'audience:', 'pinned:']) {
+  assert.ok(memoSrc.includes(field), `Form sua phai gom truong ${field}`)
+}
+assert.ok(memoSrc.includes('editFormFrom(selected)'), 'Form sua khoi tao tu doc memo dang xem (khong co truong file)')
+console.log('Nut Sua (gate Admin qua isSuperAdmin nhu cac nut quan tri) sua 6 truong chu: title/note/audience/pinned/summary/warnings — khong doi file')
+
+// store: du cac ham tach trang + sua + xoa sach
 const storeSrc = readFileSync(new URL('../src/lib/store.js', import.meta.url), 'utf8')
-assert.ok(storeSrc.includes('export async function uploadMemoCover'), 'store co uploadMemoCover')
-assert.ok(storeSrc.includes('memos/${memoId}/cover.jpg'), 'uploadMemoCover ghi vao memos/{id}/cover.jpg')
-assert.ok(storeSrc.includes('export async function setMemoCoverUrl'), 'store co setMemoCoverUrl')
+assert.ok(storeSrc.includes('export async function setMemoPages'), 'store co setMemoPages')
+assert.ok(storeSrc.includes('pagePaths: Array.isArray(pagePaths) ? pagePaths : []'), 'setMemoPages ghi ca pagePaths')
+assert.ok(storeSrc.includes('export async function updateMemoDoc'), 'store co updateMemoDoc')
+assert.ok(storeSrc.includes('updateDoc') && storeSrc.includes('updateDoc(doc(fs, \'memos\', memoId), fields)'), 'updateMemoDoc dung updateDoc dung doc memos/{id} (giu nguyen file/trang anh)')
+assert.ok(storeSrc.includes('export async function uploadMemoPageImage'), 'store co uploadMemoPageImage')
+assert.ok(storeSrc.includes('memos/${memoId}/page-${index}.jpg'), 'uploadMemoPageImage ghi vao memos/{id}/page-{index}.jpg')
+assert.ok(storeSrc.includes('export async function cleanupMemoFiles'), 'store co cleanupMemoFiles (don file khi tach trang loi)')
 assert.ok(storeSrc.includes('export async function fetchMemoPdfBlob'), 'store co fetchMemoPdfBlob')
 assert.ok(storeSrc.includes('getBlob'), 'fetchMemoPdfBlob dung getBlob cua Storage SDK')
-assert.ok(storeSrc.includes('memos/${memo.id}/cover.jpg'), 'deleteMemoEverywhere xoa ca memos/{id}/cover.jpg')
-console.log('store: uploadMemoCover/setMemoCoverUrl/fetchMemoPdfBlob + xoa memo don cover.jpg')
-
-// ── Dang memo bang NHIEU ANH (sourceType 'images') — Lan yeu cau
-// 09/11/2026 vi xem PDF hoi phuc tap: chon nhieu anh trang cung luc,
-// nen JPEG <=1200px phia client, tai tung anh page-{i}.jpg, doc luu
-// pages[] + coverUrl = anh dau, khong co pdfUrl (an nut Tai ve PDF).
-console.log('\n=== dang memo bang NHIEU ANH (sourceType images) ===')
-assert.ok(memoSrc.includes('📄 File PDF') && memoSrc.includes('🖼 Nhiều ảnh'), 'Form dang phai co 2 kieu nguon: File PDF / Nhieu anh (segmented)')
-assert.ok(memoSrc.includes("sourceType === 'images'"), 'Form + luong dang phai re nhanh theo sourceType images')
-assert.ok(memoSrc.includes('multiple onChange={handlePickImages}'), 'Input anh phai cho chon NHIEU file cung luc (multiple)')
-assert.ok(memoSrc.includes('accept="image/*"'), 'Input anh chi nhan file anh (accept image/*)')
-assert.ok(memoSrc.includes('MEMO_MAX_IMAGES = 30'), 'Gioi han toi da 30 anh/memo')
-assert.ok(memoSrc.includes('MEMO_MAX_IMAGE_BYTES = 15 * 1024 * 1024'), 'Gioi han moi anh toi da 15MB')
-assert.ok(memoSrc.includes('Ảnh “${tooBig.name}” lớn hơn 15MB'), 'Anh vuot 15MB phai bao ro TEN file')
-assert.ok(memoSrc.includes('Trang {i + 1}: {f.name}'), 'Form phai liet ke anh da chon kem so thu tu trang de Admin doi chieu')
-assert.ok(memoSrc.includes('compressMemoImage'), 'Phai co buoc nen anh phia trinh duyet truoc khi tai')
-assert.ok(memoSrc.includes('1200 / nw') && memoSrc.includes("canvas.toBlob((b) => resolve(b || null), 'image/jpeg', 0.8)"), 'Nen anh: canvas rong toi da 1200px, xuat JPEG quality 0.8')
-assert.ok(memoSrc.includes('Đang tải ảnh ${i + 1}/${n}'), 'Khi dang anh phai hien tien trinh "Dang tai anh i/n"')
-assert.ok(memoSrc.includes('uploadMemoPageImage(memoId, i + 1, blob)'), 'Tai tung anh theo thu tu trang bang uploadMemoPageImage')
-assert.ok(memoSrc.includes('cleanupMemoFiles(paths)'), 'Anh loi giua chung -> don cac file da lo tai (cleanupMemoFiles), khong tao doc')
-assert.ok(memoSrc.includes("sourceType: 'images'"), "Doc memo kieu anh phai ghi sourceType: 'images'")
-assert.ok(memoSrc.includes("sourceType: 'pdf'"), "Doc memo kieu PDF phai ghi sourceType: 'pdf' (doc cu khong co truong nay -> mac dinh pdf)")
-assert.ok(memoSrc.includes('coverUrl: urls[0]'), 'Memo anh: coverUrl = anh trang dau tien (pages[0])')
-assert.ok(memoSrc.includes('pages: urls') && memoSrc.includes('pageCount: n'), 'Memo anh: doc luu pages[] theo thu tu + pageCount = so anh')
-assert.ok(memoSrc.includes("pdfUrl: '',"), 'Memo anh: pdfUrl rong -> nut Tai ve PDF tu an (chi hien khi co pdfUrl)')
-assert.ok(storeSrc.includes('export async function uploadMemoPageImage'), 'store phai co uploadMemoPageImage')
-assert.ok(storeSrc.includes('memos/${memoId}/page-${index}.jpg'), 'uploadMemoPageImage ghi vao memos/{id}/page-{index}.jpg')
-assert.ok(storeSrc.includes('export async function cleanupMemoFiles'), 'store phai co cleanupMemoFiles (don file khi dang anh loi)')
-assert.ok(storeSrc.includes('listAll'), 'deleteMemoEverywhere phai liet ke toan bo file duoi memos/{id}/ bang listAll')
+assert.ok(storeSrc.includes('listAll'), 'deleteMemoEverywhere liet ke toan bo file duoi memos/{id}/ bang listAll')
 assert.ok(storeSrc.includes('`memos/${memo.id}/page-${i}.jpg`'), 'deleteMemoEverywhere: du phong dung path page-{i}.jpg tu pageCount khi listAll khong chay')
-console.log('Form 2 kieu nguon; anh: <=30 file, <=15MB/file, nen 1200px JPEG 0.8, tai page-{i}.jpg theo thu tu, loi -> dung + don file; doc images co pages/coverUrl, khong pdfUrl; xoa memo don sach bang listAll + du phong')
+assert.ok(storeSrc.includes('memos/${memo.id}/cover.jpg'), 'deleteMemoEverywhere xoa ca memos/{id}/cover.jpg')
+console.log('store: setMemoPages/updateMemoDoc/uploadMemoPageImage/cleanupMemoFiles/fetchMemoPdfBlob + xoa memo don sach bang listAll + du phong')
 
 console.log('\n✅ TAT CA ASSERT DAT (test-memo)')

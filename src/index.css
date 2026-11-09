@@ -555,16 +555,9 @@ button.unit-head { font-family: inherit; }
   display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; object-position: top;
   border: 1px solid var(--border); border-radius: 10px; margin-top: 8px; background: #f8fafc;
 }
-/* Danh sach anh trang da chon trong form dang memo bang nhieu anh */
-.memo-img-list { margin: 6px 0 0; padding-left: 22px; font-size: 12.5px; color: var(--text2); }
-.memo-img-list li { margin: 2px 0; word-break: break-all; }
 .memo-thumb-empty {
   display: flex; align-items: center; justify-content: center; font-size: 44px; color: var(--text3);
   background: linear-gradient(135deg, var(--navy-soft), #f8fafc);
-}
-.memo-detail-cover {
-  display: block; width: 100%; border: 1px solid var(--border); border-radius: 10px;
-  margin-bottom: 10px; background: #f8fafc;
 }
 .memo-card-file {
   font-size: 12px; color: var(--text2); margin-top: 6px;
