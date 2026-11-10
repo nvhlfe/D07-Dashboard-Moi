@@ -451,7 +451,7 @@ export default function App() {
               </div>
             ))}
             {tab === 'team' && (
-              <DoiNgu snaps={snaps} loading={loading} remoteSettled={remoteSettled} onGoNap={() => setTab('nap')} user={user}
+              <DoiNgu snaps={snaps} loading={loading} remoteSettled={remoteSettled} onGoNap={() => setTab('nap')} onNeedMonth={ensureMonth} user={user}
                 profile={profile} isSuperAdmin={superAdmin} avatarMap={avatarMap}
                 onOpenLogin={() => { setLoginErr(''); setShowLogin(true) }} />
             )}

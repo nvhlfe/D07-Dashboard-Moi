@@ -15,6 +15,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { buildCases, groupValue } from '../lib/cases'
 import { buildTeam, flattenAgents } from '../lib/team'
+import { agentBadges, submissionDaysByAgent, topMsdlSet } from '../lib/badges'
 import { uploadAvatar } from '../lib/store'
 import { emailToMsdl } from '../lib/firebaseConfig'
 
@@ -203,7 +204,12 @@ export default function CaNhan({ snaps, loading, remoteSettled = true, user, pro
     const pending = myCases.filter((c) => c.effectiveStatus === 'PS').slice()
       .sort((x, y) => (y.ageDays ?? -1) - (x.ageDays ?? -1) || byDateDesc(x, y))
     const pipeline = myCases.filter((c) => c.effectiveStatus === 'PIPELINE').slice().sort(byDateDesc)
-    return { year, month, myView, rawAgent, issued, pending, pipeline }
+    // Huy hieu thanh tich cua CHINH MINH (lib/badges — cung bo huy
+    // hieu dang hien o hang Bang Vang trong Tinh Anh).
+    const badges = myView
+      ? agentBadges(myView, { topMsdl: topMsdlSet(team, 10), daysByMsdl: submissionDaysByAgent(cases) })
+      : []
+    return { year, month, myView, rawAgent, issued, pending, pipeline, badges }
   }, [newest, viewerMsdl])
 
   // Chon file xong CHI mo khung chinh anh (AvatarEditor) — CHUA tai len.
@@ -375,6 +381,14 @@ export default function CaNhan({ snaps, loading, remoteSettled = true, user, pro
               <div className="mini-stat"><div className="ms-num">{fmtInt(view.issued.length + view.pending.length + view.pipeline.length)}</div><div className="ms-label">Hồ sơ đang theo dõi</div></div>
               <div className="mini-stat"><div className="ms-num">{fmtInt(view.pending.length)}</div><div className="ms-label">Đang pending</div></div>
             </div>
+            {view.badges && view.badges.length > 0 ? (
+              <div className="me-badges">
+                <span className="me-badges-label">Huy hiệu tháng này:</span>
+                {view.badges.map((b) => (
+                  <span className="badge-chip" key={b.id}>{b.icon} {b.label}</span>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           {/* ── Chi so ca nhan tu sheet Agent ── */}

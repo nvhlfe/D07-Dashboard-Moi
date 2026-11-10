@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Prudential Quận 7</title>
     <!-- Favicon: app tu gan bang logo D07 nhung san (main.jsx). Font: CHI dung font he thong (khong nap CDN — mang noi bo chan domain ngoai). -->
+    <!-- PWA co ban (10/11/2026): manifest + icon SVG de cai len man hinh chinh.
+         CHI cai VO app — TUYET DOI khong co service worker nen khong bao
+         gio luu tru so lieu (tranh hien so cu).
+         Icon dung SVG (file van ban) vi cong cu day code cua du an chi nhan
+         file UTF-8, khong nhan PNG nhi phan. Danh doi: iOS khong ho tro SVG
+         cho icon cham (touch icon) nen da bo the do — iPhone khi them vao
+         man hinh chinh se dung anh dai dien mac dinh cua iOS thay vi logo D07. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0c2a4e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="D07 Dashboard" />
   </head>
   <body>
     <div id="root"></div>

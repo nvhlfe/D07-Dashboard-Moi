@@ -481,6 +481,93 @@ button.unit-head { font-family: inherit; }
 .bv-pend { border-top: 1px dashed var(--line); padding: 8px 0; }
 .bv-pend-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14.5px; }
 .bv-pend-val { margin-left: auto; font-weight: 800; color: var(--pink); }
+
+/* ── Huy hieu thanh tich o hang Bang Vang (lib/badges) ── */
+.bv-badges { margin-left: 6px; font-size: 13px; letter-spacing: 1px; white-space: nowrap; }
+
+/* ── Khoi "Can chu y hom nay" (lib/attention — Tinh Anh) ── */
+.attn-group { font-size: 13px; font-weight: 800; color: var(--navy-dark); margin: 12px 0 2px; }
+.attn-row {
+  display: flex; align-items: baseline; gap: 8px; width: 100%;
+  background: none; border: none; border-top: 1px dashed var(--line);
+  padding: 7px 0; font: inherit; text-align: left; cursor: pointer; color: inherit;
+}
+.attn-row.static { cursor: default; }
+.attn-name { font-weight: 700; min-width: 0; }
+.attn-unit { color: var(--text3); font-size: 12px; font-weight: 600; }
+.attn-detail { margin-left: auto; text-align: right; font-size: 12.5px; color: var(--text2); font-weight: 600; }
+
+/* ── Nhip do ve dich (pace) trong the Tien do FYP (Trang Chu) ── */
+.pace-wrap { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.pace-title { font-size: 13px; font-weight: 800; color: var(--navy-dark); margin-bottom: 4px; }
+.pace-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--text3); font-weight: 600; margin-top: 2px; }
+.pace-key { display: inline-block; width: 20px; margin-right: 6px; vertical-align: middle; }
+.pace-key-actual { border-top: 3px solid #1a56a8; border-radius: 2px; }
+.pace-key-need { border-top: 2px dashed #94a3b8; }
+.pace-note { font-size: 13px; font-weight: 700; margin-top: 4px; }
+
+/* ── Anh chia se (ShareCard): the render AN ngoai man hinh + anh ── */
+.share-offscreen { position: fixed; left: -10000px; top: 0; z-index: -1; pointer-events: none; }
+.share-btn-row { margin-top: 12px; }
+.share-card {
+  width: 540px; background: linear-gradient(180deg, #ffffff 0%, #f6f9fc 100%);
+  color: var(--text); padding: 28px; font-size: 15px; line-height: 1.5;
+}
+.sc-head { display: flex; align-items: center; gap: 12px; border-bottom: 3px solid var(--navy); padding-bottom: 14px; margin-bottom: 16px; }
+.sc-logo { height: 46px; width: auto; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 3px 6px; }
+.sc-brand { font-size: 22px; font-weight: 800; color: var(--navy-dark); line-height: 1.2; }
+.sc-slogan { font-size: 12.5px; color: var(--text3); font-weight: 600; }
+.sc-kind { margin-left: auto; text-align: right; font-weight: 800; color: var(--primary); font-size: 15px; white-space: nowrap; }
+.sc-date { font-size: 13px; color: var(--text3); font-weight: 700; }
+.sc-sec-label { font-size: 15px; font-weight: 800; color: var(--navy-dark); margin: 14px 0 6px; }
+.sc-fyp-num { font-size: 40px; font-weight: 800; color: var(--navy); line-height: 1.1; }
+.sc-unit { font-size: 16px; font-weight: 600; color: var(--text3); }
+.sc-progress { height: 12px; border-radius: 99px; background: var(--line2); overflow: hidden; margin-top: 8px; }
+.sc-progress-fill { height: 100%; background: linear-gradient(90deg, var(--navy), #1a56a8); border-radius: 99px; }
+.sc-note { font-size: 13.5px; color: var(--text2); margin-top: 6px; }
+.sc-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0 4px; }
+.sc-kpi { border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 12px; padding: 10px 12px; background: #fff; }
+.sc-kpi-label { font-size: 12px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .02em; }
+.sc-kpi-val { font-size: 24px; font-weight: 800; line-height: 1.15; }
+.sc-kpi-sub { font-size: 12px; color: var(--text3); font-weight: 600; }
+.sc-top-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px dashed var(--line); }
+.sc-medal { font-size: 19px; }
+.sc-rank { color: var(--text3); font-weight: 700; font-size: 13px; margin-right: 2px; }
+.sc-top-who { flex: 1 1 auto; min-width: 0; }
+.sc-top-name { font-size: 15px; font-weight: 800; line-height: 1.25; }
+.sc-top-unit { font-size: 12.5px; color: var(--text3); font-weight: 600; }
+.sc-top-ip { font-size: 17px; font-weight: 800; color: #6d28d9; }
+.sc-board-row { display: flex; align-items: center; gap: 11px; padding: 9px 0; border-top: 1px dashed var(--line); }
+.sc-avatar {
+  position: relative; flex: 0 0 auto; width: 42px; height: 42px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 14px; color: #fff; overflow: visible;
+}
+.sc-avatar-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.sc-avatar-medal { position: absolute; right: -5px; bottom: -5px; font-size: 14px; }
+.sc-av-dia { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+.sc-av-pla { background: linear-gradient(135deg, #94a3b8, #64748b); }
+.sc-av-gold { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.sc-av-oth { background: linear-gradient(135deg, #a9bcd2, #7d94ad); }
+.sc-board-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sc-bar { display: flex; height: 8px; border-radius: 99px; overflow: hidden; background: var(--line2); width: 150px; margin-top: 3px; }
+.sc-short { font-size: 12px; font-weight: 700; color: var(--red); }
+.sc-board-total { flex: 0 0 auto; text-align: right; }
+.sc-board-num { font-size: 21px; font-weight: 800; line-height: 1.1; }
+.sc-num-fyc { color: var(--green); }
+.sc-num-short { color: var(--red); }
+.sc-foot { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line2); font-size: 12.5px; color: var(--text3); font-weight: 600; text-align: center; }
+.share-preview-img { width: 100%; border-radius: 12px; border: 1px solid var(--border); display: block; }
+
+/* ── Huy hieu dang chip co chu (trang Ca nhan) ── */
+.me-badges { margin-top: 12px; }
+.me-badges-label { font-size: 13px; font-weight: 700; color: var(--text2); margin-right: 4px; }
+.badge-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #eef4fb; border: 1px solid var(--border); color: var(--navy-dark);
+  border-radius: 999px; padding: 3px 10px; font-size: 12.5px; font-weight: 700;
+  margin: 0 6px 6px 0;
+}
 @media (max-width: 480px) {
   .bv-expand { padding-left: 0; }
   .bv-total-num { font-size: 19px; }

@@ -302,3 +302,55 @@ export function YearJourneyChart({ journey, currentMonth }) {
     </>
   )
 }
+
+// ─────────────────────────────────────────────────────────────
+// PaceChart — "NHIP DO VE DICH" (10/11/2026): duong FYP luy ke THUC
+// TE theo ngay (diem = snapshot Daily cua thang, tu lib/pace) ve
+// cung duong NHIP CAN THIET thang toi muc tieu (net dut). Diem cuoi
+// to XANH khi >= nhip can tai ngay do, DO khi thap hon (khong co
+// muc tieu thi to mau primary). Thuan hien thi — so lieu nhan san.
+// points: [{ day, fyp }] da sap xep; target: trieu hoac null.
+// ─────────────────────────────────────────────────────────────
+export function PaceChart({ points, target, daysInMonth }) {
+  if (!points || !points.length || !daysInMonth) return null
+  const W = 340
+  const H = 128
+  const L = 8
+  const R = 8
+  const T = 14
+  const B = 20
+  const iw = W - L - R
+  const ih = H - T - B
+  const maxFyp = Math.max(...points.map((p) => p.fyp))
+  const yMax = niceMax(Math.max(maxFyp, Number(target) || 0))
+  const x = (day) => L + (Math.min(Math.max(day, 0), daysInMonth) / daysInMonth) * iw
+  const y = (v) => T + ih - (Math.min(Math.max(v, 0), yMax) / yMax) * ih
+  const last = points[points.length - 1]
+  const needLast = target ? (Number(target) * last.day) / daysInMonth : null
+  const lastColor = !target ? '#1a56a8' : last.fyp >= needLast ? '#047857' : '#b91c1c'
+  const linePts = points.map((p) => `${x(p.day)},${y(p.fyp)}`).join(' ')
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }} role="img" aria-label="Biểu đồ nhịp độ về đích">
+      <line x1={L} y1={T + ih} x2={W - R} y2={T + ih} stroke={C_GRID} strokeWidth={1} />
+      {target ? (
+        <>
+          <line x1={x(0)} y1={y(0)} x2={x(daysInMonth)} y2={y(Number(target))} stroke="#94a3b8" strokeWidth={1.6} strokeDasharray="5 4" />
+          <text x={W - R} y={Math.max(10, y(Number(target)) - 4)} textAnchor="end" fontSize={10.5} fontWeight={700} fill="#64748b">
+            Mục tiêu {fmtTr(target)}
+          </text>
+        </>
+      ) : null}
+      {points.length > 1 ? (
+        <polyline points={linePts} fill="none" stroke="#1a56a8" strokeWidth={2.4} strokeLinejoin="round" strokeLinecap="round" />
+      ) : null}
+      {points.map((p, i) => (
+        <circle key={p.day} cx={x(p.day)} cy={y(p.fyp)} r={i === points.length - 1 ? 4.4 : 3} fill={i === points.length - 1 ? lastColor : '#1a56a8'} stroke="#ffffff" strokeWidth={1.4} />
+      ))}
+      <text x={x(1)} y={H - 5} textAnchor="middle" fontSize={10.5} fill={C_LABEL}>1</text>
+      <text x={x(last.day)} y={Math.max(10, y(last.fyp) - 8)} textAnchor="middle" fontSize={11} fontWeight={800} fill={lastColor}>
+        {fmtTr(last.fyp)} tr
+      </text>
+      <text x={x(daysInMonth)} y={H - 5} textAnchor="middle" fontSize={10.5} fill={C_LABEL}>{daysInMonth}</text>
+    </svg>
+  )
+}

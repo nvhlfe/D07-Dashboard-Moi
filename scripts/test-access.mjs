@@ -1,7 +1,7 @@
 // Test RULES HIEN THI + DOI TEN (Lan chot 08/11/2026) bang cach doc
 // file tinh — node khong render duoc JSX nen assert tren noi dung file.
 // Chay: node scripts/test-access.mjs
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import assert from 'node:assert'
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8')
@@ -349,5 +349,76 @@ assert.ok(caNhan.includes('remoteSettled'), 'CaNhan: nhan remoteSettled cho tran
 assert.ok(salesReport.includes('remoteSettled') && salesReport.includes('onNeedMonth'), 'SalesReport: nhan remoteSettled + onNeedMonth (tai lazy thang)')
 assert.ok(snapCache.includes('neededSnapIds') && snapCache.includes('pruneSnapshots'), 'snapCache: co neededSnapIds + pruneSnapshots (cat cache theo dung luong)')
 console.log('Fetch gioi han + persistent cache + cache theo dung luong + trang thai tai da khoa bang assert')
+
+// ── PWA co ban (10/11/2026): manifest + icons SVG, KHONG service worker ──
+// Icon dung SVG (file van ban) vi cong cu push cua du an chi nhan UTF-8,
+// khong nhan PNG nhi phan. Danh doi: iOS khong ho tro SVG cho
+// apple-touch-icon nen index.html da BO the do (khong con tham chieu PNG).
+console.log('\n=== PWA: manifest + icons SVG + khong SW ===')
+assert.ok(html.includes('<link rel="manifest" href="/manifest.webmanifest" />'), 'index.html: phai co <link rel="manifest">')
+assert.ok(html.includes('name="theme-color"'), 'index.html: phai co meta theme-color')
+assert.ok(!html.includes('apple-touch-icon'), 'index.html: da bo apple-touch-icon (iOS khong dung duoc SVG)')
+assert.ok(!html.includes('/icons/') || !/\.png/.test(html), 'index.html: khong con tham chieu icon PNG nao')
+{
+  const manifest = JSON.parse(read('../public/manifest.webmanifest'))
+  assert.strictEqual(manifest.name, 'Prudential Quận 7 — Dashboard D07', 'manifest: name day du')
+  assert.strictEqual(manifest.short_name, 'D07 Dashboard', 'manifest: short_name')
+  assert.strictEqual(manifest.display, 'standalone', 'manifest: display standalone')
+  assert.ok(manifest.theme_color && manifest.background_color, 'manifest: co theme_color + background_color')
+  const icons = manifest.icons || []
+  assert.ok(icons.length >= 2, 'manifest: phai co it nhat 2 icon (any + maskable)')
+  assert.ok(icons.some((i) => i.purpose === 'any'), 'manifest: phai co icon purpose "any"')
+  assert.ok(icons.some((i) => i.purpose === 'maskable'), 'manifest: phai co icon maskable')
+  for (const ic of icons) {
+    assert.strictEqual(ic.type, 'image/svg+xml', `manifest: icon ${ic.src} phai la SVG`)
+    assert.strictEqual(ic.sizes, 'any', `manifest: icon ${ic.src} phai khai sizes "any"`)
+    assert.ok(!String(ic.src).endsWith('.png'), `manifest: icon ${ic.src} khong duoc la PNG`)
+    // File icon phai ton tai that trong public/ va la SVG tu chua hop le
+    const url = new URL(`../public${ic.src}`, import.meta.url)
+    assert.ok(existsSync(url), `public: thieu file icon ${ic.src}`)
+    const svg = readFileSync(url, 'utf8')
+    assert.ok(svg.includes('<svg') && svg.includes('xmlns="http://www.w3.org/2000/svg"'), `${ic.src}: phai la SVG tu chua hop le`)
+    assert.ok(!/href=|xlink:href|url\(http/.test(svg), `${ic.src}: SVG khong duoc tham chieu ngoai`)
+  }
+  const mask = readFileSync(new URL('../public/icons/icon-maskable.svg', import.meta.url), 'utf8')
+  assert.ok(mask.includes('scale(0.56)'), 'icon-maskable.svg: noi dung phai thu vao vung dem an toan (~22%)')
+  // TUYET DOI khong service worker (chot an toan: chi cai VO app,
+  // khong luu tru du lieu -> khong bao gio hien so cu)
+  const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const p = new URL(e.name + (e.isDirectory() ? '/' : ''), dir)
+    return e.isDirectory() ? walk(p) : [p]
+  })
+  for (const u of walk(new URL('../src/', import.meta.url))) {
+    assert.ok(!readFileSync(u, 'utf8').includes('serviceWorker'), `src: ${u.pathname.split('/src/')[1]} KHONG duoc dang ky service worker`)
+  }
+  const pubFiles = readdirSync(new URL('../public/', import.meta.url))
+  assert.ok(!pubFiles.some((f) => /sw|service-worker/i.test(f)), 'public/: KHONG co file service worker')
+}
+console.log('PWA: manifest hop le + icons SVG ton tai that + khong SW o ca src lan public')
+
+// ── Dot 10/11/2026: Can chu y + Huy hieu/Tien bo + Pace (hien dien o UI) ──
+console.log('\n=== tinh nang ⑥⑦⑧ hien dien o UI ===')
+const attentionSrc = read('../src/lib/attention.js')
+const badgesSrc = read('../src/lib/badges.js')
+const paceSrc = read('../src/lib/pace.js')
+assert.ok(attentionSrc.includes('export function buildAttentionList'), 'lib/attention.js: phai co buildAttentionList')
+assert.ok(doiNgu.includes('buildAttentionList'), 'DoiNgu: phai dung buildAttentionList cho khoi Can chu y')
+assert.ok(doiNgu.includes('Cần chú ý hôm nay'), 'DoiNgu: phai co khoi "Can chu y hom nay"')
+assert.ok(doiNgu.includes('Sắp chạm mốc'), 'DoiNgu: khoi Can chu y phai co nhom Sap cham moc')
+assert.ok(doiNgu.includes('Pending lâu nhất'), 'DoiNgu: khoi Can chu y phai co nhom Pending lau nhat')
+assert.ok(badgesSrc.includes('export function agentBadges') && badgesSrc.includes('export function progressRank'), 'lib/badges.js: phai co agentBadges + progressRank')
+assert.ok(doiNgu.includes('agentBadges'), 'DoiNgu: hang Bang Vang phai gan huy hieu qua agentBadges')
+assert.ok(doiNgu.includes('bv-badges'), 'DoiNgu: hang Bang Vang phai co khoi icon huy hieu .bv-badges')
+assert.ok(doiNgu.includes('Tiến bộ nhất'), 'DoiNgu: phai co khoi "Tien bo nhat" duoi Bang Vang')
+assert.ok(doiNgu.includes('so với tháng trước'), 'DoiNgu: khoi Tien bo phai ghi chu "so voi thang truoc"')
+assert.ok(doiNgu.includes('onNeedMonth'), 'DoiNgu: phai nhan onNeedMonth de tai lazy thang truoc cho hang Tien bo')
+assert.ok(app.includes('onNeedMonth={ensureMonth}'), 'App.jsx: phai truyen onNeedMonth (ensureMonth) xuong cac man can tai lazy thang')
+assert.ok(caNhan.includes('agentBadges'), 'CaNhan: phai liet ke huy hieu cua chinh minh qua agentBadges')
+assert.ok(caNhan.includes('Huy hiệu tháng này'), 'CaNhan: phai co nhan "Huy hieu thang nay" kem chip co chu')
+assert.ok(paceSrc.includes('export function pacePoints') && paceSrc.includes('export function paceNeededAt'), 'lib/pace.js: phai co pacePoints + paceNeededAt')
+assert.ok(homNay.includes('PaceChart'), 'HomNay: khoi Tien do FYP phai co PaceChart')
+assert.ok(homNay.includes('Nhịp độ về đích'), 'HomNay: phai co khoi "Nhip do ve dich"')
+assert.ok(homNay.includes('Nhịp cần thiết'), 'HomNay: pace phai co chu thich duong nhip can thiet')
+console.log('⑥ Can chu y (chi Admin/truong phong — loc o DoiNgu) · ⑦ huy hieu + Tien bo nhat (lazy thang truoc) · ⑧ Pace o Tien do FYP')
 
 console.log('\n✅ TAT CA ASSERT DAT (test-access)')

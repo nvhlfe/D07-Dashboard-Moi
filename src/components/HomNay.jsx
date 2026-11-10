@@ -8,12 +8,15 @@
 // "pending qua 7 ngay" va hang phat hanh trong khoi "Cua toi" — KHONG
 // dung cho so KPI nua.
 // ─────────────────────────────────────────────────────────────
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import { analyzeSoSanLuong } from '../lib/analyze'
 import { homeKpi, topIssuedByRow } from '../lib/homeKpi'
 import { buildCases } from '../lib/cases'
 import { dailyStacks, buildYearJourney } from '../lib/journey'
-import { DailyStackChart, YearJourneyChart } from './Charts'
+import { pacePoints, paceStatus } from '../lib/pace'
+import { dailyCardData } from '../lib/shareCard'
+import { DailyStackChart, YearJourneyChart, PaceChart } from './Charts'
+import { DailyShareCard, SharePreviewModal, captureShareCard } from './ShareCard'
 import { QUOTES, quoteIndexForDate } from '../lib/quotes'
 import { getTarget } from '../lib/store'
 import { isSuperAdmin } from '../lib/firebaseConfig'
@@ -35,6 +38,11 @@ function daysUntil(isoDate) {
 export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, user, profile, onOpenLogin }) {
   const [quoteOffset, setQuoteOffset] = useState(0)
   const [selDay, setSelDay] = useState(null)
+  // Anh ban tin ngay (ShareCard): trang thai tao anh + anh da chup (modal)
+  const [shareBusy, setShareBusy] = useState(false)
+  const [shareImg, setShareImg] = useState('')
+  const [shareErr, setShareErr] = useState('')
+  const dailyCardRef = useRef(null)
 
   const newest = snaps && snaps.length ? snaps[snaps.length - 1] : null
 
@@ -79,9 +87,12 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
     const journey = buildYearJourney(snaps, year)
     const pendingOld = (analysis.pendingAll || []).filter((c) => (c.ageDays ?? 0) > 7)
     const tvvActive = agentsList.filter((a) => (Number(a.fyp) || 0) > 0 || (a.cIF || 0) + (a.cPS || 0) + (a.cOther || 0) > 0).length
+    // Diem nhip do ve dich: moi snapshot cua thang la 1 diem FYP luy ke
+    const pace = pacePoints(snaps, year, month)
     return {
       year, month, daysInMonth, analysis, kpi, issRate,
       fypTotal, top, stacks, journey, pendingOld, tvvActive, tvvTotal: agentsList.length,
+      pace,
       agentsObj,
       snapDay: Number(newest.id.split('-')[2]),
     }
@@ -113,8 +124,26 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
     )
   }
 
-  const { year, month, daysInMonth, analysis, kpi, issRate, fypTotal, top, stacks, journey, pendingOld } = view
+  const { year, month, daysInMonth, analysis, kpi, issRate, fypTotal, top, stacks, journey, pendingOld, pace } = view
   const target = getTarget(year, month)
+
+  // ── Anh ban tin ngay: du lieu tu lib/shareCard (CUNG ham homeKpi/
+  // topIssuedByRow voi man hinh nen so tren anh khop so dang xem) ──
+  const cardData = dailyCardData(newest, target)
+  const paceStat = paceStatus(pace, target, daysInMonth)
+  const handleShareDaily = async () => {
+    if (shareBusy) return
+    setShareErr('')
+    setShareBusy(true)
+    try {
+      const url = await captureShareCard(dailyCardRef.current)
+      setShareImg(url)
+    } catch (e) {
+      setShareErr('Chưa tạo được ảnh lúc này — bạn thử lại sau ít phút nhé.')
+    } finally {
+      setShareBusy(false)
+    }
+  }
 
   // ── Ngay dang chon tren bieu do nhip nop (mac dinh = ngay du lieu) ──
   const ymStr = newest.id.slice(0, 7)
@@ -251,6 +280,36 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
           </div>
         )}
         <div className="muted" style={{ marginTop: 4 }}>{view.tvvActive}/{view.tvvTotal} TVV có số trong tháng</div>
+
+        {/* ── Nhip do ve dich (pace): duong FYP luy ke thuc te theo
+            ngay (moi snapshot cua thang la 1 diem) + duong nhip can
+            thiet thang toi muc tieu. Thuan hien thi (lib/pace). ── */}
+        <div className="pace-wrap">
+          <div className="pace-title">🏃 Nhịp độ về đích</div>
+          <PaceChart points={pace} target={target} daysInMonth={daysInMonth} />
+          <div className="pace-legend">
+            <span><span className="pace-key pace-key-actual" />FYP thực tế lũy kế</span>
+            {target !== null ? <span><span className="pace-key pace-key-need" />Nhịp cần thiết tới mục tiêu</span> : null}
+          </div>
+          {target === null ? (
+            <div className="muted" style={{ marginTop: 2 }}>Chưa đặt mục tiêu tháng — đặt ở tab Nạp để xem nhịp cần thiết.</div>
+          ) : paceStat === 'ahead' ? (
+            <div className="pace-note num-active">🎉 Đang nhanh hơn nhịp cần thiết.</div>
+          ) : paceStat === 'behind' ? (
+            <div className="pace-note num-short">⚠️ Đang chậm hơn nhịp cần thiết — cần tăng tốc.</div>
+          ) : null}
+          {pace.length === 1 ? (
+            <div className="muted" style={{ marginTop: 2 }}>Mới có dữ liệu 1 ngày (ngày {pace[0].day}) trong tháng này.</div>
+          ) : null}
+        </div>
+
+        {/* ── Tao anh ban tin ngay de gui Zalo (ShareCard) ── */}
+        <div className="share-btn-row">
+          <button type="button" className="btn-ghost" disabled={shareBusy} onClick={handleShareDaily}>
+            {shareBusy ? 'Đang tạo ảnh…' : '📸 Tạo ảnh bản tin'}
+          </button>
+          {shareErr ? <div className="msg error" style={{ marginTop: 8 }}>{shareErr}</div> : null}
+        </div>
       </div>
 
       {/* ── 4 KPI (CHUAN B — dem theo dong nhu file goc; moi o ghi ro
@@ -336,6 +395,18 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
         </div>
         <YearJourneyChart journey={journey} currentMonth={month} />
       </div>
+
+      {/* ── The anh ban tin render AN ngoai man hinh de html2canvas
+          chup (khong hien cho nguoi dung) + modal xem truoc anh ── */}
+      <div className="share-offscreen" aria-hidden="true">
+        <DailyShareCard data={cardData} cardRef={dailyCardRef} />
+      </div>
+      <SharePreviewModal
+        imgUrl={shareImg}
+        fileName={`ban-tin-d07-${newest.id}.png`}
+        title="📸 Ảnh bản tin ngày"
+        onClose={() => setShareImg('')}
+      />
     </div>
   )
 }

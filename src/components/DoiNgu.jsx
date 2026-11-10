@@ -58,10 +58,14 @@
 // pill gradient navy, KPI/mini-stat co dai nhan mau theo ngu nghia,
 // tab day noi hon) — chi o index.css, khong doi logic/du lieu.
 // ─────────────────────────────────────────────────────────────
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { buildCases } from '../lib/cases'
 import { buildTeam, rankAgents, flattenAgents, filterLeaderUnits, ACTIVE_IP_TARGET, FYC_FLOOR } from '../lib/team'
-import { maskSensitive } from '../lib/analyze'
+import { maskSensitive, analyzeSoSanLuong } from '../lib/analyze'
+import { buildAttentionList } from '../lib/attention'
+import { agentBadges, submissionDaysByAgent, topMsdlSet, progressRank } from '../lib/badges'
+import { boardCardData } from '../lib/shareCard'
+import { BoardShareCard, SharePreviewModal, captureShareCard } from './ShareCard'
 import { isSuperAdmin, emailToMsdl, canViewUnitSection } from '../lib/firebaseConfig'
 
 const fmtTr = (n) => {
@@ -108,7 +112,7 @@ const initials = (name) => {
   return (parts[parts.length - 2].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
 }
 
-export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, user, profile, isSuperAdmin: adminProp, onOpenLogin, avatarMap = {} }) {
+export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, onNeedMonth, user, profile, isSuperAdmin: adminProp, onOpenLogin, avatarMap = {} }) {
   // So Policy DAY DU: Admin chinh (moi hang) + CHINH TVV do o hang cua
   // minh (Lan yeu cau 09/11/2026: xem day du so ho so trong data cua
   // minh); cac truong hop con lai che con 2 so cuoi.
@@ -131,6 +135,16 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
   // (activeUnitFilter ben duoi) tu ve '' neu phong dang chon khong con
   // trong danh sach (snapshot/leaderUnits doi) — tranh danh sach rong.
   const [unitFilter, setUnitFilter] = useState('')
+  // Anh Bang Vang (ShareCard): trang thai tao anh + anh da chup (modal).
+  // withAvatars = false sau khi lan chup dau loi (nghi do avatar ngoai
+  // CORS) -> the anh dung vong tron chu cai dau nhu giao dien.
+  const [shareBusy, setShareBusy] = useState(false)
+  const [shareImg, setShareImg] = useState('')
+  const [shareErr, setShareErr] = useState('')
+  const [withAvatars, setWithAvatars] = useState(true)
+  const boardCardRef = useRef(null)
+  // Thang truoc cho hang "Tien bo nhat": moi ym chi goi tai lazy 1 lan
+  const progReqRef = useRef(new Set())
 
   // ── Rules mo chi tiet TVV (Lan chot 08/11/2026) ──
   // Chua dang nhap: chi xem danh sach tong quan, khong mo duoc ai.
@@ -170,8 +184,21 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
     const [year, month] = newest.id.split('-').map(Number)
     const cases = buildCases(newest)
     const team = buildTeam(newest, cases)
-    return { year, month, team }
-  }, [newest])
+    // pendingAll cua analyze (kem doc thang truoc cho CF lien thang) —
+    // phuc vu nhom "Pending lau nhat" cua khoi Can chu y (lib/attention).
+    const pm = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 }
+    const p2 = (n) => String(n).padStart(2, '0')
+    const prevMonthDocs = (snaps || []).filter((s) => s.id && s.id.startsWith(`${pm.y}-${p2(pm.m)}-`))
+    const analysis = analyzeSoSanLuong([newest], prevMonthDocs, { year, month })
+    return { year, month, team, cases, pendingAll: analysis.pendingAll || [] }
+  }, [newest, snaps])
+
+  // Ngu canh huy hieu (lib/badges): Top 10 theo IP phat hanh + ngay nop
+  // ho so theo TVV — tinh 1 lan cho ca bang.
+  const badgeCtx = useMemo(() => {
+    if (!view) return { topMsdl: new Set(), daysByMsdl: new Map() }
+    return { topMsdl: topMsdlSet(view.team, 10), daysByMsdl: submissionDaysByAgent(view.cases) }
+  }, [view])
 
   const ranked = useMemo(
     () => (view ? rankAgents(view.team, sortKey) : []),
@@ -197,6 +224,64 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
   const canUnit = canViewUnitSection(user, profile, isLeader)
   // Khong co quyen thi che do hieu luc luon la Ca nhan (nut Phong an han).
   const mode = viewMode === 'unit' && canUnit ? 'unit' : 'personal'
+
+  // ── Khoi "CAN CHU Y HOM NAY" (lib/attention — 10/11/2026) ──
+  // Chi Admin chinh (toan GA) va TRUONG PHONG thay; truong phong CHI
+  // thay TVV thuoc Unit minh dung dau (leaderCode trung MSDL cua minh
+  // trong sheet Leader). Nguoi thuong/khach khong thay khoi nay.
+  const myUnitCodes = useMemo(() => {
+    const set = new Set()
+    const unitsObj = (newest && newest.data && newest.data.units) || {}
+    for (const [code, u] of Object.entries(unitsObj)) {
+      if (viewerMsdl && String((u && u.leaderCode) || '').trim().toUpperCase() === viewerMsdl) {
+        set.add(String(code || '').trim().toUpperCase())
+      }
+    }
+    return set
+  }, [newest, viewerMsdl])
+
+  const attention = useMemo(() => {
+    if (!view || !newest || (!isAdmin && !isLeader)) return null
+    const all = buildAttentionList(newest, view.cases, view.pendingAll)
+    if (isAdmin) return all
+    const inMine = (row) => myUnitCodes.has(String(row.unit || '').trim().toUpperCase())
+    return {
+      ...all,
+      near: all.near.filter(inMine),
+      noCases: all.noCases.filter(inMine),
+      pendingTop: all.pendingTop.filter(inMine),
+    }
+  }, [view, newest, isAdmin, isLeader, myUnitCodes])
+
+  // ── Hang "TIEN BO NHAT THANG" (lib/badges — 10/11/2026) ──
+  // Can snapshot moi nhat cua THANG TRUOC: chua co trong snaps thi tai
+  // LAZY qua onNeedMonth (co che cua App nhu Sales Report chon thang)
+  // — chi chay khi mo Tinh Anh. Chua co du lieu thang truoc thi an
+  // khoi, khong loi.
+  useEffect(() => {
+    if (!newest || !onNeedMonth) return
+    const [y, m] = newest.id.split('-').map(Number)
+    const pm = m === 1 ? { y: y - 1, m: 12 } : { y, m: m - 1 }
+    const ym = `${pm.y}-${String(pm.m).padStart(2, '0')}`
+    if ((snaps || []).some((s) => s.id && s.id.startsWith(`${ym}-`))) return
+    if (progReqRef.current.has(ym)) return
+    progReqRef.current.add(ym)
+    onNeedMonth(ym)
+  }, [newest, snaps, onNeedMonth])
+
+  const prevSnap = useMemo(() => {
+    if (!newest) return null
+    const [y, m] = newest.id.split('-').map(Number)
+    const pm = m === 1 ? { y: y - 1, m: 12 } : { y, m: m - 1 }
+    const prefix = `${pm.y}-${String(pm.m).padStart(2, '0')}-`
+    const list = (snaps || []).filter((s) => s.id && s.id.startsWith(prefix))
+    return list.length ? list[list.length - 1] : null
+  }, [newest, snaps])
+
+  const progTop = useMemo(
+    () => (newest && prevSnap ? progressRank(newest, prevSnap, 3) : []),
+    [newest, prevSnap],
+  )
 
   // Danh sach Unit cho muc Phong: tai dung buildTeam (da co leaderName,
   // agentCount, fyp, activeFycUnit + bar tung TVV), cong don IP phat hanh /
@@ -270,6 +355,51 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
     ? listed.filter(({ a }) => String(a.agName || '').toLowerCase().includes(query) || String(a.msdl || '').toLowerCase().includes(query))
     : listed
 
+  // Bam 1 dong o khoi "Can chu y": chi TVV dang co mat trong danh
+  // sach Bang Vang (listed) moi mo thang chi tiet duoc — xoa tim kiem,
+  // mo hang cua TVV do roi cuon toi hang. TVV chua co so lieu thang
+  // (nhom "chua co ho so") khong co hang de mo -> dong tinh.
+  const listedMsdl = new Set(listed.map(({ a }) => a.msdl))
+  const openFromAttention = (msdl) => {
+    if (!listedMsdl.has(msdl)) return
+    setSearch('')
+    setViewMode('personal')
+    if (!openRows.has(msdl)) toggleRow(msdl)
+    setTimeout(() => {
+      const el = document.getElementById(`bv-row-${msdl}`)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 80)
+  }
+
+  // ── Anh Bang Vang: du lieu tu lib/shareCard (CUNG rankAgents voi
+  // man hinh, theo che do sap xep DANG CHON). Loi chup lan dau (nghi
+  // do avatar ngoai CORS) -> tu thu lai khong nhung avatar that. ──
+  const boardData = boardCardData(view.team, sortKey, 10, FYC_FLOOR)
+  const handleShareBoard = async () => {
+    if (shareBusy) return
+    setShareErr('')
+    setShareBusy(true)
+    try {
+      const url = await captureShareCard(boardCardRef.current)
+      setShareImg(url)
+    } catch (e1) {
+      if (withAvatars) {
+        setWithAvatars(false)
+        await new Promise((r) => setTimeout(r, 90))
+        try {
+          const url2 = await captureShareCard(boardCardRef.current)
+          setShareImg(url2)
+        } catch (e2) {
+          setShareErr('Chưa tạo được ảnh lúc này — bạn thử lại sau ít phút nhé.')
+        }
+      } else {
+        setShareErr('Chưa tạo được ảnh lúc này — bạn thử lại sau ít phút nhé.')
+      }
+    } finally {
+      setShareBusy(false)
+    }
+  }
+
   const toggleRow = (msdl) => {
     setOpenRows((s) => {
       const next = new Set(s)
@@ -288,13 +418,16 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
 
   const renderRow = ({ a, rank }) => {
     const open = openRows.has(a.msdl)
+    // Huy hieu thanh tich (lib/badges): hang hien toi da 3 icon,
+    // title chua ten day du cac huy hieu TVV dang co.
+    const rowBadges = agentBadges(a, badgeCtx)
     // Hang cua chinh minh -> so Policy hien DAY DU (khong che).
     const rowFull = canSeeFull || isMine(a)
     const sk = segKey(a.agSeg)
     const bar = a.bar
     const pctOf = (v) => (bar.total > 0 ? (v / bar.total) * 100 : 0)
     return (
-      <div className={`bv-row ${rank <= 3 ? ROW_BG[rank - 1] : ''}${isMine(a) ? ' bv-mine' : ''}`} key={a.msdl}>
+      <div className={`bv-row ${rank <= 3 ? ROW_BG[rank - 1] : ''}${isMine(a) ? ' bv-mine' : ''}`} key={a.msdl} id={`bv-row-${a.msdl}`}>
         <button type="button" className="bv-head" onClick={() => handleRowClick(a)} aria-expanded={open}>
           <span className={`bv-avatar ${AVATAR_CLASS[sk]}`}>
             {avatarOf(a.msdl)
@@ -306,6 +439,11 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
             <span className="bv-name">
               {rank > 3 ? <span className="bv-rank">{rank}</span> : null}
               {a.agName || '—'}
+              {rowBadges.length ? (
+                <span className="bv-badges" title={rowBadges.map((b) => `${b.icon} ${b.label}`).join(' · ')}>
+                  {rowBadges.slice(0, 3).map((b) => <span key={b.id}>{b.icon}</span>)}
+                </span>
+              ) : null}
               {isMine(a) ? <span className="bv-you">Bạn</span> : null}
             </span>
             <span className="bv-sub">
@@ -548,6 +686,60 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
         </>
       ) : (
       <>
+      {/* ── CAN CHU Y HOM NAY (lib/attention): chi Admin chinh (toan
+          GA) / truong phong (chi phong minh) thay — attention = null
+          voi nguoi thuong/khach. Bam dong TVV co hang trong Bang
+          Vang thi mo thang chi tiet cua TVV do. ── */}
+      {attention && (attention.near.length > 0 || attention.noCases.length > 0 || attention.pendingTop.length > 0) ? (
+        <div className="card attn-card">
+          <h2>🔔 Cần chú ý hôm nay</h2>
+          <div className="muted">
+            {isAdmin ? 'Toàn Quận 7' : 'Chỉ phòng của bạn'} · theo dữ liệu đến {fmtDateVN(newest.id)}
+          </div>
+          {attention.near.length > 0 ? (
+            <>
+              <div className="attn-group">🎯 Sắp chạm mốc ({attention.near.length})</div>
+              {attention.near.map((r) => {
+                const clickable = listedMsdl.has(r.msdl)
+                return (
+                  <button type="button" key={r.msdl} className={`attn-row${clickable ? '' : ' static'}`} onClick={clickable ? () => openFromAttention(r.msdl) : undefined}>
+                    <span className="attn-name">{r.name || '—'} <span className="attn-unit">· {r.unit || '—'}</span></span>
+                    <span className="attn-detail">{r.marks.map((m) => `Thiếu ${fmtTr(m.gap)} tr tới ${m.label}`).join(' · ')}</span>
+                  </button>
+                )
+              })}
+            </>
+          ) : null}
+          {attention.noCases.length > 0 ? (
+            <>
+              <div className="attn-group">📭 Chưa có hồ sơ tháng này ({attention.noCases.length})</div>
+              {attention.noCases.map((r) => (
+                <div className="attn-row static" key={r.msdl}>
+                  <span className="attn-name">{r.name || '—'} <span className="attn-unit">· {r.unit || '—'}</span></span>
+                  <span className="attn-detail">Chưa có hồ sơ nào trong tháng</span>
+                </div>
+              ))}
+            </>
+          ) : null}
+          {attention.pendingTop.length > 0 ? (
+            <>
+              <div className="attn-group">⏳ Pending lâu nhất ({attention.pendingTop.length})</div>
+              {attention.pendingTop.map((r) => {
+                const clickable = listedMsdl.has(r.msdl)
+                return (
+                  <button type="button" key={r.proposalNum || r.msdl} className={`attn-row${clickable ? '' : ' static'}`} onClick={clickable ? () => openFromAttention(r.msdl) : undefined}>
+                    <span className="attn-name">{r.name || '—'} <span className="attn-unit">· {r.unit || '—'}</span></span>
+                    <span className="attn-detail">
+                      Hồ sơ {maskSensitive(r.policyNum || r.proposalNum, isAdmin)} · chờ <b className="num-pending">{fmtInt(r.ageDays)} ngày</b> · {fmtTr(r.value)} tr
+                    </span>
+                  </button>
+                )
+              })}
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* ── Tong quan doi ngu thang ── */}
       <div className="card">
         <h2>🌟 Tinh Anh — tháng {month}/{year}</h2>
@@ -587,6 +779,12 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
       {/* ── Bang Vang TVV ── */}
       <div className="card bv-card">
         <h2>🏆 Bảng Vàng — tháng {month}/{year}</h2>
+        <div className="share-btn-row" style={{ marginTop: 0, marginBottom: 8 }}>
+          <button type="button" className="btn-ghost" disabled={shareBusy || !boardData.rows.length} onClick={handleShareBoard}>
+            {shareBusy ? 'Đang tạo ảnh…' : '📸 Tạo ảnh Bảng Vàng'}
+          </button>
+          {shareErr ? <div className="msg error" style={{ marginTop: 8 }}>{shareErr}</div> : null}
+        </div>
         {query ? <div className="muted" style={{ marginBottom: 4 }}>Kết quả tìm “{search.trim()}”: {display.length} TVV</div> : null}
         {display.length === 0 ? (
           <div className="muted" style={{ padding: '10px 0' }}>
@@ -597,8 +795,43 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
           <div className="muted" style={{ paddingTop: 10 }}>… và {fmtInt(hiddenCount)} TVV chưa có số liệu tháng này</div>
         ) : null}
       </div>
+
+      {/* ── TIEN BO NHAT THANG (lib/badges progressRank): IP phat
+          hanh thang nay tru thang truoc tang nhieu nhat. Chi hien
+          khi da co snapshot thang truoc (tai lazy qua onNeedMonth);
+          chua co du lieu thang truoc thi an khoi, khong loi. ── */}
+      {progTop.length > 0 ? (
+        <div className="card">
+          <h2>📈 Tiến bộ nhất — tháng {month}/{year}</h2>
+          <div className="muted" style={{ marginBottom: 6 }}>IP phát hành tăng nhiều nhất so với tháng trước</div>
+          {progTop.map((r, i) => (
+            <div className="top-row" key={r.msdl}>
+              {i < 3 ? <span className="medal">{MEDALS[i]}</span> : <span className="rank">{i + 1}</span>}
+              <div className="who"><div className="nm">{r.name || '—'}</div><div className="un">{r.unit || ''}</div></div>
+              <div style={{ textAlign: 'right' }}>
+                <div className="ip num-active">+{fmtTr(r.delta)} tr</div>
+                <div className="muted" style={{ fontSize: 12 }}>{fmtTr(r.prev)} → {fmtTr(r.cur)} tr</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
       </>
       )}
+
+      {/* ── The anh Bang Vang render AN ngoai man hinh de html2canvas
+          chup + modal xem truoc anh ── */}
+      {boardData.rows.length > 0 ? (
+        <div className="share-offscreen" aria-hidden="true">
+          <BoardShareCard data={boardData} month={month} year={year} avatarMap={avatarMap} withAvatars={withAvatars} cardRef={boardCardRef} />
+        </div>
+      ) : null}
+      <SharePreviewModal
+        imgUrl={shareImg}
+        fileName={`bang-vang-d07-${year}-${String(month).padStart(2, '0')}.png`}
+        title="📸 Ảnh Bảng Vàng"
+        onClose={() => setShareImg('')}
+      />
     </div>
   )
 }
