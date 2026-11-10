@@ -3,10 +3,14 @@
 // 4 KPI, Top 5 TVV, thanh xep chong, bieu do nhip nop theo ngay
 // (cot xep chong SVG, thay heatmap APE cu — mau D03) + hanh trinh nam, canh bao.
 // Nguon so: snapshot Daily moi nhat (Firestore neu co, khong thi localStorage).
-// Logic KPI dung analyzeSoSanLuong (port tu So San Luong ban cu).
+// 4 KPI + Top 5 dung homeKpi (CHUAN B, Lan chot 10/11/2026: dem theo DONG
+// nhu file goc). analyzeSoSanLuong CHI con dung cho danh sach nhac viec
+// "pending qua 7 ngay" va hang phat hanh trong khoi "Cua toi" — KHONG
+// dung cho so KPI nua.
 // ─────────────────────────────────────────────────────────────
 import React, { useMemo, useState } from 'react'
 import { analyzeSoSanLuong } from '../lib/analyze'
+import { homeKpi, topIssuedByRow } from '../lib/homeKpi'
 import { buildCases } from '../lib/cases'
 import { dailyStacks, buildYearJourney } from '../lib/journey'
 import { DailyStackChart, YearJourneyChart } from './Charts'
@@ -41,12 +45,21 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
     const pm = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 }
     const p = (n) => String(n).padStart(2, '0')
     const prevMonthDocs = snaps.filter((s) => s.id.startsWith(`${pm.y}-${p(pm.m)}-`))
+    // analyze CHI de lay danh sach pending qua 7 ngay (nhac viec) + hang
+    // trong khoi "Cua toi"; 4 KPI Trang Chu lay tu homeKpi (chuan B).
     const analysis = analyzeSoSanLuong([newest], prevMonthDocs, { year, month })
+    const kpi = homeKpi(newest.data)
     const agentsObj = newest.data?.agents || {}
     const agentsList = Object.values(agentsObj)
     const fypTotal = agentsList.reduce((s, a) => s + (Number(a.fyp) || 0), 0)
-    // Top 5 theo IP phat hanh rong; neu chua co thi fallback theo IP Net cua Agent
-    let top = (analysis.topNet || []).map((a) => ({ name: a.name, unit: a.unit, ip: a.netIp }))
+    // Ty le phat hanh chuan B = IP Net phat hanh / IP Sub da nop len phi (IF+PS)
+    const subIpRows = (newest.data?.proposalRows || [])
+      .filter((r) => r.statusGroup === 'IF' || r.statusGroup === 'PS')
+      .reduce((s, r) => s + (Number(r.ipSub) || 0), 0)
+    const issRate = subIpRows > 0 ? kpi.phatHanh.ip / subIpRows : null
+    // Top 5 theo PHAT HANH chuan B (tong IP Net cac dong IF theo TVV, dem
+    // theo dong); neu chua co thi fallback theo IP Net cua Agent
+    let top = topIssuedByRow(newest.data, 5).map((a) => ({ name: a.name, unit: a.unit, ip: a.ip }))
     if (!top.length) {
       top = agentsList
         .filter((a) => (Number(a.ipNet) || 0) > 0)
@@ -67,7 +80,7 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
     const pendingOld = (analysis.pendingAll || []).filter((c) => (c.ageDays ?? 0) > 7)
     const tvvActive = agentsList.filter((a) => (Number(a.fyp) || 0) > 0 || (a.cIF || 0) + (a.cPS || 0) + (a.cOther || 0) > 0).length
     return {
-      year, month, daysInMonth, analysis,
+      year, month, daysInMonth, analysis, kpi, issRate,
       fypTotal, top, stacks, journey, pendingOld, tvvActive, tvvTotal: agentsList.length,
       agentsObj,
       snapDay: Number(newest.id.split('-')[2]),
@@ -100,8 +113,7 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
     )
   }
 
-  const { year, month, daysInMonth, analysis, fypTotal, top, stacks, journey, pendingOld } = view
-  const t = analysis.totals
+  const { year, month, daysInMonth, analysis, kpi, issRate, fypTotal, top, stacks, journey, pendingOld } = view
   const target = getTarget(year, month)
 
   // ── Ngay dang chon tren bieu do nhip nop (mac dinh = ngay du lieu) ──
@@ -144,8 +156,9 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
     pend: myCases.filter((c) => c.effectiveStatus === 'PS').length,
   }
 
-  const nopTr = t.subIp + t.pipeApe
-  const stackTotal = t.netIp + t.pendIp + t.pipeApe
+  // Thanh co cau dung CUNG so chuan B voi 4 o KPI (phat hanh IP Net +
+  // pending APE + chua len phi APE) de ca man hinh chi co MOT bo so.
+  const stackTotal = kpi.phatHanh.ip + kpi.pending.ape + kpi.chuaLenPhi.ape
   const segPct = (v) => (stackTotal > 0 ? Math.max(0, (v / stackTotal) * 100) : 0)
 
   return (
@@ -240,30 +253,31 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
         <div className="muted" style={{ marginTop: 4 }}>{view.tvvActive}/{view.tvvTotal} TVV có số trong tháng</div>
       </div>
 
-      {/* ── 4 KPI ── */}
+      {/* ── 4 KPI (CHUAN B — dem theo dong nhu file goc; moi o ghi ro
+          so chinh tinh theo IP hay APE) ── */}
       <div className="kpi-grid">
-        <div className="kpi blue"><span className="k-ic">📥</span><div className="k-body"><div className="k-label">Nộp</div><div className="k-val">{fmtTr(nopTr)} tr</div><div className="k-sub">{fmtInt(t.nopN)} hồ sơ</div></div></div>
-        <div className="kpi green"><span className="k-ic">✅</span><div className="k-body"><div className="k-label">Phát hành</div><div className="k-val num-issued">{fmtTr(t.netIp)} tr</div><div className="k-sub">{fmtInt(t.netN)} hợp đồng</div></div></div>
-        <div className="kpi violet"><span className="k-ic">⏳</span><div className="k-body"><div className="k-label">Pending</div><div className="k-val num-pending">{fmtTr(t.pendIp)} tr</div><div className="k-sub">{fmtInt(t.pendN)} hồ sơ</div></div></div>
-        <div className="kpi pink"><span className="k-ic">💸</span><div className="k-body"><div className="k-label">Chưa lên phí</div><div className="k-val num-pipe">{fmtTr(t.pipeApe)} tr</div><div className="k-sub">{fmtInt(t.pipeN)} hồ sơ</div></div></div>
+        <div className="kpi blue"><span className="k-ic">📥</span><div className="k-body"><div className="k-label">Nộp</div><div className="k-val">{fmtTr(kpi.nop.ip)} tr</div><div className="k-sub">theo IP · {fmtInt(kpi.nop.n)} hồ sơ</div></div></div>
+        <div className="kpi green"><span className="k-ic">✅</span><div className="k-body"><div className="k-label">Phát hành</div><div className="k-val num-issued">{fmtTr(kpi.phatHanh.ip)} tr</div><div className="k-sub">theo IP Net · {fmtInt(kpi.phatHanh.n)} hợp đồng</div></div></div>
+        <div className="kpi violet"><span className="k-ic">⏳</span><div className="k-body"><div className="k-label">Pending</div><div className="k-val num-pending">{fmtTr(kpi.pending.ape)} tr</div><div className="k-sub">theo APE · {fmtInt(kpi.pending.n)} hồ sơ</div></div></div>
+        <div className="kpi pink"><span className="k-ic">💸</span><div className="k-body"><div className="k-label">Chưa lên phí</div><div className="k-val num-pipe">{fmtTr(kpi.chuaLenPhi.ape)} tr</div><div className="k-sub">theo APE · {fmtInt(kpi.chuaLenPhi.n)} hồ sơ</div></div></div>
       </div>
 
       {/* ── Thanh xep chong ── */}
       <div className="card">
         <h2>🧱 Cơ cấu hồ sơ đã nộp</h2>
         <div className="stack-bar">
-          <div className="seg-issued" style={{ width: `${segPct(t.netIp)}%` }} />
-          <div className="seg-pending" style={{ width: `${segPct(t.pendIp)}%` }} />
-          <div className="seg-pipe" style={{ width: `${segPct(t.pipeApe)}%` }} />
+          <div className="seg-issued" style={{ width: `${segPct(kpi.phatHanh.ip)}%` }} />
+          <div className="seg-pending" style={{ width: `${segPct(kpi.pending.ape)}%` }} />
+          <div className="seg-pipe" style={{ width: `${segPct(kpi.chuaLenPhi.ape)}%` }} />
         </div>
         <div className="legend">
-          <span><span className="dot" style={{ background: '#7c3aed' }} />Đã phát hành {fmtTr(t.netIp)} tr</span>
-          <span><span className="dot" style={{ background: '#ec4899' }} />Pending {fmtTr(t.pendIp)} tr</span>
-          <span><span className="dot" style={{ background: '#06b6d4' }} />Chưa lên phí {fmtTr(t.pipeApe)} tr</span>
+          <span><span className="dot" style={{ background: '#7c3aed' }} />Đã phát hành {fmtTr(kpi.phatHanh.ip)} tr</span>
+          <span><span className="dot" style={{ background: '#ec4899' }} />Pending {fmtTr(kpi.pending.ape)} tr</span>
+          <span><span className="dot" style={{ background: '#06b6d4' }} />Chưa lên phí {fmtTr(kpi.chuaLenPhi.ape)} tr</span>
         </div>
         <div style={{ marginTop: 8, fontSize: 14 }}>
-          Tỷ lệ phát hành: <b>{t.rate !== null && t.rate !== undefined ? `${Math.round(t.rate * 100)}%` : '—'}</b>
-          <span className="muted"> (phát hành ròng / IP đã nộp lên phí)</span>
+          Tỷ lệ phát hành: <b>{issRate !== null && issRate !== undefined ? `${Math.round(issRate * 100)}%` : '—'}</b>
+          <span className="muted"> (phát hành theo IP Net / IP đã nộp lên phí)</span>
         </div>
       </div>
 
