@@ -297,20 +297,43 @@ assert.ok(caNhanR.includes('className="me-groups"'), 'CaNhan: 3 nhom ho so phai 
 assert.ok(napDuLieu.includes('className="nap-wrap"'), 'NapDuLieu: goc phai co class .nap-wrap')
 console.log('Responsive: phone giu nguyen (rule goc con nguyen); pad 640 khung 880/Unit 2 cot/Memo 3 cot; laptop 1024 sidebar 232px + KPI 4 o + Bang Vang 2 cot + Unit auto 2–3 cot + SR 2 cot + Memo 4 cot + Ca nhan 3 nhom canh nhau + Nap 2 cot')
 
-// ── Sales Report cai tien 10/11/2026: che do Theo TVV + phan hang PE ──
-console.log('\n=== Sales Report: che do Theo TVV + hang PE tam tinh ===')
-assert.ok(salesReportR.includes("from '../lib/pe'"), 'SalesReport: phai import lib/pe (peStatus/nearRankList/activeMonthsInQuarter)')
+// ── Sales Report: che do Theo TVV (phan loai) — PHAN TICH PE da
+// CHUYEN SANG TINH ANH (dot chuyen PE 10/11/2026, Lan yeu cau vi
+// Sales Report qua nhieu thong tin). Khoa ca 2 chieu: Sales Report
+// KHONG con khoi phan tich PE; DoiNgu PHAI co du 4 vi tri PE moi. ──
+console.log('\n=== Sales Report: Theo TVV (phan loai) + PE da chuyen sang Tinh Anh ===')
+assert.ok(salesReportR.includes("import { segToTier, tierById } from '../lib/pe'"), 'SalesReport: chi con import segToTier/tierById cua lib/pe cho HUY HIEU hang hien tai (nhan phan loai)')
 assert.ok(salesReportR.includes("import { issuedOf } from '../lib/team'"), 'SalesReport: IP phat hanh phai dung issuedOf cua team.js (cung dinh nghia Bang Vang)')
 assert.ok(salesReportR.includes('📄 Theo hồ sơ') && salesReportR.includes('🧑‍💼 Theo TVV'), 'SalesReport: phai co 2 nut chuyen che do xem')
 assert.ok(salesReportR.includes("viewMode === 'cases'"), 'SalesReport: che do Theo ho so phai giu nguyen lam mac dinh')
-assert.ok(salesReportR.includes('className="sr-strip"'), 'SalesReport: phai co dai tom tat Active + phan hang PE dau trang')
-assert.ok(salesReportR.includes('🎯 Sắp lên hạng PE'), 'SalesReport: phai co khoi Sap len hang PE thu gon')
-assert.ok(salesReportR.includes('Hạng tạm tính theo tiêu chí memo'), 'SalesReport: phai co ghi chu hang tam tinh theo memo')
+assert.ok(salesReportR.includes('className="sr-strip"'), 'SalesReport: phai co dai tom tat dau trang')
+assert.ok(salesReportR.includes('✓ Đã Active tháng này'), 'SalesReport: dai tom tat GIU phan so Da Active thang nay')
 assert.ok(salesReportR.includes('className="sr-agent-grid"'), 'SalesReport: danh sach TVV phai boc trong .sr-agent-grid')
+assert.ok(salesReportR.includes('pe-badge'), 'SalesReport: the TVV GIU huy hieu hang hien tai nho (.pe-badge — nhan phan loai)')
+// Phan PHAN TICH PE da go khoi Sales Report (khoa khong tai xuat)
+assert.ok(!salesReportR.includes('Sắp lên hạng PE'), 'SalesReport: DA GO khoi Sap len hang PE (da chuyen sang Tinh Anh)')
+assert.ok(!salesReportR.includes('Đường tới hạng'), 'SalesReport: DA GO khoi Duong toi hang PE trong the TVV')
+assert.ok(!salesReportR.includes('Hạng tạm tính'), 'SalesReport: DA GO ghi chu/mo ta hang tam tinh PE')
+assert.ok(!salesReportR.includes('nearRankList'), 'SalesReport: DA GO nearRankList (khong con tinh Sap len hang)')
+assert.ok(!salesReportR.includes('peStatus'), 'SalesReport: DA GO peStatus (khong con tinh hang tam tinh)')
+assert.ok(!salesReportR.includes('quarterMonths'), 'SalesReport: DA GO co che nap snapshots quy (chi phuc vu PE)')
+assert.ok(!salesReportR.includes('Kim Cương:'), 'SalesReport: dai tom tat DA GO cac so theo hang (Kim Cuong/Bach Kim/Vang)')
+assert.ok(!salesReportR.includes('strip.tiers'), 'SalesReport: dai tom tat DA GO phan dem theo hang (strip.tiers)')
+console.log('Sales Report: giu Theo ho so + Theo TVV phan loai (huy hieu hang, loc Active, dai Active); phan tich PE da go sach')
+// Tinh Anh (DoiNgu) nhan phan tich PE: 4 vi tri + gate nhu Can chu y
+assert.ok(doiNgu.includes("from '../lib/pe'"), 'DoiNgu: phai import lib/pe (peStatus/nearRankList/quarterMonths...)')
+assert.ok(doiNgu.includes('nearRankList') && doiNgu.includes('peStatus'), 'DoiNgu: phai dung nearRankList + peStatus cua lib/pe')
+assert.ok(doiNgu.includes('Phân hạng PE hiện tại'), 'DoiNgu: the tong quan phai co dai tong quan phan hang PE hien tai')
+assert.ok(doiNgu.includes('🎯 Sắp lên hạng PE'), 'DoiNgu: phai co khoi thu gon Sap len hang PE')
+assert.ok(doiNgu.includes('peNearOpen'), 'DoiNgu: khoi Sap len hang PE phai co state thu gon/mo (peNearOpen)')
+assert.ok(doiNgu.includes('🎯 Đường tới hạng PE'), 'DoiNgu: chi tiet TVV phai co khoi Duong toi hang PE')
+assert.ok(doiNgu.includes('Hạng tạm tính theo tiêu chí memo'), 'DoiNgu: khoi Duong toi hang PE phai co ghi chu hang tam tinh theo memo')
+assert.ok(doiNgu.includes('PE_BADGE_CLASS') && doiNgu.includes('pe-badge'), 'DoiNgu: hang Bang Vang phai co huy hieu hang hien tai nho (.pe-badge)')
+assert.ok(doiNgu.includes('đang tính trên'), 'DoiNgu: khoi Sap len hang PE phai ghi chu so thang co du lieu trong quy khi thieu thang')
 assert.ok(css.includes('.sr-strip-item'), 'index.css: phai co style dai tom tat (.sr-strip-item)')
 assert.ok(css.includes('.pe-badge-dia') && css.includes('.pe-progress'), 'index.css: phai co style huy hieu PE + thanh tien do (.pe-badge/.pe-progress)')
 assert.ok(dk.includes('.sr-agent-grid { display: grid; grid-template-columns: 1fr 1fr'), 'responsive 1024: the TVV phai xep 2 cot (.sr-agent-grid)')
-console.log('Sales Report PE: chuyen che do 2 cach; dai tom tat; khoi Sap len hang; the TVV + thanh tien do FYC L12M; CSS 2 cot o laptop')
+console.log('Tinh Anh PE: dai phan hang o tong quan; khoi Sap len hang (gate Admin/truong phong nhu Can chu y); huy hieu hang tren hang Bang Vang; Duong toi hang PE trong chi tiet TVV')
 
 // ── Rules: memos doc cong khai ──
 console.log('\n=== firestore.rules memos ===')

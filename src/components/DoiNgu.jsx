@@ -72,12 +72,21 @@
 // bong mem 2 lop, hang top 3 nen nhan + avatar ring gradient, chip
 // pill gradient navy, KPI/mini-stat co dai nhan mau theo ngu nghia,
 // tab day noi hon) — chi o index.css, khong doi logic/du lieu.
+// DOT CHUYEN PE 10/11/2026 (Lan yeu cau — Sales Report qua nhieu thong
+// tin): phan PHAN TICH PE (lib/pe.js, truoc nam o Sales Report) CHUYEN
+// VE TINH ANH: (1) dai tong quan phan hang PE hien tai o the tong quan;
+// (2) khoi thu gon "Sap len hang PE" — CHI Admin chinh + truong phong
+// (cung gate + loc phong minh nhu khoi Can chu y); (3) huy hieu hang
+// hien tai nho tren moi hang Bang Vang; (4) khoi "Duong toi hang PE"
+// day du trong CHI TIET TVV (von da gate chi chu so huu/Admin mo).
+// Sales Report chi con phan loai theo TVV (huy hieu + loc Active).
 // ─────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { buildCases } from '../lib/cases'
 import { buildTeam, rankAgents, flattenAgents, filterLeaderUnits, issuedOf, ACTIVE_IP_TARGET, FYC_FLOOR } from '../lib/team'
 import { maskSensitive, analyzeSoSanLuong } from '../lib/analyze'
 import { buildAttentionList } from '../lib/attention'
+import { peStatus, segToTier, tierById, quarterMonths, activeMonthsInQuarter, nearRankList } from '../lib/pe'
 import { agentBadges, submissionDaysByAgent, topMsdlSet, progressRank } from '../lib/badges'
 import { boardCardData } from '../lib/shareCard'
 import { unitColor } from '../lib/unitColors'
@@ -117,6 +126,9 @@ const segKey = (agSeg) => {
   return 'other'
 }
 const AVATAR_CLASS = { diamond: 'bv-av-dia', platinum: 'bv-av-pla', gold: 'bv-av-gold', other: 'bv-av-oth' }
+// Huy hieu hang PE HIEN TAI nho tren hang Bang Vang: cung bo class
+// .pe-badge da dung cho the TVV o Sales Report (dot chuyen PE).
+const PE_BADGE_CLASS = { diamond: 'pe-badge-dia', platinum: 'pe-badge-pla', gold: 'pe-badge-gold' }
 const SEG_TEXT_CLASS = { diamond: 'bv-seg-dia', platinum: 'bv-seg-pla', gold: 'bv-seg-gold', other: '' }
 
 // Chu cai dau avatar: lay 2 tu cuoi cua ten (ten rieng kieu Viet), vd
@@ -155,6 +167,9 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
   // diem can luu y" trong chi tiet Memo (Lan yeu cau 10/11/2026) —
   // chi hien hang tieu de + so luong tung nhom, bam moi xo chi tiet.
   const [attnOpen, setAttnOpen] = useState(false)
+  // Khoi "Sap len hang PE" (dot chuyen PE): thu gon mac dinh nhu khoi
+  // Can chu y — chi Admin chinh / truong phong moi thay (peNear ben duoi).
+  const [peNearOpen, setPeNearOpen] = useState(false)
   // Anh Bang Vang (ShareCard): trang thai tao anh + anh da chup (modal).
   // withAvatars = false sau khi lan chup dau loi (nghi do avatar ngoai
   // CORS) -> the anh dung vong tron chu cai dau nhu giao dien.
@@ -165,6 +180,9 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
   const boardCardRef = useRef(null)
   // Thang truoc cho hang "Tien bo nhat": moi ym chi goi tai lazy 1 lan
   const progReqRef = useRef(new Set())
+  // Cac thang trong QUY da xin tai lazy cho so thang hoat dong PE
+  // (moi ym chi goi 1 lan — cung mau progReqRef).
+  const peReqRef = useRef(new Set())
 
   // ── Rules mo chi tiet TVV (Lan chot 08/11/2026) ──
   // Chua dang nhap: chi xem danh sach tong quan, khong mo duoc ai.
@@ -272,6 +290,54 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
       pendingTop: all.pendingTop.filter(inMine),
     }
   }, [view, newest, isAdmin, isLeader, myUnitCodes])
+
+  // ── PHAN TICH PE (lib/pe.js — chuyen tu Sales Report, dot chuyen PE
+  // 10/11/2026): du lieu nen dung chung cho dai tong quan phan hang,
+  // khoi Sap len hang va khoi Duong toi hang PE trong chi tiet TVV.
+  // So thang hoat dong can snapshot cac thang trong CUNG QUY tinh den
+  // thang dang xem -> tai LAZY cac thang con thieu qua onNeedMonth
+  // (cung co che tai thang truoc cho Tien bo nhat); thang chua co du
+  // lieu thi bo qua — UI ghi chu so thang co du lieu.
+  useEffect(() => {
+    if (!newest || !onNeedMonth) return
+    const [y, m] = newest.id.split('-').map(Number)
+    const curYm = newest.id.slice(0, 7)
+    for (const q of quarterMonths(y, m)) {
+      if (q.ym >= curYm) continue
+      if ((snaps || []).some((s) => s.id && s.id.startsWith(`${q.ym}-`))) continue
+      if (peReqRef.current.has(q.ym)) continue
+      peReqRef.current.add(q.ym)
+      onNeedMonth(q.ym)
+    }
+  }, [newest, snaps, onNeedMonth])
+
+  const peData = useMemo(() => {
+    if (!newest) return null
+    const [y, m] = newest.id.split('-').map(Number)
+    const curYm = newest.id.slice(0, 7)
+    const qElapsed = quarterMonths(y, m).filter((q) => q.ym <= curYm)
+    const quarterSnaps = (snaps || []).filter((s) => s.id && qElapsed.some((q) => s.id.startsWith(`${q.ym}-`)))
+    const monthsWithData = qElapsed.filter((q) => quarterSnaps.some((s) => s.id.startsWith(`${q.ym}-`))).length
+    const agentsObj = (newest.data && newest.data.agents) || {}
+    // Phan bo hang HIEN TAI (agSeg) tren toan TVV cua thang dang xem.
+    const tiers = { diamond: 0, platinum: 0, gold: 0, none: 0 }
+    for (const a of Object.values(agentsObj)) {
+      const tid = segToTier(a && a.agSeg)
+      if (tid) tiers[tid] += 1
+      else tiers.none += 1
+    }
+    return { quarterSnaps, monthsWithData, tiers, agents: Object.values(agentsObj) }
+  }, [newest, snaps])
+
+  // Danh sach SAP LEN HANG PE: CUNG gate voi khoi Can chu y — chi
+  // Admin chinh (toan GA) va TRUONG PHONG thay, truong phong chi thay
+  // TVV thuoc Unit minh dung dau (loc theo myUnitCodes nhu attention).
+  const peNear = useMemo(() => {
+    if (!peData || (!isAdmin && !isLeader)) return null
+    const all = nearRankList(peData.agents, peData.quarterSnaps)
+    if (isAdmin) return all
+    return all.filter((r) => myUnitCodes.has(String(r.unit || '').trim().toUpperCase()))
+  }, [peData, isAdmin, isLeader, myUnitCodes])
 
   // ── Hang "TIEN BO NHAT THANG" (lib/badges — 10/11/2026) ──
   // Can snapshot moi nhat cua THANG TRUOC: chua co trong snaps thi tai
@@ -446,6 +512,15 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
     // Hang cua chinh minh -> so Policy hien DAY DU (khong che).
     const rowFull = canSeeFull || isMine(a)
     const sk = segKey(a.agSeg)
+    // Hang PE (lib/pe.js — dot chuyen PE): huy hieu hang HIEN TAI nho
+    // canh ten + trang thai PE TAM TINH cho khoi Duong toi hang PE
+    // trong chi tiet (so thang hoat dong dem tu peData.quarterSnaps).
+    const rowTier = tierById(segToTier(a.agSeg))
+    const peSt = peData ? peStatus(a, activeMonthsInQuarter(peData.quarterSnaps, a.msdl)) : null
+    const peCur = peSt ? tierById(peSt.current) : null
+    const peProj = peSt ? tierById(peSt.projected) : null
+    const peNxt = peSt && peSt.next ? tierById(peSt.next.tierId) : null
+    const pePct = peSt && peSt.next ? Math.min(100, Math.max(0, (peSt.fycL12m / peSt.next.needL12m) * 100)) : 100
     const bar = a.bar
     const pctOf = (v) => (bar.total > 0 ? (v / bar.total) * 100 : 0)
     return (
@@ -464,6 +539,11 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
               {rowBadges.length ? (
                 <span className="bv-badges" title={rowBadges.map((b) => `${b.icon} ${b.label}`).join(' · ')}>
                   {rowBadges.slice(0, 3).map((b) => <span key={b.id}>{b.icon}</span>)}
+                </span>
+              ) : null}
+              {rowTier ? (
+                <span className={`pe-badge ${PE_BADGE_CLASS[rowTier.id]}`} title={`Hạng PE hiện tại: ${rowTier.label}`}>
+                  {rowTier.icon ? `${rowTier.icon} ` : ''}{rowTier.label}
                 </span>
               ) : null}
               {isMine(a) ? <span className="bv-you">Bạn</span> : null}
@@ -530,6 +610,39 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
               <div className="bv-ref"><span>TLDTPTT</span><b>{a.tldtptt === null ? '—' : fmtPct(a.tldtptt)}</b></div>
               <div className="bv-ref"><span>MSĐL · Unit</span><b>{a.msdl} · {a.unit || '—'}</b></div>
             </div>
+
+            {/* DUONG TOI HANG PE (lib/pe.js — chuyen tu Sales Report,
+                dot chuyen PE 10/11/2026): nam ngay trong chi tiet TVV
+                von da gate chi chu so huu / Admin chinh mo duoc. */}
+            {peSt ? (
+              <div className="pe-block">
+                <div className="bv-pend-title" style={{ marginTop: 2 }}>🎯 Đường tới hạng PE</div>
+                <div className="pe-line">
+                  Hạng hiện tại: <b>{peCur ? peCur.label : 'Chưa xếp hạng'}</b>
+                  {peSt.projected !== peSt.current
+                    ? <> → Tạm tính: <b>{peProj ? peProj.label : 'Chưa đạt'}</b></>
+                    : <> · Tạm tính: <b>{peProj ? peProj.label : 'Chưa đạt'}</b></>}
+                </div>
+                {peSt.next ? (
+                  <>
+                    <div className="pe-progress"><div className="pe-fill" style={{ width: `${pePct}%` }} /></div>
+                    <div className="pe-line">
+                      FYC 12 tháng: <b>{fmtTr(peSt.fycL12m)} tr</b> / {fmtTr(peSt.next.needL12m)} tr ({peNxt ? peNxt.label : ''})
+                      {peSt.next.lackL12m > 0
+                        ? <> — còn thiếu <b className="num-short">{fmtTr(peSt.next.lackL12m)} tr</b></>
+                        : <> — đã đủ FYC</>}
+                    </div>
+                    <div className="pe-line">
+                      Tháng hoạt động quý này: <b>{fmtInt(peSt.activeMonths)}/{fmtInt(peSt.next.needMonths)}</b>
+                      {peSt.next.lackMonths > 0 ? <> — cần thêm {fmtInt(peSt.next.lackMonths)} tháng hoạt động</> : null}
+                    </div>
+                  </>
+                ) : (
+                  <div className="pe-line">🏆 Tạm tính Kim Cương — hạng cao nhất</div>
+                )}
+                <div className="pe-line">Hạng tạm tính theo tiêu chí memo — kết quả chính thức do công ty xét hàng quý.</div>
+              </div>
+            ) : null}
 
             <div className="bv-pend-title">⏳ Hồ sơ pending ({a.pendingCases.length})</div>
             {a.pendingCases.length === 0 ? (
@@ -806,6 +919,45 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
         </div>
       ) : null}
 
+      {/* ── SAP LEN HANG PE (lib/pe.js — chuyen tu Sales Report, dot
+          chuyen PE 10/11/2026): khoi THU GON cung mau tuong tac voi
+          khoi Can chu y (.memo-summary-head + .memo-caret), dat canh
+          khoi Can chu y cho gom nhom quan ly. Gate nhu Can chu y:
+          peNear = null voi nguoi thuong/khach; truong phong chi thay
+          TVV phong minh (da loc o peNear). ── */}
+      {peNear && peNear.length > 0 ? (
+        <div className="card attn-card">
+          <button type="button" className="memo-summary-head attn-head" onClick={() => setPeNearOpen((o) => !o)} aria-expanded={peNearOpen}>
+            <span className="attn-head-main">
+              <span className="attn-head-title">🎯 Sắp lên hạng PE ({fmtInt(peNear.length)} người)</span>
+              <span className="attn-head-sum">Còn thiếu ≤ 20tr FYC 12 tháng, hoặc đã đủ FYC và chỉ thiếu 1 tháng hoạt động</span>
+              <span className="attn-head-sub">
+                {isAdmin ? 'Toàn Quận 7' : 'Chỉ phòng của bạn'} · Tính đến tháng {month}/{year}
+                {peData && peData.monthsWithData < 3 ? ` · đang tính trên ${fmtInt(peData.monthsWithData)}/3 tháng có dữ liệu trong quý` : ''}
+              </span>
+            </span>
+            <span className="memo-caret">{peNearOpen ? '▾' : '▸'}</span>
+          </button>
+          {peNearOpen ? (
+            <div className="attn-body">
+              {peNear.map((r) => {
+                const nt = tierById(r.next.tierId)
+                return (
+                  <div className="attn-row static" key={r.msdl}>
+                    <span className="attn-name">{r.agName || '—'} <span className="attn-unit">· {r.unit || '—'}</span></span>
+                    <span className="attn-detail">
+                      → {nt ? nt.label : ''}
+                      {r.next.lackL12m > 0 ? <> · còn thiếu <b className="num-short">{fmtTr(r.next.lackL12m)} tr</b> FYC</> : <> · đã đủ FYC</>}
+                      {r.next.lackMonths > 0 ? <> · thiếu {fmtInt(r.next.lackMonths)} tháng hoạt động</> : null}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* ── Tong quan doi ngu thang ── */}
       <div className="card">
         <h2>🌟 Tinh Anh — tháng {month}/{year}</h2>
@@ -814,6 +966,16 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
           <div className="mini-stat"><div className="ms-num num-issued">{fmtTr(totalIssued)}</div><div className="ms-label">Tổng IP phát hành (tr)</div></div>
           <div className="mini-stat"><div className="ms-num">{fmtInt(pendCount)}</div><div className="ms-label">Hồ sơ pending · {fmtTr(pendValue)} tr</div></div>
         </div>
+        {/* Dai TONG QUAN PHAN HANG PE HIEN TAI (theo agSeg cua thang
+            dang xem — dot chuyen PE): hien cho moi nguoi xem Tinh Anh. */}
+        {peData ? (
+          <div style={{ fontSize: 13.5, marginTop: 10 }}>
+            Phân hạng PE hiện tại: 💎 Kim Cương <b>{fmtInt(peData.tiers.diamond)}</b>
+            {' · '}Bạch Kim <b>{fmtInt(peData.tiers.platinum)}</b>
+            {' · '}Vàng <b>{fmtInt(peData.tiers.gold)}</b>
+            {' · '}Chưa xếp hạng <b>{fmtInt(peData.tiers.none)}</b>
+          </div>
+        ) : null}
       </div>
 
       {/* ── Tim kiem + sap xep ── */}
