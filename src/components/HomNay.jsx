@@ -28,7 +28,7 @@ function daysUntil(isoDate) {
   return Math.round((target - today) / 86400000)
 }
 
-export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, user, profile, onOpenLogin, onOpenAccount }) {
+export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, user, profile, onOpenLogin }) {
   const [quoteOffset, setQuoteOffset] = useState(0)
   const [selDay, setSelDay] = useState(null)
 
@@ -193,16 +193,13 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
       ) : !myMsdl ? (
         <div className="card my-card">
           <h2>🙋 Của tôi</h2>
-          <div className="my-line">Bạn đã đăng nhập nhưng chưa gắn <b>Mã TVV</b> — gắn mã để màn hình này hiện số của riêng bạn.</div>
-          <div style={{ marginTop: 10 }}>
-            <span className="chip" onClick={onOpenAccount}>Thêm Mã TVV của tôi →</span>
-          </div>
+          <div className="my-line">Bạn đã đăng nhập nhưng chưa gắn <b>Mã TVV</b> — gắn mã để màn hình này hiện số của riêng bạn. TVV hãy đăng nhập bằng chính MSĐL của mình để hệ thống tự gắn mã.</div>
         </div>
       ) : (
         <div className="card my-card">
           <h2>🙋 Của tôi — {profile?.avatarUrl ? <img className="my-avatar" src={profile.avatarUrl} alt="" /> : null}{myAgent?.agName || myAnAgent?.name || profile?.displayName || 'TVV'} {myAgent?.unit || myAnAgent?.unit ? <span className="muted">· {myAgent?.unit || myAnAgent?.unit}</span> : null} {(myAgent?.agSeg || myAnAgent?.agSeg) ? <span className="muted">· Phân loại: {myAgent?.agSeg || myAnAgent?.agSeg}</span> : null}</h2>
           {!myAgent && myCases.length === 0 ? (
-            <div className="my-line">Chưa thấy mã <b>{myMsdl}</b> trong dữ liệu tháng {month}/{year}. Kiểm tra lại Mã TVV ở mục Tài khoản (mã phải khớp mã số đại lý trong file Daily Sales).</div>
+            <div className="my-line">Chưa thấy mã <b>{myMsdl}</b> trong dữ liệu tháng {month}/{year}. Kiểm tra lại Mã TVV (mã phải khớp mã số đại lý trong file Daily Sales).</div>
           ) : (
             <>
               <div className="mini-stats" style={{ marginBottom: 4 }}>

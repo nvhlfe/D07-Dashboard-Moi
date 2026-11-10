@@ -28,6 +28,31 @@ export const sheetToRows = (wb, name) => {
   return XLSX.utils.sheet_to_json(wb.Sheets[name], { defval: null, raw: true })
 }
 
+// ── Khu trung dong Proposal ──────────────────────────────────
+// Du lieu that (file 25.10 + 8.11): sheet Proposal co cac dong la CUNG MOT
+// HO SO (cung so HSYC) xuat hien 2 lan, moi truong cua HO SO deu giong het
+// (Policy, trang thai, san pham, ngay nop/ngay phat hanh, Case/IP/APE Sub+Net)
+// — chi khac dinh danh TVV duoc ghi nhan (unit/msdl/agName): cong ty ghi 1 ho
+// so cho 2 TVV (dong ban / chuyen giao). Dem theo DONG se trung ho so nay 2
+// lan (Trang Chu lech voi Sales Report von dem theo ho so duy nhat).
+// Dau van HO SO = moi truong tru unit/msdl/agName. Hai dong trung dau van
+// -> chi giu dong DAU TIEN (khop cach buildCases gan ho so cho TVV dau tien
+// theo HSYC). Dong cung HSYC nhung khac so lieu/trang thai/ngay -> GIU
+// NGUYEN (khong phai trung, khong loai nham).
+const PROPOSAL_CASE_FIELDS = ['proposalNum', 'policyNum', 'status', 'statusFull', 'product', 'proposalDate', 'firstIssuedDate', 'caseSub', 'ipSub', 'ipNet', 'apeSub', 'apeNet']
+export const proposalCaseFingerprint = (r) => PROPOSAL_CASE_FIELDS.map((f) => String(r?.[f] ?? '')).join('\u001f')
+export function dedupeProposalRows(rows) {
+  const seen = new Set()
+  const out = []
+  for (const r of rows || []) {
+    const k = proposalCaseFingerprint(r)
+    if (seen.has(k)) continue
+    seen.add(k)
+    out.push(r)
+  }
+  return out
+}
+
 /** LOI: nhan workbook (SheetJS) -> { sheetStatus, proposalRows, agents, units, leaderUnits, pendingRows, pipelineRows } */
 export function parseWorkbook(wb) {
   const sheetStatus = {}
@@ -43,12 +68,12 @@ export function parseWorkbook(wb) {
   // --- Proposal (line-item) ---
   // Dong TOTAL / dong trong / dong footer ("Applied filters:...", "Total") tu bi loai
   // vi khong co Yearmonth hop le hoac khong co AGCode.
-  const proposalRows = []
+  const proposalRowsRaw = []
   for (const r of (rawProposal || [])) {
     if (!isYearMonth(r['Yearmonth']) || !r['AGCode']) continue
     const status = (r['PolicyStatus'] || '').toString().trim().toUpperCase()
     const statusGroup = status === 'IF' ? 'IF' : status === 'PS' ? 'PS' : 'OTHER'
-    proposalRows.push({
+    proposalRowsRaw.push({
       unit: r['UnitCode'] || '', msdl: String(r['AGCode']), agName: r['AGName'] || '',
       proposalNum: r['ProposalNum'] ? String(r['ProposalNum']) : '',
       status, statusGroup, statusFull: r['CurrentPolicyStatus'] || '',
@@ -60,6 +85,9 @@ export function parseWorkbook(wb) {
       policyNum: r['PolicyNum'] ? String(r['PolicyNum']) : '',
     })
   }
+  // Khu trung TRUOC khi dem cIF/cPS/cOther cho Agent o duoi: ho so trung
+  // chi tinh 1 lan cho TVV o dong dau tien (nhat quan toan app).
+  const proposalRows = dedupeProposalRows(proposalRowsRaw)
 
   // --- Agent (TVV level) ---
   const agents = {}

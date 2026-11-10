@@ -27,6 +27,16 @@ const fmtDateVN = (iso) => {
   return `${d}/${m}/${y}`
 }
 
+// Gio cap nhat (HH:MM) tu moc savedAt/updatedAt cua snapshot moi nhat.
+// Khong co moc hop le -> '' (dong trang thai bo qua phan gio, khong bia).
+const fmtTimeVN = (iso) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const p = (n) => String(n).padStart(2, '0')
+  return `${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
 // Trang thai duyet HIEU LUC cua 1 ho so user_profiles: co status thi dung
 // status; khong co thi tai khoan MSDL mac dinh 'pending' (cho duyet), tai
 // khoan email cu mac dinh 'approved' (khong khoa nham nguoi dung cu).
@@ -60,15 +70,13 @@ export default function App() {
   const { user, authLoading, login, register, logout } = useAuth()
   const [profile, setProfile] = useState(null)
   const [showLogin, setShowLogin] = useState(false)
-  const [showAccount, setShowAccount] = useState(false)
   const [authMode, setAuthMode] = useState('login')
   const [loginForm, setLoginForm] = useState({ id: '', password: '' })
   const [regForm, setRegForm] = useState({ msdl: '', password: '', password2: '' })
   const [loginErr, setLoginErr] = useState('')
   const [loginBusy, setLoginBusy] = useState(false)
-  const [acctForm, setAcctForm] = useState({ displayName: '', msdl: '' })
-  const [acctMsg, setAcctMsg] = useState('')
-  const [acctBusy, setAcctBusy] = useState(false)
+  // Dang lam moi du lieu bang nut "↻ Lam moi" (chan bam lai khi dang tai)
+  const [refreshing, setRefreshing] = useState(false)
   // Panel Duyet tai khoan (chi Admin chinh): danh sach user_profiles + thong bao
   const [showAdmin, setShowAdmin] = useState(false)
   const [adminList, setAdminList] = useState([])
@@ -176,6 +184,14 @@ export default function App() {
     return has
   }, [])
 
+  // Nut "↻ Lam moi" o dong trang thai header: tai lai du lieu (may + may
+  // chu) theo dung luong reload hien co; dang tai thi khoa nut.
+  const handleRefresh = async () => {
+    if (refreshing) return
+    setRefreshing(true)
+    try { await reload() } finally { setRefreshing(false) }
+  }
+
   useEffect(() => { reload() }, [reload])
 
   // Khi dang nhap doi: tai lai du lieu (Rules chi cho user dang nhap doc may)
@@ -192,7 +208,6 @@ export default function App() {
       const own = emailToMsdl(user.email)
       const merged = own ? { ...(p || {}), msdl: own, email: user.email } : p
       setProfile(merged)
-      setAcctForm({ displayName: merged?.displayName || '', msdl: merged?.msdl || '' })
     })
     return () => { cancelled = true }
   }, [user, authLoading, reload])
@@ -238,28 +253,6 @@ export default function App() {
     setShowLogin(false)
     setRegForm({ msdl: '', password: '', password2: '' })
     setAuthMode('login')
-  }
-
-  const openAccount = () => {
-    setAcctMsg('')
-    setAcctForm({ displayName: profile?.displayName || '', msdl: profile?.msdl || '' })
-    setShowAccount(true)
-  }
-
-  const handleSaveAccount = async () => {
-    if (!user) return
-    setAcctBusy(true)
-    const own = emailToMsdl(user.email)
-    const res = await saveUserProfile(user.uid, {
-      email: user.email,
-      displayName: acctForm.displayName.trim(),
-      msdl: own || acctForm.msdl.trim(),
-    })
-    setAcctBusy(false)
-    setProfile(res.profile)
-    setAcctMsg(res.cloud
-      ? '✓ Đã lưu hồ sơ lên mây — đăng nhập máy nào cũng thấy.'
-      : 'Đã lưu trên máy này; bản mây chờ cập nhật Rules')
   }
 
   const newest = snaps.length ? snaps[snaps.length - 1] : null
@@ -382,8 +375,11 @@ export default function App() {
             <div className="app-slogan">Cùng Học Hỏi – Cùng Phát Triển – Cùng Thành Công</div>
             <div className="sub">
               {newest
-                ? <>Cập nhật đến {fmtDateVN(newest.id)} · nguồn: {source}</>
+                ? <>Cập nhật đến {fmtDateVN(newest.id)}{fmtTimeVN(newest.savedAt) ? ` · lúc ${fmtTimeVN(newest.savedAt)}` : ''} · nguồn: {source}</>
                 : 'Dashboard mới — gọn & thiết thực'}
+              <button className="btn-mini" style={{ marginLeft: 8 }} disabled={refreshing} onClick={handleRefresh}>
+                {refreshing ? 'Đang tải…' : '↻ Làm mới'}
+              </button>
             </div>
           </div>
         </div>
@@ -399,12 +395,11 @@ export default function App() {
                   🛂 Duyệt TK{adminList.length > 0 ? ` (${adminList.length} tài khoản` : ''}{pendingCount > 0 ? `${adminList.length > 0 ? ' · ' : ' ('}⏳ ${pendingCount} chờ duyệt` : ''}{adminList.length > 0 || pendingCount > 0 ? ')' : ''}
                 </button>
               )}
-              <button className="btn-mini" onClick={openAccount}>Tài khoản</button>
               <button className="btn-mini" onClick={logout}>Đăng xuất</button>
             </>
           ) : (
             <>
-              <span className="muted">Chưa đăng nhập — số hồ sơ đang bị che, dữ liệu chỉ có trên máy này.</span>
+              <span className="muted">Bạn đang xem dữ liệu trực tuyến — số hồ sơ đang bị che; đăng nhập để xem chi tiết cá nhân của mình.</span>
               <button className="btn-mini primary" onClick={() => { setLoginErr(''); setShowLogin(true) }}>Đăng nhập</button>
             </>
           )}
@@ -436,8 +431,7 @@ export default function App() {
             {tab === 'home' && (
               <HomNay snaps={snaps} loading={loading} remoteSettled={remoteSettled} onGoNap={() => setTab('nap')}
                 user={user} profile={profile}
-                onOpenLogin={() => { setLoginErr(''); setShowLogin(true) }}
-                onOpenAccount={openAccount} />
+                onOpenLogin={() => { setLoginErr(''); setShowLogin(true) }} />
             )}
             {tab === 'sales' && (canSR ? (
               <SalesReport snaps={snaps} loading={loading} remoteSettled={remoteSettled} onNeedMonth={ensureMonth} onGoNap={() => setTab('nap')} user={user} />
@@ -551,33 +545,6 @@ export default function App() {
               </>
             )}
             <button className="btn-ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => setShowLogin(false)}>Để sau</button>
-          </div>
-        </div>
-      )}
-
-      {showAccount && user && (
-        <div className="modal-overlay" onClick={() => setShowAccount(false)}>
-          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title">👤 Tài khoản của tôi</div>
-            <p className="muted" style={{ marginBottom: 12 }}>
-              {msdlAccount ? `MSĐL ${emailToMsdl(user.email)}` : user.email} · {superAdmin ? 'Admin chính — xem đầy đủ số hồ sơ' : 'Số hồ sơ chỉ hiện 2 số cuối'}
-            </p>
-            <div className="field">
-              <label>Tên hiển thị</label>
-              <input value={acctForm.displayName} placeholder="VD: Lan"
-                onChange={(e) => setAcctForm((f) => ({ ...f, displayName: e.target.value }))} />
-            </div>
-            <div className="field">
-              <label>Mã TVV của tôi (mã số đại lý trong file Daily Sales)</label>
-              <input value={acctForm.msdl} placeholder="VD: 12345678" inputMode="numeric" disabled={msdlAccount}
-                onChange={(e) => setAcctForm((f) => ({ ...f, msdl: e.target.value }))} />
-              {msdlAccount ? <p className="muted" style={{ marginTop: 4 }}>MSĐL chính là tên đăng nhập của bạn nên không đổi tại đây.</p> : null}
-            </div>
-            <button className="btn-primary" disabled={acctBusy} onClick={handleSaveAccount}>
-              {acctBusy ? 'Đang lưu…' : '💾 Lưu hồ sơ'}
-            </button>
-            {acctMsg ? <div className={`msg ${acctMsg.startsWith('✓') ? 'success' : 'info'}`}>{acctMsg}</div> : null}
-            <button className="btn-ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => setShowAccount(false)}>Đóng</button>
           </div>
         </div>
       )}

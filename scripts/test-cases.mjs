@@ -1,7 +1,8 @@
 // Test lib/cases.js bang file Daily Sales THAT 25.10 (node):
 //  - buildCases: tong ho so duy nhat, dem theo trang thai goc
 //  - journalForDay('2026-10-25'): so nop hom do phai = 4 (khop heatmap da kiem chung)
-//  - pending: phai hoa giai voi PS ~ 50 cua analyzeSoSanLuong
+//  - pending: phai hoa giai voi PS cua analyzeSoSanLuong (sau khu trung o
+//    parse, ca 2 deu dem theo ho so duy nhat: PS = 43)
 //  - Co che MOI (Lan chot chieu 08/11 — bo chinh tay, cap nhat bang file moi):
 //    caseKey khoa theo PolicyNumber cho IF/PS; policyNum bo sung tu sheet
 //    Pending khi Proposal thieu; diffCases doi chieu 2 ban (kich ban tong hop
@@ -41,9 +42,10 @@ console.log('summarizeCases byStatus (hieu luc, chua dieu chinh):',
   Object.entries(summary.byStatus).map(([k, v]) => `${k}: ${v.n} HS / ${Math.round(v.ipNet * 10) / 10} tr IP Net`).join(' · '))
 console.log(`Pending (hieu luc): ${summary.pending.length} ho so`)
 
-// Hoa giai voi analyze: analyze dem theo DONG Proposal (PS=50 dong), cases.js dem
-// theo HO SO duy nhat. File that co 21 so HSYC trung 2 dong y het (PS trung 7 dong)
-// -> PS duy nhat = 50 - 7 = 43. Kiem tra dung cong thuc hoa giai nay.
+// Hoa giai voi analyze: tu dot khu trung o parseDaily (10/11/2026), proposalRows
+// da la HO SO duy nhat (file tho co 21 HSYC bi ghi 2 dong cho 2 TVV khac nhau —
+// da loai o parse, xem test-parse) nen analyze va cases.js dem GIONG nhau:
+// dong trung theo cong thuc duoi day phai = 0 o moi nhom.
 const analysis = analyzeSoSanLuong([snapshot], [], { year: 2026, month: 10 })
 const rowCountByGroup = { IF: 0, PS: 0, OTHER: 0 }
 parsed.proposalRows.forEach((p) => { rowCountByGroup[p.statusGroup] += 1 })
@@ -61,8 +63,9 @@ assert.strictEqual(summary.pending.length, byBase.PS, 'Pending hieu luc (chua di
 // ── Hoa giai IP Sub cua PS (gia tri the ho so PS hien thi) ──
 // The PS hien ipSub, KHONG phai ipNet (ipNet cua PS = 0 se gay hieu nham "0 tr").
 // Tong ipSub theo HO SO duy nhat phai > 0. Hoa giai voi so theo DONG:
-// duy nhat + dong trung = tong theo dong. (Tham chieu: analyze bao pending
-// 947.1tr / 50 dong PS — co so tinh rieng cua analyze, khong phai tong ipSub.)
+// duy nhat + dong trung = tong theo dong (sau khu trung o parse, dong trung
+// = 0 nen hai ve bang nhau). (Tham chieu: analyze bao pending 835.5tr / 43
+// ho so PS sau khu trung — co so tinh rieng cua analyze, khong phai tong ipSub.)
 const r1 = (x) => Math.round(x * 10) / 10
 const psCasesUnique = cases.filter((c) => c.baseStatus === 'PS')
 const psIpSubUnique = psCasesUnique.reduce((s, c) => s + (Number(c.ipSub) || 0), 0)

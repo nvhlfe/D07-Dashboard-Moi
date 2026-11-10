@@ -4,8 +4,9 @@
 import * as XLSX from 'xlsx'
 import { readFileSync } from 'node:fs'
 import assert from 'node:assert'
-import { parseWorkbook } from '../src/lib/parseDaily.js'
+import { parseWorkbook, dedupeProposalRows } from '../src/lib/parseDaily.js'
 import { analyzeSoSanLuong } from '../src/lib/analyze.js'
+import { buildCases, groupValue } from '../src/lib/cases.js'
 
 function loadAndParse(path) {
   const buf = readFileSync(path)
@@ -103,3 +104,57 @@ function checkLeaderActive(label, path, expUnits, expWithNum, expTotal, exp9CJ) 
 checkLeaderActive('Daily 8.11', process.env.HOME + '/workspace/user/files/Daily_Sales_8.11.xlsx', 20, 6, 7, undefined)
 checkLeaderActive('Daily 25.10', process.env.HOME + '/workspace/user/files/Daily_Sales_25.10.xlsx', 21, 10, 15, 1)
 console.log('\n✅ leaderUnits + activeFycUnit khop doi soat doc lap ca 2 file')
+
+// ── Khu trung dong Proposal khi parse (Lan chot 10/11/2026) ──
+// Phan tich file tho: cac dong trung la CUNG MOT HO SO (moi truong cua ho so
+// giong het: Policy/trang thai/san pham/ngay/IP/APE) chi khac TVV duoc ghi
+// nhan (unit/msdl/agName). parse khu theo dau van ho so, giu dong dau tien:
+//   25.10: 182 dong tho -> 161 dong (loai 21) · 8.11: 58 -> 52 (loai 6)
+// Sau khu trung, so dem theo DONG cua Trang Chu (analyze) PHAI KHOP so dem
+// theo HO SO duy nhat cua Sales Report (buildCases + groupValue) — moc duy
+// nhat doi soat doc lap: 25.10 PH 1577.6tr · Pend 835.5tr · Pipe 264tr,
+// 183 ho so (IF 101 / PS 43 / PIPELINE 22 / OTHER 17).
+const R1 = (x) => Math.round(x * 10) / 10
+function checkDedup(label, path, snapDate, expRows, expIss, expPend, expIfN, expPsN) {
+  const p = loadAndParse(path)
+  assert.strictEqual(p.proposalRows.length, expRows, `${label}: proposalRows sau khu trung phai = ${expRows}`)
+  const [y, m] = snapDate.split('-').map(Number)
+  const snap = { id: snapDate, data: p }
+  const t = analyzeSoSanLuong([snap], [], { year: y, month: m }).totals
+  assert.strictEqual(R1(t.issIp), expIss, `${label}: analyze phat hanh gop sau khu trung phai = ${expIss}tr`)
+  assert.strictEqual(R1(t.netIp), expIss, `${label}: analyze phat hanh rong (khong thang truoc) phai = ${expIss}tr`)
+  assert.strictEqual(R1(t.pendIp), expPend, `${label}: analyze pending sau khu trung phai = ${expPend}tr`)
+  assert.strictEqual(t.pendN, expPsN, `${label}: analyze pendN phai = ${expPsN}`)
+  assert.strictEqual(t.ifN, expIfN, `${label}: analyze ifN phai = ${expIfN}`)
+  assert.strictEqual(t.psN, expPsN, `${label}: analyze psN phai = ${expPsN}`)
+  // Idempotent: khu trung lai tren ket qua da khu -> khong loai them dong nao
+  assert.strictEqual(dedupeProposalRows(p.proposalRows).length, expRows, `${label}: dedupeProposalRows phai idempotent`)
+  console.log(`\n=== ${label}: proposalRows = ${p.proposalRows.length} · analyze PH = ${R1(t.issIp)}tr · Pend = ${R1(t.pendIp)}tr · IF ${t.ifN} / PS ${t.psN} ===`)
+  return p
+}
+const p25dd = checkDedup('Daily 25.10', process.env.HOME + '/workspace/user/files/Daily_Sales_25.10.xlsx', '2026-10-25', 161, 1577.6, 835.5, 101, 43)
+checkDedup('Daily 8.11', process.env.HOME + '/workspace/user/files/Daily_Sales_8.11.xlsx', '2026-11-08', 52, 671.8, 375.6, 33, 19)
+// Moc duy nhat phia Sales Report (buildCases) giu nguyen sau khu trung o parse
+{
+  const cases = buildCases({ id: '2026-10-25', data: p25dd })
+  const cnt = { IF: 0, PS: 0, PIPELINE: 0, OTHER: 0 }
+  const val = { IF: 0, PS: 0, PIPELINE: 0, OTHER: 0 }
+  for (const c of cases) { cnt[c.effectiveStatus]++; val[c.effectiveStatus] += groupValue(c) }
+  assert.strictEqual(cases.length, 183, '25.10: buildCases tong ho so duy nhat phai = 183')
+  assert.deepStrictEqual(cnt, { IF: 101, PS: 43, PIPELINE: 22, OTHER: 17 }, '25.10: dem ho so theo trang thai phai = IF 101 / PS 43 / PIPELINE 22 / OTHER 17')
+  assert.strictEqual(R1(val.IF), 1577.6, '25.10: groupValue IF phai = 1577.6tr')
+  assert.strictEqual(R1(val.PS), 835.5, '25.10: groupValue PS phai = 835.5tr')
+  assert.strictEqual(R1(val.PIPELINE), 264, '25.10: groupValue PIPELINE phai = 264tr')
+  console.log('=== 25.10 buildCases: 183 HS (IF 101/PS 43/PIPE 22/OTHER 17) · 1577.6 / 835.5 / 264 tr — KHOP moc duy nhat ===')
+}
+// Don vi: dau van ho so bo qua dinh danh TVV nhung giu dong khac so lieu
+{
+  const base = { proposalNum: 'HS1', policyNum: 'P1', status: 'IF', statusGroup: 'IF', statusFull: 'IF - Issued', product: 'X', proposalDate: '2026-10-02', firstIssuedDate: '2026-10-15', caseSub: 1, ipSub: 10, ipNet: 10, apeSub: 10, apeNet: 10, unit: 'AAA', msdl: '111', agName: 'A' }
+  const sameCaseOtherAgent = { ...base, unit: 'BBB', msdl: '222', agName: 'B' }
+  const diffMoney = { ...base, ipNet: 99 }
+  const out = dedupeProposalRows([base, sameCaseOtherAgent, diffMoney])
+  assert.strictEqual(out.length, 2, 'dedupe: dong trung ho so khac TVV bi loai, dong khac so lieu duoc giu')
+  assert.strictEqual(out[0], base, 'dedupe: giu dong DAU TIEN cua nhom trung')
+  console.log('=== dedupeProposalRows (don vi): trung khac TVV -> loai · khac so lieu -> giu · giu dong dau ===')
+}
+console.log('\n✅ Khu trung Proposal: Trang Chu va Sales Report khop nhau tren ca 2 file that')

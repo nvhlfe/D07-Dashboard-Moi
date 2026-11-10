@@ -13,7 +13,7 @@
 // Loi file khoa RMS/IRM: bao tieng Viet ro rang, khong hien stack trace.
 // ─────────────────────────────────────────────────────────────
 import React, { useRef, useState } from 'react'
-import { parseArrayBuffer, inferDateFromFileName } from '../lib/parseDaily'
+import { parseArrayBuffer, inferDateFromFileName, dedupeProposalRows } from '../lib/parseDaily'
 import {
   saveLocalSnapshot, saveDailyToFirestore, addHistory, loadHistory,
   getTarget, setTarget, getFbOverride, setFbConfig, clearFbConfig, parseFirebaseConfigPaste,
@@ -102,7 +102,9 @@ export default function NapDuLieu({ onSaved, user, snaps }) {
     }
     setSaving(true)
     try {
-      const newRows = parsed.proposalRows || []
+      // Khu trung lai theo dau van ho so (parse da khu 1 lan): phong ho so
+      // trung cheo giua ban Proposal rieng va du lieu da co — giu dong dau.
+      const newRows = dedupeProposalRows(parsed.proposalRows || [])
       // Dem lai cIF/cPS/cOther cho tung agent tu proposalRows moi (giong parseDaily)
       const agents = {}
       for (const [msdl, a] of Object.entries(base.data.agents || {})) agents[msdl] = { ...a, cIF: 0, cPS: 0, cOther: 0 }
