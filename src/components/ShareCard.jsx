@@ -159,7 +159,7 @@ export function BoardShareCard({ data, month, year, avatarMap = {}, withAvatars 
             </div>
             <div className="sc-board-total">
               <div className={`sc-board-num ${r.bigIsFyc ? (r.fycShort ? 'sc-num-short' : 'sc-num-fyc') : ''}`}>{fmtTr(r.big)}</div>
-              <div className="sc-kpi-sub">{r.bigIsFyc ? 'FYC tháng' : 'Tổng giá trị'} · {fmtCaseSub(r.caseSub)} HS</div>
+              <div className="sc-kpi-sub">{r.bigLabel || (r.bigIsFyc ? 'FYC tháng' : 'Tổng giá trị')} · {fmtCaseSub(r.caseSub)} HS</div>
             </div>
           </div>
         )

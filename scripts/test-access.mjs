@@ -185,7 +185,7 @@ console.log('Muc Phong: o loc chon phong (Tat ca / "TUQ - HOÀNG VĂN HƯNG"...)
 // Moc 15tr IP cho TVV Chua Active trong chi tiet Unit
 assert.ok(team.includes('ACTIVE_IP_TARGET = 15'), 'team.js: phai co hang ACTIVE_IP_TARGET = 15 (trieu dong IP)')
 assert.ok(doiNgu.includes('ACTIVE_IP_TARGET'), 'DoiNgu: phai dung ACTIVE_IP_TARGET cho nhan moc IP')
-assert.ok(doiNgu.includes('ACTIVE_IP_TARGET - (Number(a.ipNet) || 0)'), 'DoiNgu: so thieu phai tinh = ACTIVE_IP_TARGET - ipNet')
+assert.ok(doiNgu.includes('ACTIVE_IP_TARGET - issuedOf(a)'), 'DoiNgu: so thieu phai tinh = ACTIVE_IP_TARGET - issuedOf(a) (issuedRow — doi tu ipNet sheet Agent theo chot 10/11/2026: toan Tinh Anh 1 chuan IP phat hanh)')
 assert.ok(doiNgu.includes('Thiếu {fmtTr(ipGap)} tr tới mốc Active'), 'DoiNgu: TVV Chua Active thieu IP phai co nhan "Thieu ... tr toi moc Active"')
 assert.ok(doiNgu.includes('Đã đạt mốc'), 'DoiNgu: TVV Chua Active nhung ipNet >= 15 phai co nhan "Da dat moc"')
 assert.ok(doiNgu.includes('renderUnitMember(a, true)'), 'DoiNgu: chi nhom Chua Active moi truyen co nhan moc IP (renderUnitMember(a, true))')
@@ -209,15 +209,26 @@ console.log('Mau so: index.css co bo .num-* (FYP navy / FYC+Active xanh la / IP 
 // ── Dot 09/11/2026: hang Bang Vang — SO TO theo tieu chi sap xep + lam dep CSS he thong ──
 // Lan khoanh do so to (tong nop) o ban live e15080ad va chot: che do
 // FYC thang thi SO TO ben phai PHAI LA FYC thang; chip duoi chi con
-// canh bao thieu khi duoi moc. Che do khac giu nguyen tong nop.
+// canh bao thieu khi duoi moc. Che do khac khi do giu nguyen tong nop.
+// ── Dot sua 10/11/2026: Lan phan hoi tiep — che do IP phat hanh sap
+// theo IP nhung so to lai la tong nop (day so khong giam dan). Chot
+// nguyen tac SO TO = DUNG tieu chi dang sap: ipNet -> issuedRow
+// (dong IF Proposal, issuedOf) + RANK_KEYS.ipNet doi sang issuedRow;
+// barTotal -> tong nop nhu cu.
 console.log('\n=== hang Bang Vang: so to theo che do FYC + CSS lam dep ===')
 assert.ok(doiNgu.includes("sortKey === 'fyc'"), "DoiNgu: khoi so to + chip canh bao phai re nhanh theo sortKey === 'fyc'")
 assert.ok(doiNgu.includes('}>{fmtTr(a.fyc)}</span>'), 'DoiNgu: che do FYC -> SO TO ben phai la FYC thang (fmtTr(a.fyc))')
 assert.ok(doiNgu.includes("a.fyc < FYC_FLOOR ? 'num-short' : 'num-fyc'"), 'DoiNgu: so to FYC phai to mau theo moc FYC_FLOOR (duoi moc -> num-short do; dat moc -> num-fyc xanh la)')
 assert.ok(doiNgu.includes('FYC tháng · {fmtCaseSub(a.caseSub)} HS'), 'DoiNgu: che do FYC -> dong phu duoi so to ghi "FYC tháng · N HS" (giu thong tin so ho so)')
-assert.ok(doiNgu.includes('fmtTr(bar.total)'), 'DoiNgu: che do sap khac (ipNet/barTotal) SO TO van la TONG NOP (fmtTr(bar.total)) — giu nguyen 100%')
+assert.ok(doiNgu.includes('fmtTr(bar.total)'), 'DoiNgu: che do barTotal SO TO van la TONG NOP (fmtTr(bar.total)) — giu nguyen cach tinh')
+assert.ok(doiNgu.includes('fmtTr(issuedOf(a))'), 'DoiNgu: che do ipNet SO TO phai la issuedRow qua issuedOf(a) (dot sua 10/11/2026)')
+assert.ok(doiNgu.includes("sortKey === 'ipNet'"), "DoiNgu: khoi so to phai re nhanh rieng cho sortKey === 'ipNet'")
+assert.ok(doiNgu.includes('IP phát hành · {fmtCaseSub(a.caseSub)} hồ sơ'), 'DoiNgu: che do ipNet -> dong phu ghi "IP phát hành · N hồ sơ"')
+assert.ok(doiNgu.includes('Tổng nộp · {fmtCaseSub(a.caseSub)} hồ sơ'), 'DoiNgu: che do barTotal -> dong phu ghi "Tổng nộp · N hồ sơ"')
+assert.ok(team.includes('ipNet: (a) => issuedOf(a)'), 'team.js: RANK_KEYS.ipNet phai xep theo issuedOf (issuedRow) de thu tu khop so to')
+assert.ok(team.includes('export function issuedOf'), 'team.js: phai co helper issuedOf (issuedRow, fallback ipNet)')
 assert.ok(!doiNgu.includes('FYC tháng: {a.fyc < FYC_FLOOR'), 'DoiNgu: KHONG con dong chip trung so "FYC tháng: X tr" (so to da la FYC)')
-console.log('Hang Bang Vang: che do FYC -> so to = FYC thang + dong phu "FYC tháng · N HS"; che do khac -> so to = tong nop nhu cu')
+console.log('Hang Bang Vang: FYC -> so to = FYC thang; ipNet -> so to = issuedRow (IP phat hanh theo dong); barTotal -> so to = tong nop')
 // Moc canh bao FYC toi thieu: chip chi con nhanh canh bao thieu (Lan chot 09/11/2026)
 assert.ok(team.includes('export const FYC_FLOOR = 5'), 'team.js: phai co hang FYC_FLOOR = 5 (moc FYC thang toi thieu, trieu dong)')
 assert.ok(doiNgu.includes('FYC_FLOOR'), 'DoiNgu: phai dung hang FYC_FLOOR tu lib/team')

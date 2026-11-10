@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs'
 import assert from 'node:assert'
 import { parseWorkbook } from '../src/lib/parseDaily.js'
 import { buildCases } from '../src/lib/cases.js'
-import { buildTeam, flattenAgents, rankAgents, filterLeaderUnits, MOC_TARGET, ACTIVE_IP_TARGET, FYC_FLOOR } from '../src/lib/team.js'
+import { buildTeam, flattenAgents, rankAgents, filterLeaderUnits, issuedOf, MOC_TARGET, ACTIVE_IP_TARGET, FYC_FLOOR } from '../src/lib/team.js'
 
 const path = process.env.HOME + '/workspace/user/files/Daily_Sales_25.10.xlsx'
 const wb = XLSX.read(readFileSync(path), { type: 'buffer', cellDates: false })
@@ -104,21 +104,51 @@ assert.ok(Math.abs(t.fyc - directFyc) < 1e-6, 'Tong FYC phai = tong FYC sheet Ag
 // agentView phai co cac chi so tham khao + bar (groupValue) + pendingCases.
 const r1t = (x) => Math.round(x * 10) / 10
 assert.ok(flat.every((a) => typeof a.fypYtd === 'number' && typeof a.fycQtd === 'number' && typeof a.fycL12m === 'number'
-  && typeof a.ipSub === 'number' && typeof a.ipNet === 'number' && typeof a.caseSub === 'number'
+  && typeof a.ipSub === 'number' && typeof a.ipNet === 'number' && typeof a.issuedRow === 'number' && typeof a.caseSub === 'number'
   && (a.tldtptt === null || typeof a.tldtptt === 'number')
   && a.bar && typeof a.bar.issued === 'number' && typeof a.bar.pending === 'number'
   && typeof a.bar.pipeline === 'number' && Array.isArray(a.pendingCases)),
-'agentView phai co fypYtd/fycQtd/fycL12m/tldtptt/ipSub/ipNet/caseSub + bar + pendingCases')
+'agentView phai co fypYtd/fycQtd/fycL12m/tldtptt/ipSub/ipNet/issuedRow/caseSub + bar + pendingCases')
 assert.ok(flat.every((a) => Math.abs(a.bar.total - (a.bar.issued + a.bar.pending + a.bar.pipeline)) < 1e-9), 'bar.total phai = issued + pending + pipeline cua tung TVV')
 
-// rankAgents mac dinh (ipNet): phan tu dau phai la TVV co ipNet lon nhat,
-// doi chieu truc tiep tu data.agents.
+// ── issuedRow (dot sua 10/11/2026): tong ipNet cac dong IF trong
+// Proposal dem THEO DONG theo tung MSDL — tinh DOC LAP tu sheet
+// Proposal THO (khong qua parseDaily/buildTeam): loc dong hop le
+// (Yearmonth so 6 chu so + co AGCode, cung quy tac cua parser),
+// PolicyStatus chuan hoa = 'IF', cong cot 'IP Net' theo AGCode.
+const rawPropRows = XLSX.utils.sheet_to_json(wb.Sheets['Proposal'], { defval: null, raw: true })
+const issuedRawByMsdl = new Map()
+for (const r of rawPropRows) {
+  const ym = Number(r['Yearmonth'])
+  if (!(ym > 200000 && ym < 300000) || !r['AGCode']) continue
+  if (String(r['PolicyStatus'] || '').trim().toUpperCase() !== 'IF') continue
+  const k = String(r['AGCode'])
+  issuedRawByMsdl.set(k, (issuedRawByMsdl.get(k) || 0) + (Number(r['IP Net']) || 0))
+}
+const issuedRawTotal = [...issuedRawByMsdl.values()].reduce((s, v) => s + v, 0)
+assert.ok(flat.every((a) => Math.abs(a.issuedRow - (issuedRawByMsdl.get(a.msdl) || 0)) < 1e-6), 'issuedRow cua MOI agentView phai khop tong ipNet dong IF tinh doc lap tu sheet Proposal tho')
+const trang2510 = flat.find((a) => a.msdl === '60556971')
+assert.strictEqual(r1t(trang2510.issuedRow), 409.2, `issuedRow 25.10 cua PHAM THI MY TRANG phai = 409,2 tr (thuc te ${r1t(trang2510.issuedRow)})`)
+assert.strictEqual(r1t(flat.reduce((s, a) => s + a.issuedRow, 0)), r1t(issuedRawTotal), 'Tong issuedRow toan GA phai = tong ipNet dong IF tinh doc lap')
+assert.strictEqual(r1t(issuedRawTotal), 1695, `Tong phat hanh theo DONG file 25.10 phai = 1.695 tr (thuc te ${r1t(issuedRawTotal)})`)
+console.log(`issuedRow 25.10: khop tinh doc lap tu sheet Proposal tho · Trang = ${r1t(trang2510.issuedRow)} tr · tong GA = ${r1t(issuedRawTotal)} tr`)
+// issuedOf: co issuedRow thi dung issuedRow; issuedRow null (snapshot
+// cu thieu proposalRows) -> fallback ipNet sheet Agent.
+assert.strictEqual(issuedOf({ issuedRow: 12.5, ipNet: 99 }), 12.5, 'issuedOf: co issuedRow -> dung issuedRow')
+assert.strictEqual(issuedOf({ issuedRow: null, ipNet: 99 }), 99, 'issuedOf: issuedRow null -> fallback ipNet')
+assert.strictEqual(issuedOf({ ipNet: 99 }), 99, 'issuedOf: thieu issuedRow -> fallback ipNet')
+assert.strictEqual(issuedOf(null), 0, 'issuedOf: agent null -> 0')
+
+// rankAgents mac dinh ('ipNet'): tu dot sua 10/11/2026 xep theo
+// issuedRow (IP phat hanh dem theo dong) — KHONG con theo ipNet sheet
+// Agent — de SO TO o Bang Vang (issuedRow) giam dan dung theo hang.
 const rankedDefault = rankAgents(team)
-const maxIpNet = Math.max(...agentsArr.map((a) => Number(a.ipNet) || 0))
-console.log(`\nrankAgents('ipNet'): dau bang = ${rankedDefault[0].agName} (${rankedDefault[0].unit}) ipNet = ${r1t(rankedDefault[0].ipNet)} tr · max ipNet dem truc tiep tu sheet Agent = ${r1t(maxIpNet)} tr`)
+const maxIssued = Math.max(...flat.map((a) => a.issuedRow))
+console.log(`\nrankAgents('ipNet'): dau bang = ${rankedDefault[0].agName} (${rankedDefault[0].unit}) issuedRow = ${r1t(rankedDefault[0].issuedRow)} tr · max issuedRow tinh doc lap = ${r1t(Math.max(...issuedRawByMsdl.values()))} tr`)
 assert.strictEqual(rankedDefault.length, 547, 'rankAgents phai tra du 547 TVV')
-assert.ok(Math.abs(rankedDefault[0].ipNet - maxIpNet) < 1e-9, 'Phan tu dau rankAgents mac dinh phai co ipNet = max ipNet cua data.agents')
-assert.ok(rankedDefault.every((a, i) => i === 0 || rankedDefault[i - 1].ipNet >= a.ipNet - 1e-9), 'rankAgents ipNet phai giam dan')
+assert.strictEqual(rankedDefault[0].msdl, '60556971', "rankAgents('ipNet') 25.10: hang 1 phai la PHAM THI MY TRANG")
+assert.ok(Math.abs(rankedDefault[0].issuedRow - maxIssued) < 1e-9, 'Phan tu dau rankAgents mac dinh phai co issuedRow lon nhat')
+assert.ok(rankedDefault.every((a, i) => i === 0 || issuedOf(rankedDefault[i - 1]) >= issuedOf(a) - 1e-9), 'rankAgents ipNet phai giam dan theo issuedRow (issuedOf)')
 const rankedBar = rankAgents(team, 'barTotal')
 assert.ok(rankedBar.every((a, i) => i === 0 || rankedBar[i - 1].bar.total >= a.bar.total - 1e-9), 'rankAgents barTotal phai giam dan theo bar.total')
 const rankedFyp = rankAgents(team, 'fyp')
@@ -240,6 +270,34 @@ for (const a of tuqInact) {
 const tuqAct = tuq811.agents.filter((a) => a.isAct)
 assert.strictEqual(tuqAct.length, 1, 'TUQ (8.11): nhom Dang Active phai co 1 TVV')
 console.log(`TUQ (8.11): ${tuq811.agentCount} TVV · Active ${tuqAct.length} · Chua Active ${tuqInact.length} (ca 3 ipNet=0 -> thieu 15tr/nguoi)`)
+
+// ── issuedRow file 8.11 (dot sua 10/11/2026): tinh DOC LAP tu sheet
+// Proposal tho cua file 8.11 (cung quy tac loc nhu khoi 25.10 o tren).
+const rawProp811 = XLSX.utils.sheet_to_json(wb811.Sheets['Proposal'], { defval: null, raw: true })
+const issuedRaw811 = new Map()
+for (const r of rawProp811) {
+  const ym = Number(r['Yearmonth'])
+  if (!(ym > 200000 && ym < 300000) || !r['AGCode']) continue
+  if (String(r['PolicyStatus'] || '').trim().toUpperCase() !== 'IF') continue
+  const k = String(r['AGCode'])
+  issuedRaw811.set(k, (issuedRaw811.get(k) || 0) + (Number(r['IP Net']) || 0))
+}
+const flat811 = flattenAgents(team811)
+assert.ok(flat811.every((a) => Math.abs(a.issuedRow - (issuedRaw811.get(a.msdl) || 0)) < 1e-6), 'issuedRow 8.11 cua MOI agentView phai khop tinh doc lap tu sheet Proposal tho')
+const trang811 = flat811.find((a) => a.msdl === '60556971')
+assert.strictEqual(r1t(trang811.issuedRow), 165.7, `issuedRow 8.11 cua PHAM THI MY TRANG phai = 165,7 tr (thuc te ${r1t(trang811.issuedRow)})`)
+assert.strictEqual(r1t(flat811.reduce((s, a) => s + a.issuedRow, 0)), 735.8, 'Tong issuedRow toan GA 8.11 phai = 735,8 tr (khop phatHanh.ip cua homeKpi)')
+const byIssued811 = rankAgents(team811, 'ipNet')
+assert.strictEqual(byIssued811[0].msdl, '60556971', "rankAgents('ipNet') 8.11: hang 1 phai la PHAM THI MY TRANG")
+assert.strictEqual(r1t(issuedOf(byIssued811[0])), 165.7, "rankAgents('ipNet') 8.11: SO TO hang 1 (issuedOf) phai = 165,7 tr")
+assert.ok(byIssued811.every((a, i) => i === 0 || issuedOf(byIssued811[i - 1]) >= issuedOf(a) - 1e-9), "rankAgents('ipNet') 8.11 phai giam dan theo issuedRow")
+// Nhan thieu moc Active o chi tiet Unit nay tinh theo issuedOf: ca 3
+// TVV Chua Active cua TUQ co issuedRow = 0 nen so thieu van = 15tr.
+for (const a of tuqInact) {
+  assert.strictEqual(a.issuedRow, 0, `TUQ (8.11) ${a.msdl}: issuedRow phai = 0`)
+  assert.strictEqual(ACTIVE_IP_TARGET - issuedOf(a), 15, `TUQ (8.11) ${a.msdl}: thieu theo issuedOf phai = 15`)
+}
+console.log(`issuedRow 8.11: Trang = ${r1t(trang811.issuedRow)} tr · tong GA = ${r1t(flat811.reduce((s, a) => s + a.issuedRow, 0))} tr · TUQ Chua Active issuedRow = 0 (thieu 15tr theo issuedOf)`)
 
 console.log('Top Unit theo luot Act:', [...team.units].sort((x, y) => y.actCount - x.actCount).slice(0, 3).map((u) => `${u.unit}:${u.actCount}/${MOC_TARGET}`).join(' · '))
 console.log(`TVV chua co ho so (nop=0): ${flat.filter((a) => a.nop === 0).length}`)

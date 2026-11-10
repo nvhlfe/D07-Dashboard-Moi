@@ -49,7 +49,8 @@ const num = (v) => {
  *             fyp, fyc, actCount, actNeed, actEnough, agents: [agentView] }],
  *   totals: { unitCount, agentCount, actAgents, unitsEnough, fyp, fyc } }
  * agentView: { msdl, agName, unit, agSeg, level, fyp, fyc, nop, ph, pend,
- *              isAct, caseNet, fypYtd, fycQtd, fycL12m, tldtptt, ipSub, ipNet, caseSub,
+ *              isAct, caseNet, fypYtd, fycQtd, fycL12m, tldtptt, ipSub, ipNet,
+ *              issuedRow, caseSub,
  *              bar: { issued, pending, pipeline, total } (groupValue),
  *              pendingCases: [{ policyNum, proposalNum, product,
  *              proposalDate, ageDays, ageBucket, pendingReasons, value }] }
@@ -92,6 +93,25 @@ export function buildTeam(snapshot, cases) {
     cur.bar.total = cur.bar.issued + cur.bar.pending + cur.bar.pipeline
     // Pending cho lau nhat len truoc — can xu ly truoc
     cur.pendingCases.sort((x, y) => (y.ageDays ?? -1) - (x.ageDays ?? -1))
+  }
+
+  // issuedRow: tong ipNet cac dong Proposal trang thai IF cua tung TVV,
+  // dem THEO DONG nhu cong ty ghi — CUNG dinh nghia PHAT HANH cua
+  // homeKpi o Trang Chu (chuan B). Day la so "IP phat hanh" ma Bang
+  // Vang xep hang (RANK_KEYS.ipNet) va hien SO TO o che do 'ipNet'
+  // (dot sua 10/11/2026 — Lan phan hoi: hang sap theo IP phat hanh
+  // nhung so to lai la tong nop nen day so khong giam dan).
+  // Snapshot CU khong co field proposalRows -> issuedRow = null de
+  // issuedOf()/RANK_KEYS fallback ve ipNet (sheet Agent), khong vo bang.
+  const hasProposalRows = Array.isArray(data.proposalRows)
+  const issuedByMsdl = new Map()
+  if (hasProposalRows) {
+    for (const r of data.proposalRows) {
+      if (!r || r.statusGroup !== 'IF') continue
+      const key = String(r.msdl || '')
+      if (!key) continue
+      issuedByMsdl.set(key, (issuedByMsdl.get(key) || 0) + num(r.ipNet))
+    }
   }
 
   const unitMap = new Map()
@@ -142,6 +162,9 @@ export function buildTeam(snapshot, cases) {
       tldtptt: a.tldtptt === null || a.tldtptt === undefined ? null : num(a.tldtptt),
       ipSub: num(a.ipSub),
       ipNet: num(a.ipNet),
+      // Tong ipNet dong IF Proposal cua TVV (dem theo dong); null khi
+      // snapshot khong co proposalRows (xem khoi tinh o tren).
+      issuedRow: hasProposalRows ? (issuedByMsdl.get(msdl) || 0) : null,
       caseSub: num(a.caseSub),
       // caseNet tho: chi tiet Unit (DoiNgu) hien so nay tung TVV lam can
       // cu Active (isAct o duoi tinh tu caseNet/actCase nhu toan app).
@@ -208,8 +231,20 @@ export function flattenAgents(team) {
   return out
 }
 
+/**
+ * IP phat hanh DUNG CHUNG cho toan Tinh Anh (xep hang + so to + luoi
+ * chi so + nhan moc Active): issuedRow — tong ipNet cac dong IF trong
+ * Proposal dem theo dong, CUNG dinh nghia phat hanh cua Trang Chu
+ * (homeKpi). issuedRow = null (snapshot cu thieu proposalRows) thi
+ * fallback ipNet cua sheet Agent de khong vo bang xep hang.
+ */
+export function issuedOf(a) {
+  if (!a) return 0
+  return a.issuedRow === null || a.issuedRow === undefined ? num(a.ipNet) : num(a.issuedRow)
+}
+
 const RANK_KEYS = {
-  ipNet: (a) => num(a.ipNet), // IP phat hanh (mac dinh, nhu bang chi so D03)
+  ipNet: (a) => issuedOf(a), // IP phat hanh = issuedRow (dong IF Proposal, dem theo dong); fallback ipNet khi snapshot cu thieu proposalRows
   barTotal: (a) => num(a.bar && a.bar.total), // tong nop theo groupValue
   fyp: (a) => num(a.fyp), // FYP thang (giu cho tuong thich nguoc)
   fyc: (a) => num(a.fyc), // FYC thang (chip sap xep Bang Vang — Lan chot 09/11/2026: cap TVV dung FYC thang thay FYP thang)

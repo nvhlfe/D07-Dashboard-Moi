@@ -52,7 +52,22 @@
 // phai PHAI LA FYC thang (to num-fyc khi dat moc FYC_FLOOR = 5tr, to
 // num-short khi duoi moc), dong phu ghi "FYC thang · N HS", chip
 // duoi chi con canh bao "Thieu ... tr (moc 5tr FYC)" khi duoi moc.
-// Che do sap khac (ipNet/barTotal) giu nguyen 100%: so to = tong nop.
+// Che do sap khac (ipNet/barTotal) khi do giu so to = tong nop.
+// DOT SUA 10/11/2026 (Lan phan hoi ban live 38f86c07: o che do "IP
+// phat hanh" hang sap theo IP nhung SO TO lai la tong nop — vd My
+// Trang tong nop 370 trong khi IP phat hanh 210,3 — nen day so to
+// khong giam dan, nhin lon xon): Lan chot nguyen tac SO TO = DUNG
+// tieu chi dang sap xep. Doi lai: 'fyc' -> FYC thang (giu nguyen);
+// 'ipNet' -> issuedRow (tong ipNet cac dong IF trong Proposal, dem
+// theo dong — CUNG dinh nghia phat hanh cua homeKpi o Trang Chu),
+// dong phu "IP phat hanh · N ho so", so to to mau num-issued;
+// 'barTotal' -> tong nop bar.total (giu nguyen cach tinh), dong phu
+// "Tong nop · N ho so". RANK_KEYS.ipNet (lib/team.js) cung doi sang
+// issuedRow (fallback ipNet khi snapshot cu thieu proposalRows) de
+// thu tu khop tuyet doi voi so to. Toan Tinh Anh dung chung
+// issuedOf(): luoi chi so khi mo chi tiet TVV, dong TVV trong chi
+// tiet Unit, nhan thieu toi moc Active 15tr va mini-stat "Tong IP
+// phat hanh" deu tinh theo issuedRow — MOT chuan IP phat hanh.
 // Cung dot: lam dep giao dien HE THONG bang CSS (the gradient nhe +
 // bong mem 2 lop, hang top 3 nen nhan + avatar ring gradient, chip
 // pill gradient navy, KPI/mini-stat co dai nhan mau theo ngu nghia,
@@ -60,7 +75,7 @@
 // ─────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { buildCases } from '../lib/cases'
-import { buildTeam, rankAgents, flattenAgents, filterLeaderUnits, ACTIVE_IP_TARGET, FYC_FLOOR } from '../lib/team'
+import { buildTeam, rankAgents, flattenAgents, filterLeaderUnits, issuedOf, ACTIVE_IP_TARGET, FYC_FLOOR } from '../lib/team'
 import { maskSensitive, analyzeSoSanLuong } from '../lib/analyze'
 import { buildAttentionList } from '../lib/attention'
 import { agentBadges, submissionDaysByAgent, topMsdlSet, progressRank } from '../lib/badges'
@@ -351,7 +366,9 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
     .filter(({ a }) => a.bar.total > 0 || a.fyp > 0)
   const hiddenCount = ranked.length - listed.length
 
-  const totalIpNet = ranked.reduce((s, a) => s + a.ipNet, 0)
+  // Tong IP phat hanh toan GA theo issuedRow (dong IF Proposal) —
+  // khop tong phatHanh.ip cua homeKpi o Trang Chu (cung 1 chuan).
+  const totalIssued = ranked.reduce((s, a) => s + issuedOf(a), 0)
   const pendCount = ranked.reduce((s, a) => s + a.pendingCases.length, 0)
   const pendValue = ranked.reduce((s, a) => s + a.bar.pending, 0)
 
@@ -487,10 +504,15 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
                 <span className={`bv-total-num ${a.fyc < FYC_FLOOR ? 'num-short' : 'num-fyc'}`}>{fmtTr(a.fyc)}</span>
                 <span className="bv-total-sub">FYC tháng · {fmtCaseSub(a.caseSub)} HS</span>
               </>
+            ) : sortKey === 'ipNet' ? (
+              <>
+                <span className="bv-total-num num-issued">{fmtTr(issuedOf(a))}</span>
+                <span className="bv-total-sub">IP phát hành · {fmtCaseSub(a.caseSub)} hồ sơ</span>
+              </>
             ) : (
               <>
                 <span className="bv-total-num">{fmtTr(bar.total)}</span>
-                <span className="bv-total-sub">{fmtCaseSub(a.caseSub)} HS</span>
+                <span className="bv-total-sub">Tổng nộp · {fmtCaseSub(a.caseSub)} hồ sơ</span>
               </>
             )}
           </span>
@@ -504,7 +526,7 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
               <div className="bv-ref"><span>FYC tháng</span><b className="num-fyc">{fmtTr(a.fyc)} tr</b></div>
               <div className="bv-ref"><span>FYC 12 tháng</span><b className="num-fyc">{fmtTr(a.fycL12m)} tr</b></div>
               <div className="bv-ref"><span>IP nộp</span><b>{fmtTr(a.ipSub)} tr</b></div>
-              <div className="bv-ref"><span>IP phát hành</span><b className="num-issued">{fmtTr(a.ipNet)} tr</b></div>
+              <div className="bv-ref"><span>IP phát hành</span><b className="num-issued">{fmtTr(issuedOf(a))} tr</b></div>
               <div className="bv-ref"><span>TLDTPTT</span><b>{a.tldtptt === null ? '—' : fmtPct(a.tldtptt)}</b></div>
               <div className="bv-ref"><span>MSĐL · Unit</span><b>{a.msdl} · {a.unit || '—'}</b></div>
             </div>
@@ -546,10 +568,12 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
   // dung chung toan app, xem lib/team.js).
   // Rieng nhom CHUA Active (inactive = true): them nhan theo moc
   // ACTIVE_IP_TARGET (15tr IP phat hanh — Lan chot 09/11/2026): con
-  // thieu bao nhieu IP nua, hoac "Da dat moc" neu ipNet da >= 15 du
-  // van nam nhom Chua Active (nhom chia theo Case Net, khong doi).
+  // thieu bao nhieu IP nua, hoac "Da dat moc" neu IP phat hanh da
+  // >= 15 du van nam nhom Chua Active (nhom chia theo Case Net,
+  // khong doi). IP phat hanh o day = issuedOf(a) (issuedRow — dong
+  // IF Proposal) nhu toan Tinh Anh tu dot sua 10/11/2026.
   const renderUnitMember = (a, inactive = false) => {
-    const ipGap = ACTIVE_IP_TARGET - (Number(a.ipNet) || 0)
+    const ipGap = ACTIVE_IP_TARGET - issuedOf(a)
     return (
     <div className="tvv-row" key={a.msdl}>
       <span className={`bv-avatar unit-av ${AVATAR_CLASS[segKey(a.agSeg)]}`}>
@@ -563,7 +587,7 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
           {a.agSeg ? <span className="seg-chip">{a.agSeg}</span> : null}
         </span>
         <span className="tvv-nums">
-          MSĐL {a.msdl} · FYC <b className="num-fyc">{fmtTr(a.fyc)}</b> tr · Case Net {fmtInt(a.caseNet)} · IP phát hành <b className="num-issued">{fmtTr(a.ipNet)}</b> tr
+          MSĐL {a.msdl} · FYC <b className="num-fyc">{fmtTr(a.fyc)}</b> tr · Case Net {fmtInt(a.caseNet)} · IP phát hành <b className="num-issued">{fmtTr(issuedOf(a))}</b> tr
         </span>
         {inactive ? (
           ipGap > 0 ? (
@@ -787,7 +811,7 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
         <h2>🌟 Tinh Anh — tháng {month}/{year}</h2>
         <div className="mini-stats" style={{ marginBottom: 0 }}>
           <div className="mini-stat"><div className="ms-num">{fmtInt(listed.length)}</div><div className="ms-label">TVV có số liệu tháng</div></div>
-          <div className="mini-stat"><div className="ms-num num-issued">{fmtTr(totalIpNet)}</div><div className="ms-label">Tổng IP phát hành (tr)</div></div>
+          <div className="mini-stat"><div className="ms-num num-issued">{fmtTr(totalIssued)}</div><div className="ms-label">Tổng IP phát hành (tr)</div></div>
           <div className="mini-stat"><div className="ms-num">{fmtInt(pendCount)}</div><div className="ms-label">Hồ sơ pending · {fmtTr(pendValue)} tr</div></div>
         </div>
       </div>

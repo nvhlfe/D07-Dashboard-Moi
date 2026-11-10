@@ -3,7 +3,10 @@
 //    homeKpi (so neo doc lap o test-homekpi) + top phat hanh + dem
 //    TVV hoat dong tinh doc lap trong test tu agents tho.
 //  - lib/shareCard.boardCardData: thu tu/msdl KHOP rankAgents cua
-//    lib/team tren cung team; che do fyc -> so to = FYC thang.
+//    lib/team tren cung team; so to theo che do (nguyen tac SO TO =
+//    tieu chi dang sap, Lan chot 10/11/2026): fyc -> FYC thang;
+//    ipNet -> issuedRow (IP phat hanh dem theo dong); barTotal ->
+//    tong nop bar.total.
 //  - Component: ShareCard.jsx co DailyShareCard/BoardShareCard/
 //    captureShareCard; HomNay co nut "Tao anh ban tin"; DoiNgu co
 //    nut "Tao anh Bang Vang" (node khong render html2canvas duoc
@@ -15,7 +18,7 @@ import { readFileSync } from 'node:fs'
 import assert from 'node:assert'
 import { parseWorkbook } from '../src/lib/parseDaily.js'
 import { buildCases } from '../src/lib/cases.js'
-import { buildTeam, rankAgents } from '../src/lib/team.js'
+import { buildTeam, rankAgents, issuedOf } from '../src/lib/team.js'
 import { dailyCardData, boardCardData, initialsOf, fmtDateVN } from '../src/lib/shareCard.js'
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0)
@@ -67,8 +70,19 @@ const snap = loadSnap(process.env.HOME + '/workspace/user/files/Daily_Sales_8.11
   b.rows.forEach((r, i) => {
     assert.strictEqual(r.rank, i + 1, 'boardCardData: rank lien tuc tu 1')
     assert.strictEqual(r.msdl, listedRanked[i].msdl, `boardCardData: hang ${i + 1} dung TVV theo rankAgents`)
-    assert.ok(Math.abs(r.big - num(listedRanked[i].bar.total)) < 1e-6, `boardCardData: hang ${i + 1} so to = bar.total (che do ipNet)`)
+    assert.ok(Math.abs(r.big - issuedOf(listedRanked[i])) < 1e-6, `boardCardData: hang ${i + 1} so to = issuedRow (che do ipNet — doi tu bar.total theo chot 10/11/2026)`)
+    assert.strictEqual(r.bigLabel, 'IP phát hành', 'boardCardData: che do ipNet -> bigLabel "IP phát hành"')
     assert.strictEqual(r.bigIsFyc, false, 'boardCardData: che do ipNet -> bigIsFyc false')
+  })
+  assert.strictEqual(R1(b.rows[0].big), 165.7, `boardCardData: so to hang 1 che do ipNet = issuedRow cua Trang 165,7 (thuc te ${R1(b.rows[0].big)})`)
+  // Che do barTotal: so to van = tong nop bar.total nhu man hinh
+  const listedBar = rankAgents(team, 'barTotal').filter((a) => a.bar.total > 0 || num(a.fyp) > 0)
+  const bb = boardCardData(team, 'barTotal', 10)
+  assert.strictEqual(bb.modeLabel, 'Tổng nộp', "boardCardData: modeLabel cua barTotal")
+  bb.rows.forEach((r, i) => {
+    assert.strictEqual(r.msdl, listedBar[i].msdl, `boardCardData: hang ${i + 1} dung TVV theo rankAgents barTotal`)
+    assert.ok(Math.abs(r.big - num(listedBar[i].bar.total)) < 1e-6, `boardCardData: hang ${i + 1} so to = bar.total (che do barTotal)`)
+    assert.strictEqual(r.bigLabel, 'Tổng nộp', 'boardCardData: che do barTotal -> bigLabel "Tổng nộp"')
   })
   const bf = boardCardData(team, 'fyc', 10)
   assert.strictEqual(bf.modeLabel, 'FYC tháng', "boardCardData: modeLabel cua fyc")

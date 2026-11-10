@@ -10,7 +10,7 @@
 // Don vi tien: trieu dong (nhu du lieu Daily).
 // ─────────────────────────────────────────────────────────────
 import { homeKpi, topIssuedByRow } from './homeKpi.js'
-import { rankAgents } from './team.js'
+import { rankAgents, issuedOf } from './team.js'
 
 const num = (v) => {
   const n = Number(v)
@@ -84,10 +84,12 @@ export const BOARD_MODE_LABELS = {
  * Du lieu anh BANG VANG tu team (buildTeam) theo che do sap xep dang
  * chon. Cung tap TVV "co so lieu thang" nhu DoiNgu dang hien thi
  * (bar.total > 0 hoac fyp > 0), cat Top `limit`.
- * So TO cua moi hang KHOP hang Bang Vang tren man hinh: che do 'fyc'
- * -> FYC thang (kem so thieu toi moc FYC_FLOOR khi duoi moc, truyen
- * qua fycFloor); cac che do con lai -> tong gia tri thanh xep chong
- * (bar.total). bigLabel ghi RO che do dang xep de anh tu giai thich.
+ * So TO cua moi hang KHOP hang Bang Vang tren man hinh theo nguyen
+ * tac SO TO = tieu chi dang sap xep (Lan chot 10/11/2026): 'fyc' ->
+ * FYC thang (kem so thieu toi moc FYC_FLOOR khi duoi moc, truyen qua
+ * fycFloor); 'ipNet' -> issuedRow (IP phat hanh dem theo dong IF cua
+ * Proposal — issuedOf); 'barTotal' -> tong nop (bar.total). bigLabel
+ * cua tung hang = nhan che do (modeLabel) de anh tu giai thich.
  */
 export function boardCardData(team, sortKey = 'ipNet', limit = 10, fycFloor = 5) {
   const ranked = rankAgents(team, sortKey)
@@ -102,7 +104,8 @@ export function boardCardData(team, sortKey = 'ipNet', limit = 10, fycFloor = 5)
       unit: a.unit || '',
       agSeg: a.agSeg || '',
       initials: initialsOf(a.agName),
-      big: isFyc ? fyc : num(a.bar && a.bar.total),
+      big: isFyc ? fyc : sortKey === 'ipNet' ? issuedOf(a) : num(a.bar && a.bar.total),
+      bigLabel: BOARD_MODE_LABELS[sortKey] || BOARD_MODE_LABELS.ipNet,
       bigIsFyc: isFyc,
       fycShort: isFyc && fyc < fycFloor ? fycFloor - fyc : null,
       caseSub: num(a.caseSub),
