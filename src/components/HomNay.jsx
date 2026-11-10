@@ -13,9 +13,8 @@ import { analyzeSoSanLuong } from '../lib/analyze'
 import { homeKpi, topIssuedByRow } from '../lib/homeKpi'
 import { buildCases } from '../lib/cases'
 import { dailyStacks, buildYearJourney } from '../lib/journey'
-import { pacePoints, paceStatus } from '../lib/pace'
 import { dailyCardData } from '../lib/shareCard'
-import { DailyStackChart, YearJourneyChart, PaceChart } from './Charts'
+import { DailyStackChart, YearJourneyChart } from './Charts'
 import { DailyShareCard, SharePreviewModal, captureShareCard } from './ShareCard'
 import { QUOTES, quoteIndexForDate } from '../lib/quotes'
 import { getTarget } from '../lib/store'
@@ -87,12 +86,9 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
     const journey = buildYearJourney(snaps, year)
     const pendingOld = (analysis.pendingAll || []).filter((c) => (c.ageDays ?? 0) > 7)
     const tvvActive = agentsList.filter((a) => (Number(a.fyp) || 0) > 0 || (a.cIF || 0) + (a.cPS || 0) + (a.cOther || 0) > 0).length
-    // Diem nhip do ve dich: moi snapshot cua thang la 1 diem FYP luy ke
-    const pace = pacePoints(snaps, year, month)
     return {
       year, month, daysInMonth, analysis, kpi, issRate,
       fypTotal, top, stacks, journey, pendingOld, tvvActive, tvvTotal: agentsList.length,
-      pace,
       agentsObj,
       snapDay: Number(newest.id.split('-')[2]),
     }
@@ -124,13 +120,12 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
     )
   }
 
-  const { year, month, daysInMonth, analysis, kpi, issRate, fypTotal, top, stacks, journey, pendingOld, pace } = view
+  const { year, month, daysInMonth, analysis, kpi, issRate, fypTotal, top, stacks, journey, pendingOld } = view
   const target = getTarget(year, month)
 
   // ── Anh ban tin ngay: du lieu tu lib/shareCard (CUNG ham homeKpi/
   // topIssuedByRow voi man hinh nen so tren anh khop so dang xem) ──
   const cardData = dailyCardData(newest, target)
-  const paceStat = paceStatus(pace, target, daysInMonth)
   const handleShareDaily = async () => {
     if (shareBusy) return
     setShareErr('')
@@ -280,28 +275,6 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
           </div>
         )}
         <div className="muted" style={{ marginTop: 4 }}>{view.tvvActive}/{view.tvvTotal} TVV có số trong tháng</div>
-
-        {/* ── Nhip do ve dich (pace): duong FYP luy ke thuc te theo
-            ngay (moi snapshot cua thang la 1 diem) + duong nhip can
-            thiet thang toi muc tieu. Thuan hien thi (lib/pace). ── */}
-        <div className="pace-wrap">
-          <div className="pace-title">🏃 Nhịp độ về đích</div>
-          <PaceChart points={pace} target={target} daysInMonth={daysInMonth} />
-          <div className="pace-legend">
-            <span><span className="pace-key pace-key-actual" />FYP thực tế lũy kế</span>
-            {target !== null ? <span><span className="pace-key pace-key-need" />Nhịp cần thiết tới mục tiêu</span> : null}
-          </div>
-          {target === null ? (
-            <div className="muted" style={{ marginTop: 2 }}>Chưa đặt mục tiêu tháng — đặt ở tab Nạp để xem nhịp cần thiết.</div>
-          ) : paceStat === 'ahead' ? (
-            <div className="pace-note num-active">🎉 Đang nhanh hơn nhịp cần thiết.</div>
-          ) : paceStat === 'behind' ? (
-            <div className="pace-note num-short">⚠️ Đang chậm hơn nhịp cần thiết — cần tăng tốc.</div>
-          ) : null}
-          {pace.length === 1 ? (
-            <div className="muted" style={{ marginTop: 2 }}>Mới có dữ liệu 1 ngày (ngày {pace[0].day}) trong tháng này.</div>
-          ) : null}
-        </div>
 
         {/* ── Tao anh ban tin ngay de gui Zalo (ShareCard) ── */}
         <div className="share-btn-row">

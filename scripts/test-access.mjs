@@ -428,11 +428,11 @@ assert.ok(!html.includes('/icons/') || !/\.png/.test(html), 'index.html: khong c
 }
 console.log('PWA: manifest hop le + icons SVG ton tai that + khong SW o ca src lan public')
 
-// ── Dot 10/11/2026: Can chu y + Huy hieu/Tien bo + Pace (hien dien o UI) ──
-console.log('\n=== tinh nang ⑥⑦⑧ hien dien o UI ===')
+// ── Dot 10/11/2026: Can chu y + Huy hieu/Tien bo (hien dien o UI);
+//    ⑧ Pace DA GO HAN theo chot cua Lan (thay thua) — assert khoa o duoi ──
+console.log('\n=== tinh nang ⑥⑦ hien dien o UI (⑧ Pace da go) ===')
 const attentionSrc = read('../src/lib/attention.js')
 const badgesSrc = read('../src/lib/badges.js')
-const paceSrc = read('../src/lib/pace.js')
 assert.ok(attentionSrc.includes('export function buildAttentionList'), 'lib/attention.js: phai co buildAttentionList')
 assert.ok(doiNgu.includes('buildAttentionList'), 'DoiNgu: phai dung buildAttentionList cho khoi Can chu y')
 assert.ok(doiNgu.includes('Cần chú ý hôm nay'), 'DoiNgu: phai co khoi "Can chu y hom nay"')
@@ -447,10 +447,13 @@ assert.ok(doiNgu.includes('onNeedMonth'), 'DoiNgu: phai nhan onNeedMonth de tai 
 assert.ok(app.includes('onNeedMonth={ensureMonth}'), 'App.jsx: phai truyen onNeedMonth (ensureMonth) xuong cac man can tai lazy thang')
 assert.ok(caNhan.includes('agentBadges'), 'CaNhan: phai liet ke huy hieu cua chinh minh qua agentBadges')
 assert.ok(caNhan.includes('Huy hiệu tháng này'), 'CaNhan: phai co nhan "Huy hieu thang nay" kem chip co chu')
-assert.ok(paceSrc.includes('export function pacePoints') && paceSrc.includes('export function paceNeededAt'), 'lib/pace.js: phai co pacePoints + paceNeededAt')
-assert.ok(homNay.includes('PaceChart'), 'HomNay: khoi Tien do FYP phai co PaceChart')
-assert.ok(homNay.includes('Nhịp độ về đích'), 'HomNay: phai co khoi "Nhip do ve dich"')
-assert.ok(homNay.includes('Nhịp cần thiết'), 'HomNay: pace phai co chu thich duong nhip can thiet')
-console.log('⑥ Can chu y (chi Admin/truong phong — loc o DoiNgu) · ⑦ huy hieu + Tien bo nhat (lazy thang truoc) · ⑧ Pace o Tien do FYP')
+// ⑧ Pace (Nhip do ve dich) — Lan chot GO HAN 10/11/2026: khoa khong cho
+// tai xuat o lib / UI / CSS (theo mau assert khoa khong-service-worker).
+assert.ok(!existsSync(new URL('../src/lib/pace.js', import.meta.url)), 'lib/pace.js: DA GO — file khong duoc ton tai')
+assert.ok(!existsSync(new URL('./test-pace.mjs', import.meta.url)), 'scripts/test-pace.mjs: DA GO — file khong duoc ton tai')
+assert.ok(!homNay.includes('PaceChart') && !homNay.includes('Nhịp độ về đích') && !homNay.includes('lib/pace'), 'HomNay: DA GO pace — khong con PaceChart / khoi "Nhip do ve dich" / import lib/pace')
+assert.ok(!read('../src/components/Charts.jsx').includes('PaceChart'), 'Charts.jsx: DA GO pace — khong con component PaceChart')
+assert.ok(!css.includes('.pace-'), 'index.css: DA GO pace — khong con class .pace-*')
+console.log('⑥ Can chu y (chi Admin/truong phong — loc o DoiNgu) · ⑦ huy hieu + Tien bo nhat (lazy thang truoc) · ⑧ Pace DA GO (khoa khong tai xuat)')
 
 console.log('\n✅ TAT CA ASSERT DAT (test-access)')
