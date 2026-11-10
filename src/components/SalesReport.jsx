@@ -19,10 +19,18 @@
 // ban cu. Chi tiet ho so chi de xem, khong con form chinh tay.
 // Nguon so: snapshot Daily moi nhat cua thang dang chon (cung cach tai
 // cua HomNay: App truyen snaps tu Firestore neu co, khong thi localStorage).
+// DOT CAI TIEN 10/11/2026 (Lan duyet de xuat 1-5): them CHE DO XEM THEO
+// TVV (the TVV: hang PE hien tai, Active, dem ho so theo trang thai, IP
+// phat hanh theo dong) + khoi "DUONG TOI HANG PE" tam tinh theo tieu chi
+// memo (lib/pe.js) + danh sach SAP LEN HANG PE + dai tom tat Active/PE
+// dau trang + chip loc theo hang/Active. Che do Theo ho so giu NGUYEN
+// lam mac dinh.
 // ─────────────────────────────────────────────────────────────
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { analyzeSoSanLuong, maskSensitive, prevYearMonth } from '../lib/analyze'
 import { buildCases, groupValue, summarizeCases, STATUS_LABELS } from '../lib/cases'
+import { issuedOf } from '../lib/team'
+import { peStatus, segToTier, tierById, quarterMonths, activeMonthsInQuarter, nearRankList } from '../lib/pe'
 import { isSuperAdmin } from '../lib/firebaseConfig'
 
 const fmtTr = (n) => {
@@ -45,6 +53,29 @@ const STATUS_FILTERS = [
   { code: 'PIPELINE', label: 'Chưa lên phí' },
   { code: 'OTHER', label: 'Khác' },
 ]
+
+// ── Che do THEO TVV: chip loc theo hang PE HIEN TAI / trang thai Active ──
+const PE_FILTERS = [
+  { code: 'ALL', label: 'Tất cả' },
+  { code: 'diamond', label: '💎 Kim Cương' },
+  { code: 'platinum', label: 'Bạch Kim' },
+  { code: 'gold', label: 'Vàng' },
+  { code: 'none', label: 'Chưa xếp hạng' },
+  { code: 'active', label: '✓ Đã Active' },
+  { code: 'inactive', label: 'Chưa Active' },
+]
+// Avatar + huy hieu theo hang PE hien tai: tai su dung vong avatar cua
+// Bang Vang (.bv-avatar + ring theo phan loai o DoiNgu).
+const TIER_AV_CLASS = { diamond: 'bv-av-dia', platinum: 'bv-av-pla', gold: 'bv-av-gold' }
+const TIER_BADGE_CLASS = { diamond: 'pe-badge-dia', platinum: 'pe-badge-pla', gold: 'pe-badge-gold' }
+
+// Chu cai dau avatar: 2 tu cuoi cua ten (nhu DoiNgu).
+const initials = (name) => {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return '?'
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
+  return (parts[parts.length - 2].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+}
 
 // Gia tri tien tren THE ho so: ipNet chi co nghia voi ho so da phat hanh (IF).
 // PS (pending, da len phi) gia tri nam o ipSub; PIPELINE (chua len phi) nam o
@@ -84,6 +115,15 @@ export default function SalesReport({ snaps, loading, remoteSettled = true, onNe
   const [unitFilter, setUnitFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [expanded, setExpanded] = useState(null)
+  // Che do xem: 'cases' (theo ho so — mac dinh, giu nguyen) / 'agents'
+  // (theo TVV + phan hang PE tam tinh).
+  const [viewMode, setViewMode] = useState('cases')
+  const [peFilter, setPeFilter] = useState('ALL')
+  const [expandedAgent, setExpandedAgent] = useState(null)
+  const [nearOpen, setNearOpen] = useState(false)
+  // Ghi nho cac thang trong quy da xin tai lazy (tranh xin lap) — cho so
+  // thang hoat dong PE (can snapshot cac thang cung quy).
+  const quarterReqRef = useRef(new Set())
   // Tai LAZY theo thang: { ym, phase: 'loading' | 'empty' } cho thang
   // nguoi dung chon ma snaps chua co — App tai doc moi nhat cua thang do
   // (+ thang truoc cho CF) theo yeu cau, khong tai san cac thang khac.
@@ -122,6 +162,23 @@ export default function SalesReport({ snaps, loading, remoteSettled = true, onNe
     })
   }
 
+  // LAZY cac thang con lai trong QUY cua thang dang xem (chi khi vao
+  // che do Theo TVV): so thang hoat dong PE can FYC tung thang trong
+  // quy — dung co che onNeedMonth san co cua App nhu DoiNgu tai thang
+  // truoc. Thang chua co du lieu thi bo qua (UI ghi chu so thang co
+  // du lieu), khong chan che do xem.
+  useEffect(() => {
+    if (viewMode !== 'agents' || !effMonth || !onNeedMonth) return
+    const [y, m] = effMonth.split('-').map(Number)
+    for (const q of quarterMonths(y, m)) {
+      if (q.ym >= effMonth) continue
+      if ((snaps || []).some((s) => s.id && s.id.startsWith(`${q.ym}-`))) continue
+      if (quarterReqRef.current.has(q.ym)) continue
+      quarterReqRef.current.add(q.ym)
+      onNeedMonth(q.ym)
+    }
+  }, [viewMode, effMonth, snaps, onNeedMonth])
+
   const view = useMemo(() => {
     if (!effMonth) return null
     const [year, month] = effMonth.split('-').map(Number)
@@ -146,7 +203,84 @@ export default function SalesReport({ snaps, loading, remoteSettled = true, onNe
       // theo gia tri the ho so (ipSub, khong thi ipNet) de con so co y nghia.
       else gaBar.other += Number(c.ipSub) > 0 ? Number(c.ipSub) : (Number(c.ipNet) || 0)
     }
-    return { year, month, snap, analysis, cases, summary, unitList, gaBar }
+
+    // ── Che do THEO TVV + phan hang PE tam tinh (lib/pe.js) ──
+    // Snapshots cua cac thang trong CUNG QUY tinh den thang dang xem
+    // (cho so thang hoat dong: FYC thang >= 5tr = thang hoat dong).
+    const agentsObj = snap.data?.agents || {}
+    const qElapsed = quarterMonths(year, month).filter((q) => q.ym <= effMonth)
+    const quarterSnaps = (snaps || []).filter((s) => qElapsed.some((q) => s.id.startsWith(`${q.ym}-`)))
+    const monthsWithData = qElapsed.filter((q) => quarterSnaps.some((s) => s.id.startsWith(`${q.ym}-`))).length
+    // Dem ho so theo MSDL tu buildCases — CUNG cach dem cua team.js cho
+    // Bang Vang (nop = ho so co o Proposal; ph/pend/pipe theo trang
+    // thai hieu luc; gia tri pending theo groupValue nhu the ho so).
+    const byMsdl = new Map()
+    for (const c of cases) {
+      const k = String(c.msdl || '')
+      if (!k) continue
+      let g = byMsdl.get(k)
+      if (!g) { g = { nop: 0, ph: 0, pend: 0, pipe: 0, pendApe: 0, agName: '', unit: '' }; byMsdl.set(k, g) }
+      if (!g.agName && c.agName) g.agName = c.agName
+      if (!g.unit && c.unit) g.unit = c.unit
+      if (c.inProposal) g.nop += 1
+      if (c.effectiveStatus === 'IF') g.ph += 1
+      else if (c.effectiveStatus === 'PS') { g.pend += 1; g.pendApe += groupValue(c) }
+      else if (c.effectiveStatus === 'PIPELINE') g.pipe += 1
+    }
+    // IP phat hanh THEO DONG (issuedRow — cung dinh nghia homeKpi /
+    // Bang Vang): tong ipNet cac dong Proposal trang thai IF theo MSDL.
+    const propRows = snap.data?.proposalRows
+    const hasPropRows = Array.isArray(propRows)
+    const issuedByMsdl = new Map()
+    if (hasPropRows) {
+      for (const p of propRows) {
+        if (p.statusGroup !== 'IF') continue
+        const k = String(p.msdl || '')
+        if (k) issuedByMsdl.set(k, (issuedByMsdl.get(k) || 0) + (Number(p.ipNet) || 0))
+      }
+    }
+    const rowMap = new Map()
+    for (const a of Object.values(agentsObj)) {
+      const k = String(a.msdl || '')
+      if (!k) continue
+      rowMap.set(k, {
+        msdl: k, agName: a.agName || '', unit: a.unit || '', agSeg: a.agSeg || '',
+        fyc: Number(a.fyc) || 0, fycL12m: Number(a.fycL12m) || 0,
+        caseNet: Number(a.caseNet) || 0, ipNet: Number(a.ipNet) || 0,
+      })
+    }
+    // TVV chi xuat hien trong ho so (khong co dong o sheet Agent van
+    // liet ke, so PE tam tinh tinh tu fycL12m = 0).
+    for (const [k, g] of byMsdl) {
+      if (!rowMap.has(k)) {
+        rowMap.set(k, { msdl: k, agName: g.agName, unit: g.unit, agSeg: '', fyc: 0, fycL12m: 0, caseNet: 0, ipNet: 0 })
+      }
+    }
+    const agentRows = [...rowMap.values()].map((r) => {
+      const counts = byMsdl.get(r.msdl) || { nop: 0, ph: 0, pend: 0, pipe: 0, pendApe: 0 }
+      const issued = issuedOf({ issuedRow: hasPropRows ? (issuedByMsdl.get(r.msdl) || 0) : null, ipNet: r.ipNet })
+      return {
+        ...r, counts, issued,
+        active: r.caseNet > 0,
+        pe: peStatus(r, activeMonthsInQuarter(quarterSnaps, r.msdl)),
+      }
+    }).sort((x, y) => (y.issued - x.issued) || String(x.agName || '').localeCompare(String(y.agName || ''), 'vi'))
+    // Dai tom tat dau trang: Active (Case Net > 0) + phan bo hang HIEN
+    // TAI (agSeg) tren tong TVV co o sheet Agent cua thang.
+    const strip = {
+      total: Object.keys(agentsObj).length,
+      active: Object.values(agentsObj).filter((a) => (Number(a.caseNet) || 0) > 0).length,
+      tiers: { diamond: 0, platinum: 0, gold: 0 },
+    }
+    for (const a of Object.values(agentsObj)) {
+      const tid = segToTier(a.agSeg)
+      if (tid) strip.tiers[tid] += 1
+    }
+    const nearList = nearRankList(Object.values(agentsObj), quarterSnaps)
+    return {
+      year, month, snap, analysis, cases, summary, unitList, gaBar,
+      agentRows, strip, nearList, monthsWithData, quarterElapsed: qElapsed.length,
+    }
   }, [snaps, effMonth])
 
   if (loading) {
@@ -198,7 +332,7 @@ export default function SalesReport({ snaps, loading, remoteSettled = true, onNe
     )
   }
 
-  const { year, month, snap, analysis, cases, summary, unitList, gaBar } = view
+  const { year, month, snap, analysis, cases, summary, unitList, gaBar, agentRows, strip, nearList, monthsWithData, quarterElapsed } = view
   const t = analysis.totals
 
   const openCase = (c) => {
@@ -215,6 +349,30 @@ export default function SalesReport({ snaps, loading, remoteSettled = true, onNe
     }
     return true
   })
+
+  // ── Che do THEO TVV: loc dung chung o tim kiem + Unit, them chip PE ──
+  const agentFiltered = agentRows.filter((r) => {
+    if (unitFilter !== 'ALL' && r.unit !== unitFilter) return false
+    if (search.trim()) {
+      const q = search.trim().toLowerCase()
+      const hay = `${r.agName} ${r.msdl} ${r.unit}`.toLowerCase()
+      if (!hay.includes(q)) return false
+    }
+    if (peFilter === 'diamond' || peFilter === 'platinum' || peFilter === 'gold') return r.pe.current === peFilter
+    if (peFilter === 'none') return r.pe.current === null
+    if (peFilter === 'active') return r.active
+    if (peFilter === 'inactive') return !r.active
+    return true
+  })
+  // Bam 1 so o dai tom tat -> sang che do Theo TVV kem bo loc tuong ung.
+  const applyStripFilter = (f) => { setViewMode('agents'); setPeFilter(f) }
+  // Ho so theo MSDL de xo trong the TVV (giu nguyen thu tu buildCases).
+  const casesMap = new Map()
+  for (const c of cases) {
+    const k = String(c.msdl || '')
+    if (!casesMap.has(k)) casesMap.set(k, [])
+    casesMap.get(k).push(c)
+  }
 
   // ── To chuc DANH SACH THONG NHAT ──
   // Loc Pending (PS): danh sach PHANG, sap tuoi pending giam dan (cho lau
@@ -320,6 +478,79 @@ export default function SalesReport({ snaps, loading, remoteSettled = true, onNe
     )
   }
 
+  // ── The TVV (che do Theo TVV): thong tin tong hop + khoi DUONG TOI
+  // HANG PE (lib/pe.js); bam dau the xo danh sach ho so cua chinh TVV
+  // do (tai su dung renderCard/renderDetail nhu che do Theo ho so). ──
+  const renderAgentCard = (r) => {
+    const isOpen = expandedAgent === r.msdl
+    const cur = tierById(r.pe.current)
+    const proj = tierById(r.pe.projected)
+    const nxt = r.pe.next ? tierById(r.pe.next.tierId) : null
+    const pct = r.pe.next ? Math.min(100, Math.max(0, (r.pe.fycL12m / r.pe.next.needL12m) * 100)) : 100
+    const ownCases = casesMap.get(r.msdl) || []
+    return (
+    <div className="sr-agent-card" key={r.msdl}>
+      <button type="button" className="sr-agent-head" onClick={() => setExpandedAgent(isOpen ? null : r.msdl)} aria-expanded={isOpen}>
+        <span className={`bv-avatar ${TIER_AV_CLASS[r.pe.current] || 'bv-av-oth'}`}>{initials(r.agName)}</span>
+        <span className="sr-agent-main">
+          <span className="bv-name">{r.agName || '—'}{r.unit ? <span className="bv-sub"> · {r.unit}</span> : null}</span>
+          <span className="sr-agent-sub">
+            {cur
+              ? <span className={`pe-badge ${TIER_BADGE_CLASS[r.pe.current]}`}>{cur.icon ? `${cur.icon} ` : ''}{cur.label}</span>
+              : <span className="pe-badge pe-badge-none">Chưa xếp hạng</span>}
+            {r.active
+              ? <span className="sr-active-yes">✓ Đã Active</span>
+              : <span className="sr-active-no">Chưa Active</span>}
+          </span>
+        </span>
+        <span className="sr-agent-issued">
+          <span className="sr-agent-issued-num">{fmtTr(r.issued)} tr</span>
+          <span className="sr-agent-issued-label">IP phát hành</span>
+        </span>
+      </button>
+      <div className="sr-agent-counts">
+        Nộp <b>{fmtInt(r.counts.nop)}</b> · Phát hành <b>{fmtInt(r.counts.ph)}</b> · Pending <b>{fmtInt(r.counts.pend)}</b> · Chưa lên phí <b>{fmtInt(r.counts.pipe)}</b>
+        {r.counts.pend > 0 ? <> · Pending <b>{fmtTr(r.counts.pendApe)} tr</b> (APE)</> : null}
+      </div>
+
+      {/* ② Duong toi hang PE tam tinh */}
+      <div className="pe-block">
+        <div className="pe-line">
+          Hạng hiện tại: <b>{cur ? cur.label : 'Chưa xếp hạng'}</b>
+          {r.pe.projected !== r.pe.current
+            ? <> → Tạm tính: <b>{proj ? proj.label : 'Chưa đạt'}</b></>
+            : <> · Tạm tính: <b>{proj ? proj.label : 'Chưa đạt'}</b></>}
+        </div>
+        {r.pe.next ? (
+          <>
+            <div className="pe-progress"><div className="pe-fill" style={{ width: `${pct}%` }} /></div>
+            <div className="pe-line">
+              FYC 12 tháng: <b>{fmtTr(r.pe.fycL12m)} tr</b> / {fmtTr(r.pe.next.needL12m)} tr ({nxt ? nxt.label : ''})
+              {r.pe.next.lackL12m > 0
+                ? <> — còn thiếu <b className="num-short">{fmtTr(r.pe.next.lackL12m)} tr</b></>
+                : <> — đã đủ FYC</>}
+            </div>
+            <div className="pe-line">
+              Tháng hoạt động quý này: <b>{fmtInt(r.pe.activeMonths)}/{fmtInt(r.pe.next.needMonths)}</b>
+              {r.pe.next.lackMonths > 0 ? <> — cần thêm {fmtInt(r.pe.next.lackMonths)} tháng hoạt động</> : null}
+            </div>
+          </>
+        ) : (
+          <div className="pe-line">🏆 Tạm tính Kim Cương — hạng cao nhất</div>
+        )}
+      </div>
+
+      {isOpen ? (
+        <div className="sr-agent-cases">
+          {ownCases.length === 0
+            ? <div className="muted">TVV này chưa có hồ sơ nào trong tháng.</div>
+            : ownCases.map(renderCard)}
+        </div>
+      ) : null}
+    </div>
+    )
+  }
+
   return (
     <div>
       {/* ── Tom tat thang ── */}
@@ -361,6 +592,29 @@ export default function SalesReport({ snaps, loading, remoteSettled = true, onNe
             </select>
           </div>
         )}
+
+        {/* ── Dai tom tat Active + phan hang PE HIEN TAI — bam 1 so se
+            sang che do Theo TVV kem bo loc tuong ung ── */}
+        <div className="sr-strip">
+          <button type="button" className="sr-strip-item" onClick={() => applyStripFilter('active')}>
+            ✓ Đã Active tháng này: <b>{fmtInt(strip.active)}/{fmtInt(strip.total)}</b>
+          </button>
+          <button type="button" className="sr-strip-item" onClick={() => applyStripFilter('diamond')}>
+            💎 Kim Cương: <b>{fmtInt(strip.tiers.diamond)}</b>
+          </button>
+          <button type="button" className="sr-strip-item" onClick={() => applyStripFilter('platinum')}>
+            Bạch Kim: <b>{fmtInt(strip.tiers.platinum)}</b>
+          </button>
+          <button type="button" className="sr-strip-item" onClick={() => applyStripFilter('gold')}>
+            Vàng: <b>{fmtInt(strip.tiers.gold)}</b>
+          </button>
+        </div>
+      </div>
+
+      {/* ── Chuyen che do xem: Theo ho so (mac dinh) / Theo TVV ── */}
+      <div className="chips-row" style={{ marginBottom: 10 }}>
+        <button className={`fchip ${viewMode === 'cases' ? 'active' : ''}`} onClick={() => setViewMode('cases')}>📄 Theo hồ sơ</button>
+        <button className={`fchip ${viewMode === 'agents' ? 'active' : ''}`} onClick={() => setViewMode('agents')}>🧑‍💼 Theo TVV</button>
       </div>
 
       {/* ── Bo loc danh sach ── */}
@@ -375,28 +629,89 @@ export default function SalesReport({ snaps, loading, remoteSettled = true, onNe
           {unitList.map((u) => <option key={u} value={u}>{u}</option>)}
         </select>
       </div>
-      <div className="chips-row">
-        {STATUS_FILTERS.map((f) => (
-          <button key={f.code} className={`fchip sm ${statusFilter === f.code ? 'active' : ''}`} onClick={() => setStatusFilter(f.code)}>{f.label}</button>
-        ))}
-      </div>
+      {viewMode === 'cases' ? (
+        <div className="chips-row">
+          {STATUS_FILTERS.map((f) => (
+            <button key={f.code} className={`fchip sm ${statusFilter === f.code ? 'active' : ''}`} onClick={() => setStatusFilter(f.code)}>{f.label}</button>
+          ))}
+        </div>
+      ) : (
+        <div className="chips-row">
+          {PE_FILTERS.map((f) => (
+            <button key={f.code} className={`fchip sm ${peFilter === f.code ? 'active' : ''}`} onClick={() => setPeFilter(f.code)}>{f.label}</button>
+          ))}
+        </div>
+      )}
 
-      {/* ── Danh sach ho so thong nhat ── */}
-      <div className="muted" style={{ marginBottom: 8 }}>
-        {filteredAll.length} hồ sơ
-        {isPendingView ? ' · đang sắp xếp chờ lâu nhất trước' : ''}
-      </div>
-      {filteredAll.length === 0 && <div className="card empty"><div className="e-ic">🔍</div>Không có hồ sơ nào khớp bộ lọc.</div>}
-      {isPendingView
-        ? (<div className="sr-flat-grid">{pendingFlat.map(renderCard)}</div>)
-        : dayGroups.map((g) => (
-          <div className="day-group" key={g.key || 'nodate'}>
-            <div className="day-head">
-              📅 {g.key ? fmtDateVN(g.key) : 'Không rõ ngày nộp'} — {g.items.length} hồ sơ · {fmtTr(g.total)} tr
-            </div>
-            {g.items.map(renderCard)}
+      {viewMode === 'cases' ? (
+        <>
+          {/* ── Danh sach ho so thong nhat ── */}
+          <div className="muted" style={{ marginBottom: 8 }}>
+            {filteredAll.length} hồ sơ
+            {isPendingView ? ' · đang sắp xếp chờ lâu nhất trước' : ''}
           </div>
-        ))}
+          {filteredAll.length === 0 && <div className="card empty"><div className="e-ic">🔍</div>Không có hồ sơ nào khớp bộ lọc.</div>}
+          {isPendingView
+            ? (<div className="sr-flat-grid">{pendingFlat.map(renderCard)}</div>)
+            : dayGroups.map((g) => (
+              <div className="day-group" key={g.key || 'nodate'}>
+                <div className="day-head">
+                  📅 {g.key ? fmtDateVN(g.key) : 'Không rõ ngày nộp'} — {g.items.length} hồ sơ · {fmtTr(g.total)} tr
+                </div>
+                {g.items.map(renderCard)}
+              </div>
+            ))}
+        </>
+      ) : (
+        <>
+          {/* ── ③ Danh sach SAP LEN HANG PE (thu gon nhu khoi Can chu y) ── */}
+          {nearList.length > 0 && (
+            <div className="card attn-card" style={{ marginBottom: 12 }}>
+              <button type="button" className="memo-summary-head attn-head" onClick={() => setNearOpen((o) => !o)} aria-expanded={nearOpen}>
+                <span className="attn-head-main">
+                  <span className="attn-head-title">🎯 Sắp lên hạng PE ({fmtInt(nearList.length)} người)</span>
+                  <span className="attn-head-sum">Còn thiếu ≤ 20tr FYC 12 tháng, hoặc đã đủ FYC và chỉ thiếu 1 tháng hoạt động</span>
+                  <span className="attn-head-sub">
+                    Tính đến tháng {month}/{year}
+                    {monthsWithData < quarterElapsed ? ` · đang tính trên ${monthsWithData}/${quarterElapsed} tháng có dữ liệu trong quý` : ''}
+                  </span>
+                </span>
+                <span className="memo-caret">{nearOpen ? '▾' : '▸'}</span>
+              </button>
+              {nearOpen ? (
+                <div className="attn-body">
+                  {nearList.map((r) => {
+                    const nt = tierById(r.next.tierId)
+                    return (
+                      <div className="attn-row static" key={r.msdl}>
+                        <span className="attn-name">{r.agName || '—'} <span className="attn-unit">· {r.unit || '—'}</span></span>
+                        <span className="attn-detail">
+                          → {nt ? nt.label : ''}
+                          {r.next.lackL12m > 0 ? <> · còn thiếu <b className="num-short">{fmtTr(r.next.lackL12m)} tr</b> FYC</> : <> · đã đủ FYC</>}
+                          {r.next.lackMonths > 0 ? <> · thiếu {fmtInt(r.next.lackMonths)} tháng hoạt động</> : null}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          {/* ── Danh sach TVV ── */}
+          <div className="muted" style={{ marginBottom: 8 }}>
+            {agentFiltered.length} TVV · sắp theo IP phát hành giảm dần
+          </div>
+          {agentFiltered.length === 0 && <div className="card empty"><div className="e-ic">🔍</div>Không có TVV nào khớp bộ lọc.</div>}
+          <div className="sr-agent-grid">
+            {agentFiltered.map(renderAgentCard)}
+          </div>
+          <div className="muted" style={{ marginTop: 4 }}>
+            Hạng tạm tính theo tiêu chí memo — kết quả chính thức do công ty xét hàng quý.
+            {monthsWithData < quarterElapsed ? ` Số tháng hoạt động đang tính trên ${monthsWithData} tháng có dữ liệu trong quý.` : ''}
+          </div>
+        </>
+      )}
     </div>
   )
 }

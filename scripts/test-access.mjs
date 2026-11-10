@@ -297,6 +297,21 @@ assert.ok(caNhanR.includes('className="me-groups"'), 'CaNhan: 3 nhom ho so phai 
 assert.ok(napDuLieu.includes('className="nap-wrap"'), 'NapDuLieu: goc phai co class .nap-wrap')
 console.log('Responsive: phone giu nguyen (rule goc con nguyen); pad 640 khung 880/Unit 2 cot/Memo 3 cot; laptop 1024 sidebar 232px + KPI 4 o + Bang Vang 2 cot + Unit auto 2–3 cot + SR 2 cot + Memo 4 cot + Ca nhan 3 nhom canh nhau + Nap 2 cot')
 
+// ── Sales Report cai tien 10/11/2026: che do Theo TVV + phan hang PE ──
+console.log('\n=== Sales Report: che do Theo TVV + hang PE tam tinh ===')
+assert.ok(salesReportR.includes("from '../lib/pe'"), 'SalesReport: phai import lib/pe (peStatus/nearRankList/activeMonthsInQuarter)')
+assert.ok(salesReportR.includes("import { issuedOf } from '../lib/team'"), 'SalesReport: IP phat hanh phai dung issuedOf cua team.js (cung dinh nghia Bang Vang)')
+assert.ok(salesReportR.includes('📄 Theo hồ sơ') && salesReportR.includes('🧑‍💼 Theo TVV'), 'SalesReport: phai co 2 nut chuyen che do xem')
+assert.ok(salesReportR.includes("viewMode === 'cases'"), 'SalesReport: che do Theo ho so phai giu nguyen lam mac dinh')
+assert.ok(salesReportR.includes('className="sr-strip"'), 'SalesReport: phai co dai tom tat Active + phan hang PE dau trang')
+assert.ok(salesReportR.includes('🎯 Sắp lên hạng PE'), 'SalesReport: phai co khoi Sap len hang PE thu gon')
+assert.ok(salesReportR.includes('Hạng tạm tính theo tiêu chí memo'), 'SalesReport: phai co ghi chu hang tam tinh theo memo')
+assert.ok(salesReportR.includes('className="sr-agent-grid"'), 'SalesReport: danh sach TVV phai boc trong .sr-agent-grid')
+assert.ok(css.includes('.sr-strip-item'), 'index.css: phai co style dai tom tat (.sr-strip-item)')
+assert.ok(css.includes('.pe-badge-dia') && css.includes('.pe-progress'), 'index.css: phai co style huy hieu PE + thanh tien do (.pe-badge/.pe-progress)')
+assert.ok(dk.includes('.sr-agent-grid { display: grid; grid-template-columns: 1fr 1fr'), 'responsive 1024: the TVV phai xep 2 cot (.sr-agent-grid)')
+console.log('Sales Report PE: chuyen che do 2 cach; dai tom tat; khoi Sap len hang; the TVV + thanh tien do FYC L12M; CSS 2 cot o laptop')
+
 // ── Rules: memos doc cong khai ──
 console.log('\n=== firestore.rules memos ===')
 const memoBlock = fsRules.slice(fsRules.indexOf('match /memos/'))

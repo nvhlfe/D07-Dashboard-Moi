@@ -772,6 +772,46 @@ button.unit-head { font-family: inherit; }
 }
 .memo-check input { width: 19px; height: 19px; accent-color: var(--primary); flex-shrink: 0; }
 
+/* ── Sales Report: DAI TOM TAT Active/PE + CHE DO THEO TVV (10/11/2026) ──
+   Dai tom tat la cac nut tron (pill) bam de loc; the TVV dung lai vong
+   avatar .bv-avatar cua Bang Vang; khoi PE co thanh tien do FYC L12M. */
+.sr-strip { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.sr-strip-item {
+  border: 1px solid var(--border); background: #f2f7fd; color: var(--text2);
+  border-radius: 999px; padding: 6px 12px; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; font-family: inherit; min-height: 34px;
+}
+.sr-strip-item b { color: var(--navy-dark); }
+.sr-strip-item:hover { border-color: #9fb8d8; background: #e3ecf8; }
+.sr-agent-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f6f9fc 100%);
+  border: 1px solid #c9d8ec; border-radius: 16px; padding: 12px 14px;
+  margin-bottom: 10px; box-shadow: var(--shadow-card);
+}
+.sr-agent-head {
+  display: flex; align-items: flex-start; gap: 10px; width: 100%;
+  background: none; border: none; padding: 0; cursor: pointer;
+  text-align: left; font-family: inherit; min-height: 44px;
+}
+.sr-agent-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.sr-agent-sub { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; font-size: 12px; font-weight: 700; }
+.pe-badge { display: inline-block; font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 999px; }
+.pe-badge-dia { background: #dbeafe; color: #1d4ed8; }
+.pe-badge-pla { background: #e2e8f0; color: #475569; }
+.pe-badge-gold { background: #fef3c7; color: #92400e; }
+.pe-badge-none { background: #eef2f7; color: #64748b; }
+.sr-active-yes { color: var(--green); }
+.sr-active-no { color: var(--text3); }
+.sr-agent-issued { flex: 0 0 auto; text-align: right; }
+.sr-agent-issued-num { display: block; font-size: 17px; font-weight: 800; color: #6d28d9; line-height: 1.2; }
+.sr-agent-issued-label { display: block; font-size: 11px; font-weight: 600; color: var(--text3); }
+.sr-agent-counts { font-size: 12.5px; font-weight: 600; color: var(--text2); margin-top: 8px; }
+.pe-block { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.pe-line { font-size: 12.5px; color: var(--text2); margin-top: 3px; }
+.pe-progress { height: 8px; border-radius: 99px; background: var(--line2); overflow: hidden; margin-top: 6px; }
+.pe-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #2563eb, #38bdf8); }
+.sr-agent-cases { margin-top: 10px; }
+
 /* ══ RESPONSIVE 3 MUC THIET BI (09/11/2026 — Lan yeu cau: xem tren
    laptop ra giao dien laptop, pad trung gian, phone giu nguyen) ════
    Phone <640px: GIU NGUYEN 100% — toan bo rule cua dot nay nam trong
@@ -875,6 +915,10 @@ button.unit-head { font-family: inherit; }
   .day-group { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; align-items: start; }
   .day-group .day-head { grid-column: 1 / -1; }
   .sr-flat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; align-items: start; }
+  /* Sales Report che do Theo TVV: the TVV 2 cot; the dang xo ho so
+     chiem tron hang nhu mau Bang Vang. */
+  .sr-agent-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; align-items: start; }
+  .sr-agent-grid .sr-agent-card:has(.sr-agent-cases) { grid-column: 1 / -1; }
 
   /* Thu vien Memo: 4 cot */
   .memo-grid { grid-template-columns: repeat(4, 1fr); }
