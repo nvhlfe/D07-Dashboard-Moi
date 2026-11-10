@@ -46,14 +46,16 @@ console.log('Nap chi Admin thay; Sales Report chi Admin + duoc cap quyen thay; m
 // ── DoiNgu: chi mo chi tiet cua chinh minh ──
 console.log('\n=== DoiNgu gate chi tiet TVV ===')
 assert.ok(doiNgu.includes('Bạn chỉ xem được chi tiết của chính mình (theo MSĐL).'), 'DoiNgu: phai co thong bao chi xem cua chinh minh')
-assert.ok(doiNgu.includes('Đăng nhập để xem chi tiết của chính bạn'), 'DoiNgu: phai co thong bao moi dang nhap')
+assert.ok(doiNgu.includes('Cần đăng nhập để xem thông tin chi tiết'), 'DoiNgu: khach bam TVV phai thay MODAL can dang nhap de xem thong tin chi tiet (showLoginGate)')
+assert.ok(doiNgu.includes('showLoginGate'), 'DoiNgu: phai co state showLoginGate cho modal yeu cau dang nhap')
+assert.ok(!doiNgu.includes('Đăng nhập để xem chi tiết của chính bạn'), 'DoiNgu: DA GO thanh thong bao inline moi dang nhap cu (thay bang modal)')
 assert.ok(doiNgu.includes('>Bạn<') || doiNgu.includes('Bạn</span>'), "DoiNgu: hang cua chinh minh phai co nhan 'Bạn'")
 assert.ok(doiNgu.includes('viewerMsdl'), 'DoiNgu: phai tinh viewerMsdl de doi chieu hang cua minh')
 assert.ok(doiNgu.includes('emailToMsdl'), 'DoiNgu: phai suy MSDL tu email tai khoan MSDL')
 assert.ok(doiNgu.includes('onOpenLogin'), 'DoiNgu: phai nhan onOpenLogin de mo form dang nhap')
 assert.ok(doiNgu.includes('const rowFull = canSeeFull || isMine(a)'), 'DoiNgu: phai tinh rowFull = Admin chinh HOAC hang cua chinh minh')
 assert.ok(doiNgu.includes('maskSensitive(pc.policyNum || pc.proposalNum, rowFull)'), 'DoiNgu: so Policy trong chi tiet dung rowFull -> chinh minh xem DAY DU, nguoi khac van che')
-console.log('Chua dang nhap -> moi dang nhap; da dang nhap -> chi mo cua chinh minh (MSDL), nhan Bạn; so Policy: chinh minh + Admin thay day du')
+console.log('Chua dang nhap -> MODAL moi dang nhap; da dang nhap -> chi mo cua chinh minh (MSDL), nhan Bạn; so Policy: chinh minh + Admin thay day du')
 
 // ── Memo: ai cung xem, dang nhap moi tai ──
 console.log('\n=== Memo gate tai ve ===')
@@ -346,7 +348,8 @@ assert.ok(dk.includes('.sr-agent-grid { display: grid; grid-template-columns: 1f
 assert.ok(doiNgu.includes('BV_PE_FILTERS') && doiNgu.includes("code: 'near'"), 'DoiNgu: Bang Vang phai co hang chip loc nhom PE (BV_PE_FILTERS, gom chip Sap len hang)')
 assert.ok(doiNgu.includes('peNearMsdl'), 'DoiNgu: chip loc Sap len hang phai tai su dung tap nearRankList (peNearMsdl — cung dinh nghia khoi Sap len hang)')
 assert.ok(doiNgu.includes('bv-pe-line'), 'DoiNgu: hang Bang Vang phai co dong thong tin len hang PE (.bv-pe-line)')
-assert.ok(doiNgu.includes('🎯 Tới') && doiNgu.includes('Đạt Kim Cương (tạm tính)'), 'DoiNgu: dong len hang PE phai co mau "Toi {hang ke}: con thieu..." va trang thai Dat Kim Cuong (tam tinh)')
+assert.ok(doiNgu.includes('🎯 Tới') && doiNgu.includes('peSt.qualified') && doiNgu.includes('(tạm tính)'), 'DoiNgu: dong len hang PE theo HANG DICH — "Toi {dich}: con thieu..." khi chua du dieu kien, "Dat {dich} (tam tinh)" khi qualified')
+assert.ok(doiNgu.includes('Hạng đích (theo FYC)') && doiNgu.includes('peSt.target'), 'DoiNgu: chi tiet TVV trinh bay HANG DICH theo FYC qua peSt.target (mo hinh dich — khong ha hang khi thieu thang hoat dong)')
 assert.ok(doiNgu.includes('monthsWithData >= peData.qMonths'), 'DoiNgu: dong len hang PE chi hien khi snapshot quy da du thang (monthsWithData >= qMonths)')
 assert.ok(css.includes('.bv-pe-line'), 'index.css: phai co style dong len hang PE (.bv-pe-line)')
 console.log('Tinh Anh PE: dai phan hang o tong quan; khoi Sap len hang (gate Admin/truong phong nhu Can chu y); huy hieu hang tren hang Bang Vang; Duong toi hang PE trong chi tiet TVV; chip loc nhom PE + dong len hang PE tren hang Bang Vang')
@@ -509,5 +512,37 @@ assert.ok(!homNay.includes('PaceChart') && !homNay.includes('Nhịp độ về �
 assert.ok(!read('../src/components/Charts.jsx').includes('PaceChart'), 'Charts.jsx: DA GO pace — khong con component PaceChart')
 assert.ok(!css.includes('.pace-'), 'index.css: DA GO pace — khong con class .pace-*')
 console.log('⑥ Can chu y (chi Admin/truong phong — loc o DoiNgu) · ⑦ huy hieu + Tien bo nhat (lazy thang truoc) · ⑧ Pace DA GO (khoa khong tai xuat)')
+
+// ── Dot 10/11/2026 (tiep): Trang Chu chi Admin thay LUU Y muc tieu
+// thang; Tinh Anh MODAL dang nhap cho khach; form dang nhap chi con
+// "Ma so dai ly" (bo ghi chu email/Admin) — Lan yeu cau. ──
+console.log('\n=== Trang Chu: luu y muc tieu chi Admin + Tinh Anh modal dang nhap + form chi MSDL ===')
+// Viec 1 — HomNay: cac dong LUU Y lien quan MUC TIEU thang Admin nap
+// (dong cd-need o hero + hau to "muc tieu ... tr · con thieu ..." o
+// dong % dat + chip chua dat muc tieu) gate bang isSuperAdmin(user);
+// so FYP + thanh tien do + % dat van hien cho moi nguoi.
+assert.ok(homNay.includes('isSuperAdmin(user) && target !== null && remaining > 0 && needPerDay !== null'), 'HomNay: dong hero "Can ... tr/ngay de kip muc tieu" chi Admin chinh thay')
+assert.ok(homNay.includes('isSuperAdmin(user) && target !== null && remaining <= 0'), 'HomNay: dong hero "Da dat muc tieu thang" chi Admin chinh thay')
+assert.ok(homNay.includes('Đạt <b>') && homNay.includes('progress-fill'), 'HomNay: % dat + thanh tien do FYP van hien cho moi nguoi')
+assert.ok(homNay.includes('mục tiêu {fmtTr(target)} tr'), 'HomNay: hau to muc tieu van con (chi nhanh Admin moi render)')
+assert.ok(homNay.includes(') : isSuperAdmin(user) ? ('), 'HomNay: chip "Chua dat muc tieu thang — dat o tab Nap" chi Admin chinh thay')
+assert.ok(homNay.includes('Chiếu theo nhịp hiện tại'), 'HomNay: dong chieu nhip hien tai (khong lien quan muc tieu) van hien cho moi nguoi')
+// Viec 2 — DoiNgu: khach bam TVV -> MODAL; nut Dang nhap dong modal
+// roi goi onOpenLogin (form dang nhap THAT cua App); nguoi da dang
+// nhap khong phai chinh minh giu thong bao inline 'own' nhu cu.
+assert.ok(doiNgu.includes('className="modal-overlay"') && doiNgu.includes('className="modal-sheet"'), 'DoiNgu: modal yeu cau dang nhap dung pattern modal-overlay/modal-sheet cua app')
+assert.ok(doiNgu.includes('setShowLoginGate(false); if (onOpenLogin) onOpenLogin()'), 'DoiNgu: nut Dang nhap trong modal phai dong modal roi mo form dang nhap that qua onOpenLogin')
+assert.ok(doiNgu.includes("if (user) setGateNotice('own')"), 'DoiNgu: da dang nhap khong phai minh -> van thong bao inline own nhu cu')
+assert.ok(doiNgu.includes("gateNotice === 'own'"), 'DoiNgu: thanh thong bao inline chi con truong hop own')
+assert.ok(doiNgu.includes('Để sau</button>'), 'DoiNgu: modal dang nhap phai co nut dong "De sau"')
+// Viec 3 — App: form dang nhap chi con nhan "Ma so dai ly", bo dong
+// ghi chu email/Admin; LOGIC dang nhap giu nguyen 100% (login nhan
+// ca MSDL lan email nhu cu — chi doi chu hien thi).
+assert.ok(app.includes('<label>Mã số đại lý</label>'), 'App.jsx: nhan o ten dang nhap phai la "Mã số đại lý"')
+assert.ok(!app.includes('MSĐL hoặc Email'), 'App.jsx: KHONG con nhan "MSĐL hoặc Email"')
+assert.ok(!app.includes('tài khoản quản trị dùng email'), 'App.jsx: DA BO dong ghi chu email chi ap dung cho tai khoan quan tri/Admin')
+assert.ok(!app.includes('hoặc admin@prud07.top'), 'App.jsx: placeholder KHONG con goi y email Admin')
+assert.ok(app.includes('await login(loginForm.id, loginForm.password)'), 'App.jsx: logic dang nhap GIU NGUYEN (login(loginForm.id, password) — nhap dang email van dang nhap duoc nhu cu)')
+console.log('Trang Chu: luu y muc tieu chi Admin thay (so FYP + % + thanh tien do giu nguyen cho moi nguoi); Tinh Anh: khach -> modal dang nhap (noi onOpenLogin), own -> inline; form dang nhap: nhan "Mã số đại lý", bo ghi chu email/Admin, logic giu nguyen')
 
 console.log('\n✅ TAT CA ASSERT DAT (test-access)')

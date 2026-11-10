@@ -195,10 +195,10 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
               <div className="cd-label">Còn</div>
               <div className="cd-big">{daysLeft}</div>
               <div className="cd-label">ngày nữa hết tháng {month}/{year}</div>
-              {target !== null && remaining > 0 && needPerDay !== null && (
+              {isSuperAdmin(user) && target !== null && remaining > 0 && needPerDay !== null && (
                 <div className="cd-need">Cần {fmtTr(needPerDay)} tr/ngày để kịp mục tiêu</div>
               )}
-              {target !== null && remaining <= 0 && (
+              {isSuperAdmin(user) && target !== null && remaining <= 0 && (
                 <div className="cd-need" style={{ color: 'var(--green)' }}>🎉 Đã đạt mục tiêu tháng!</div>
               )}
             </div>
@@ -252,7 +252,11 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
         </div>
       ))}
 
-      {/* ── Tien do FYP ── */}
+      {/* ── Tien do FYP. Phan LUU Y ve muc tieu thang Admin nap (dong
+          cd-need o hero + hau to "muc tieu ... tr · con thieu ..." o
+          dong % + chip "Chua dat muc tieu thang") chi Admin chinh
+          thay — Lan yeu cau 10/11/2026; khach/TVV/truong phong chi
+          thay so FYP + thanh tien do + % dat. ── */}
       <div className="card">
         <h2>🎯 Tiến độ FYP tháng {month}/{year}</h2>
         <div><span className="big-num">{fmtTr(fypTotal)}</span> <span className="muted">triệu đồng</span></div>
@@ -260,15 +264,19 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
           <>
             <div className="progress-track"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
             <div style={{ fontSize: 13.5 }}>
-              Đạt <b>{(Math.round(pct * 10) / 10).toLocaleString('vi-VN')}%</b> mục tiêu {fmtTr(target)} tr
-              {remaining > 0 ? <> · còn thiếu <b>{fmtTr(remaining)} tr</b></> : <> · đã vượt <b>{fmtTr(-remaining)} tr</b> 🎉</>}
+              Đạt <b>{(Math.round(pct * 10) / 10).toLocaleString('vi-VN')}%</b>
+              {isSuperAdmin(user) ? (
+                <> mục tiêu {fmtTr(target)} tr
+                  {remaining > 0 ? <> · còn thiếu <b>{fmtTr(remaining)} tr</b></> : <> · đã vượt <b>{fmtTr(-remaining)} tr</b> 🎉</>}
+                </>
+              ) : null}
             </div>
           </>
-        ) : (
+        ) : isSuperAdmin(user) ? (
           <div style={{ marginTop: 8 }}>
             <span className="chip" onClick={onGoNap}>Chưa đặt mục tiêu tháng — đặt ở tab Nạp</span>
           </div>
-        )}
+        ) : null}
         {projection !== null && (
           <div className="muted" style={{ marginTop: 6 }}>
             Chiếu theo nhịp hiện tại: cuối tháng ~{fmtTr(projection)} tr <span>(phép chiếu đơn giản theo {elapsedDays} ngày đã qua, không phải dự báo chắc chắn)</span>

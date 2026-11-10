@@ -88,6 +88,20 @@
 // CHIP LOC cho Bang Vang theo hang HIEN TAI + nhom sap len hang
 // (nearRankList — cung nguong voi khoi Sap len hang, nhung tinh tren
 // toan GA cho moi nguoi loc xem). Cac phan PE dot truoc giu nguyen.
+// MO HINH DICH PE 10/11/2026 (Lan lam ro): hang DICH xac dinh thuan
+// theo FYC 12 THANG (>= 180tr Kim Cuong / >= 90tr Bach Kim / >= 50tr
+// Vang; chua dat Vang thi dich van la Vang) — KHONG ha dich khi thieu
+// thang hoat dong. So thang hoat dong trong quy la DIEU KIEN DONG
+// HANH de chinh thuc dat dich (Kim Cuong/Bach Kim can 3 thang, Vang
+// can 2): vi du TVV FYC L12M > 180tr + 2 thang hoat dong -> "Toi Kim
+// Cuong: can them 1 thang hoat dong" (ban cu ghi "Toi Bach Kim" la
+// sai dien giai); du 3 thang -> "Dat Kim Cuong (tam tinh)".
+// DOT GATE DANG NHAP 10/11/2026 (Lan yeu cau): khach CHUA dang nhap
+// bam vao 1 TVV -> MODAL "Can dang nhap de xem thong tin chi tiet"
+// (state showLoginGate) + nut Dang nhap noi vao form dang nhap THAT
+// cua App qua onOpenLogin; truoc day chi la thanh thong bao inline.
+// Nguoi DA dang nhap nhung khong phai chinh minh van giu thong bao
+// inline 'own' nhu cu.
 // ─────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { buildCases } from '../lib/cases'
@@ -177,8 +191,13 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
   // Phong, chi nguoi co quyen moi thay nut chuyen — xem canUnit duoi).
   const [viewMode, setViewMode] = useState('personal')
   // Thong bao khi bam vao TVV ma minh khong co quyen mo chi tiet:
-  // 'login' = chua dang nhap, 'own' = da dang nhap nhung khong phai chinh minh.
+  // gateNotice chi con truong hop 'own' (da dang nhap nhung khong
+  // phai chinh minh — thanh thong bao inline nhu cu). Truong hop
+  // CHUA DANG NHAP dung MODAL rieng (showLoginGate — Lan yeu cau
+  // 10/11/2026): bang "Can dang nhap de xem thong tin chi tiet" +
+  // nut Dang nhap mo form dang nhap that cua app.
   const [gateNotice, setGateNotice] = useState('')
+  const [showLoginGate, setShowLoginGate] = useState(false)
   // Chi tiet Unit (muc Phong): ma Unit dang mo accordion + co thong bao
   // khi bam vao Unit khong phai phong minh phu trach.
   const [openUnitCode, setOpenUnitCode] = useState('')
@@ -318,10 +337,12 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
   // ── PHAN TICH PE (lib/pe.js — chuyen tu Sales Report, dot chuyen PE
   // 10/11/2026): du lieu nen dung chung cho dai tong quan phan hang,
   // khoi Sap len hang va khoi Duong toi hang PE trong chi tiet TVV.
-  // So thang hoat dong can snapshot cac thang trong CUNG QUY tinh den
-  // thang dang xem -> tai LAZY cac thang con thieu qua onNeedMonth
-  // (cung co che tai thang truoc cho Tien bo nhat); thang chua co du
-  // lieu thi bo qua — UI ghi chu so thang co du lieu.
+  // Hang DICH theo FYC L12M cua thang dang xem; so thang hoat dong
+  // (dieu kien dong hanh cua dich) can snapshot cac thang trong CUNG
+  // QUY tinh den thang dang xem -> tai LAZY cac thang con thieu qua
+  // onNeedMonth (cung co che tai thang truoc cho Tien bo nhat);
+  // thang chua co du lieu thi bo qua — UI ghi chu so thang co du
+  // lieu va dong PE tren hang chi hien khi quy da du cac thang da qua.
   useEffect(() => {
     if (!newest || !onNeedMonth) return
     const [y, m] = newest.id.split('-').map(Number)
@@ -541,11 +562,13 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
     })
   }
 
-  // Bam vao 1 hang TVV: co quyen thi mo/dong chi tiet, khong thi hien
-  // thong bao gate tuong ung (chua dang nhap / khong phai chinh minh).
+  // Bam vao 1 hang TVV: co quyen thi mo/dong chi tiet; da dang nhap
+  // nhung khong phai chinh minh -> thong bao inline 'own' nhu cu;
+  // CHUA dang nhap -> MODAL yeu cau dang nhap (showLoginGate).
   const handleRowClick = (a) => {
     if (canOpenRow(a)) { setGateNotice(''); toggleRow(a.msdl); return }
-    setGateNotice(user ? 'own' : 'login')
+    if (user) setGateNotice('own')
+    else setShowLoginGate(true)
   }
 
   const renderRow = ({ a, rank }) => {
@@ -557,31 +580,30 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
     const rowFull = canSeeFull || isMine(a)
     const sk = segKey(a.agSeg)
     // Hang PE (lib/pe.js — dot chuyen PE): huy hieu hang HIEN TAI nho
-    // canh ten + trang thai PE TAM TINH cho khoi Duong toi hang PE
-    // trong chi tiet (so thang hoat dong dem tu peData.quarterSnaps).
+    // canh ten + trang thai PE theo MO HINH DICH cho khoi Duong toi
+    // hang PE trong chi tiet (dich theo FYC L12M; so thang hoat dong
+    // dem tu peData.quarterSnaps la dieu kien dong hanh cua dich).
     const rowTier = tierById(segToTier(a.agSeg))
     const peSt = peData ? peStatus(a, activeMonthsInQuarter(peData.quarterSnaps, a.msdl)) : null
     const peCur = peSt ? tierById(peSt.current) : null
-    const peProj = peSt ? tierById(peSt.projected) : null
-    const peNxt = peSt && peSt.next ? tierById(peSt.next.tierId) : null
-    const pePct = peSt && peSt.next ? Math.min(100, Math.max(0, (peSt.fycL12m / peSt.next.needL12m) * 100)) : 100
+    const peTgt = peSt ? tierById(peSt.target.tierId) : null
+    const pePct = peSt ? Math.min(100, Math.max(0, (peSt.fycL12m / peSt.target.needL12m) * 100)) : 100
     // DONG THONG TIN LEN HANG PE tren hang (.bv-pe-line — dot loc
-    // PE): noi dung RUT GON tu peSt cho moi nguoi xem duoc hang do.
-    // CHI hien khi (1) snapshot quy DA DU cac thang da qua trong quy
-    // (monthsWithData = qMonths — chua nap xong thi AN, tranh hien
-    // so tam tinh sai do thieu thang hoat dong) va (2) TVV co FYC
-    // 12 thang (co so lieu PE). Ca 2 phan thieu deu ghi gon 1 dong.
+    // PE): noi dung theo HANG DICH rut gon tu peSt cho moi nguoi xem
+    // duoc hang do. CHI hien khi (1) snapshot quy DA DU cac thang da
+    // qua trong quy (monthsWithData = qMonths — chua nap xong thi
+    // AN, tranh hien so thang hoat dong sai) va (2) TVV co FYC 12
+    // thang (co so lieu PE). Du dieu kien -> "Dat {dich} (tam tinh)";
+    // thieu FYC va/hoac thieu thang -> ghi ca 2 phan thieu 1 dong.
     let peLine = ''
     if (peSt && peData && peData.qMonths > 0 && peData.monthsWithData >= peData.qMonths && (Number(a.fycL12m) || 0) > 0) {
-      if (!peSt.next) {
-        peLine = '💎 Đạt Kim Cương (tạm tính)'
+      if (peSt.qualified) {
+        peLine = `${peTgt && peTgt.icon ? `${peTgt.icon} ` : ''}Đạt ${peTgt ? peTgt.label : ''} (tạm tính)`
       } else {
         const parts = []
-        if (peSt.next.lackL12m > 0) parts.push(`còn thiếu ${fmtTr(peSt.next.lackL12m)} tr FYC`)
-        if (peSt.next.lackMonths > 0) parts.push(`cần thêm ${fmtInt(peSt.next.lackMonths)} tháng hoạt động`)
-        peLine = parts.length
-          ? `🎯 Tới ${peNxt ? peNxt.label : ''}: ${parts.join(' · ')}`
-          : `🎯 Tới ${peNxt ? peNxt.label : ''}: sắp đạt 🎉`
+        if (peSt.target.lackL12m > 0) parts.push(`còn thiếu ${fmtTr(peSt.target.lackL12m)} tr FYC`)
+        if (peSt.target.lackMonths > 0) parts.push(`cần thêm ${fmtInt(peSt.target.lackMonths)} tháng hoạt động`)
+        peLine = `🎯 Tới ${peTgt ? peTgt.label : ''}: ${parts.join(' · ')}`
       }
     }
     const bar = a.bar
@@ -685,27 +707,20 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
                 <div className="bv-pend-title" style={{ marginTop: 2 }}>🎯 Đường tới hạng PE</div>
                 <div className="pe-line">
                   Hạng hiện tại: <b>{peCur ? peCur.label : 'Chưa xếp hạng'}</b>
-                  {peSt.projected !== peSt.current
-                    ? <> → Tạm tính: <b>{peProj ? peProj.label : 'Chưa đạt'}</b></>
-                    : <> · Tạm tính: <b>{peProj ? peProj.label : 'Chưa đạt'}</b></>}
+                  {' → '}Hạng đích (theo FYC): <b>{peTgt ? peTgt.label : ''}</b>
+                  {peSt.qualified ? <> · <b>✅ Đã đủ điều kiện (tạm tính)</b></> : null}
                 </div>
-                {peSt.next ? (
-                  <>
-                    <div className="pe-progress"><div className="pe-fill" style={{ width: `${pePct}%` }} /></div>
-                    <div className="pe-line">
-                      FYC 12 tháng: <b>{fmtTr(peSt.fycL12m)} tr</b> / {fmtTr(peSt.next.needL12m)} tr ({peNxt ? peNxt.label : ''})
-                      {peSt.next.lackL12m > 0
-                        ? <> — còn thiếu <b className="num-short">{fmtTr(peSt.next.lackL12m)} tr</b></>
-                        : <> — đã đủ FYC</>}
-                    </div>
-                    <div className="pe-line">
-                      Tháng hoạt động quý này: <b>{fmtInt(peSt.activeMonths)}/{fmtInt(peSt.next.needMonths)}</b>
-                      {peSt.next.lackMonths > 0 ? <> — cần thêm {fmtInt(peSt.next.lackMonths)} tháng hoạt động</> : null}
-                    </div>
-                  </>
-                ) : (
-                  <div className="pe-line">🏆 Tạm tính Kim Cương — hạng cao nhất</div>
-                )}
+                <div className="pe-progress"><div className="pe-fill" style={{ width: `${pePct}%` }} /></div>
+                <div className="pe-line">
+                  FYC 12 tháng: <b>{fmtTr(peSt.fycL12m)} tr</b> / {fmtTr(peSt.target.needL12m)} tr ({peTgt ? peTgt.label : ''})
+                  {peSt.target.lackL12m > 0
+                    ? <> — còn thiếu <b className="num-short">{fmtTr(peSt.target.lackL12m)} tr</b></>
+                    : <> — đã đủ FYC</>}
+                </div>
+                <div className="pe-line">
+                  Tháng hoạt động quý này: <b>{fmtInt(peSt.activeMonths)}/{fmtInt(peSt.target.needMonths)}</b>
+                  {peSt.target.lackMonths > 0 ? <> — cần thêm {fmtInt(peSt.target.lackMonths)} tháng hoạt động</> : null}
+                </div>
                 <div className="pe-line">Hạng tạm tính theo tiêu chí memo — kết quả chính thức do công ty xét hàng quý.</div>
               </div>
             ) : null}
@@ -996,7 +1011,7 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
           <button type="button" className="memo-summary-head attn-head" onClick={() => setPeNearOpen((o) => !o)} aria-expanded={peNearOpen}>
             <span className="attn-head-main">
               <span className="attn-head-title">🎯 Sắp lên hạng PE ({fmtInt(peNear.length)} người)</span>
-              <span className="attn-head-sum">Còn thiếu ≤ 20tr FYC 12 tháng, hoặc đã đủ FYC và chỉ thiếu 1 tháng hoạt động</span>
+              <span className="attn-head-sum">Còn thiếu ≤ 20tr FYC 12 tháng tới hạng đích, hoặc đã đủ FYC và chỉ thiếu 1 tháng hoạt động</span>
               <span className="attn-head-sub">
                 {isAdmin ? 'Toàn Quận 7' : 'Chỉ phòng của bạn'} · Tính đến tháng {month}/{year}
                 {peData && peData.monthsWithData < 3 ? ` · đang tính trên ${fmtInt(peData.monthsWithData)}/3 tháng có dữ liệu trong quý` : ''}
@@ -1007,14 +1022,14 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
           {peNearOpen ? (
             <div className="attn-body">
               {peNear.map((r) => {
-                const nt = tierById(r.next.tierId)
+                const nt = tierById(r.target.tierId)
                 return (
                   <div className="attn-row static" key={r.msdl}>
                     <span className="attn-name">{r.agName || '—'} <span className="attn-unit">· {r.unit || '—'}</span></span>
                     <span className="attn-detail">
                       → {nt ? nt.label : ''}
-                      {r.next.lackL12m > 0 ? <> · còn thiếu <b className="num-short">{fmtTr(r.next.lackL12m)} tr</b> FYC</> : <> · đã đủ FYC</>}
-                      {r.next.lackMonths > 0 ? <> · thiếu {fmtInt(r.next.lackMonths)} tháng hoạt động</> : null}
+                      {r.target.lackL12m > 0 ? <> · còn thiếu <b className="num-short">{fmtTr(r.target.lackL12m)} tr</b> FYC</> : <> · đã đủ FYC</>}
+                      {r.target.lackMonths > 0 ? <> · thiếu {fmtInt(r.target.lackMonths)} tháng hoạt động</> : null}
                     </span>
                   </div>
                 )
@@ -1064,17 +1079,12 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
         ))}
       </div>
 
-      {/* ── Thong bao gate khi bam TVV khong co quyen mo chi tiet ── */}
-      {gateNotice ? (
-        <div className="msg info" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {gateNotice === 'login' ? (
-            <>
-              <span>🔒 Đăng nhập để xem chi tiết của chính bạn.</span>
-              {onOpenLogin ? <button type="button" className="btn-mini primary" onClick={onOpenLogin}>Đăng nhập</button> : null}
-            </>
-          ) : (
-            <span>Bạn chỉ xem được chi tiết của chính mình (theo MSĐL).</span>
-          )}
+      {/* ── Thong bao gate khi TVV DA dang nhap bam TVV khong phai
+          cua minh (truong hop chua dang nhap dung MODAL showLoginGate
+          o cuoi file) ── */}
+      {gateNotice === 'own' ? (
+        <div className="msg info" style={{ marginBottom: 12 }}>
+          <span>Bạn chỉ xem được chi tiết của chính mình (theo MSĐL).</span>
         </div>
       ) : null}
 
@@ -1127,6 +1137,25 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
       {boardData.rows.length > 0 ? (
         <div className="share-offscreen" aria-hidden="true">
           <BoardShareCard data={boardData} month={month} year={year} avatarMap={avatarMap} withAvatars={withAvatars} cardRef={boardCardRef} />
+        </div>
+      ) : null}
+      {/* ── MODAL yeu cau dang nhap khi KHACH bam vao 1 TVV (Lan yeu
+          cau 10/11/2026): noi dung can dang nhap + nut Dang nhap DONG
+          modal nay roi GOI onOpenLogin (form dang nhap THAT do App
+          quan ly — khong dung form thu hai). Bam ra ngoai hoac nut
+          "De sau" chi dong modal. ── */}
+      {showLoginGate ? (
+        <div className="modal-overlay" onClick={() => setShowLoginGate(false)}>
+          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-title">🔒 Cần đăng nhập</div>
+            <p className="muted" style={{ marginBottom: 12 }}>
+              Cần đăng nhập để xem thông tin chi tiết của tư vấn viên — mỗi TVV đăng nhập bằng MSĐL của mình để xem chi tiết của chính mình.
+            </p>
+            <button type="button" className="btn-primary" onClick={() => { setShowLoginGate(false); if (onOpenLogin) onOpenLogin() }}>
+              Đăng nhập
+            </button>
+            <button type="button" className="btn-ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => setShowLoginGate(false)}>Để sau</button>
+          </div>
         </div>
       ) : null}
       <SharePreviewModal

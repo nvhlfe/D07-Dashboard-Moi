@@ -486,12 +486,12 @@ export default function App() {
               <>
                 <div className="modal-title">🔐 Đăng nhập</div>
                 <p className="muted" style={{ marginBottom: 12 }}>
-                  TVV đăng nhập bằng <b>MSĐL</b> của mình; tài khoản quản trị dùng email.
+                  TVV đăng nhập bằng <b>MSĐL</b> (mã số đại lý) của mình.
                   Đăng nhập để đồng bộ dữ liệu lên mây (xem trên nhiều thiết bị) và xem khối “Của tôi”.
                 </p>
                 <div className="field">
-                  <label>MSĐL hoặc Email</label>
-                  <input autoComplete="username" value={loginForm.id} placeholder="VD: 12345678 hoặc admin@prud07.top"
+                  <label>Mã số đại lý</label>
+                  <input autoComplete="username" value={loginForm.id} placeholder="VD: 12345678"
                     onChange={(e) => setLoginForm((f) => ({ ...f, id: e.target.value }))} />
                 </div>
                 <div className="field">

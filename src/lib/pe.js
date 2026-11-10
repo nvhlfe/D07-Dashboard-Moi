@@ -1,22 +1,30 @@
 // ─────────────────────────────────────────────────────────────
-// pe.js — PHAN HANG PE (PruElite) TAM TINH cho Sales Report (Dashboard
-// D07 Moi). Logic THUAN (khong React / DOM / Firebase) de test bang node.
+// pe.js — PHAN HANG PE (PruElite) TAM TINH cho Dashboard D07 Moi.
+// Logic THUAN (khong React / DOM / Firebase) de test bang node.
 //
-// TIEU CHI (Lan XAC NHAN 10/11/2026: van ap dung theo memo; nguon trich
-// tu sheet PE cua file Compensation cu): xep hang HANG QUY theo 2 dieu
-// kien dong thoi — FYC 12 thang (L12M) + SO THANG HOAT DONG trong quy:
-//   Kim Cuong (Diamond) : FYC L12M >= 180tr VA >= 3 thang hoat dong
-//   Bach Kim (Platinum) : FYC L12M >=  90tr VA >= 3 thang hoat dong
-//   Vang (Gold)         : FYC L12M >=  50tr VA >= 2 thang hoat dong
-// "Thang hoat dong" = thang co FYC >= 5tr (PE_ACTIVE_FYC).
+// MO HINH XET HANG PE (Lan LAM RO 10/11/2026 — thay cach xet cu
+// "dat ca 2 dieu kien thi lay hang do, thieu thang thi ha hang"):
+//   1) HANG DICH xac dinh THUAN theo FYC 12 THANG (L12M):
+//        Kim Cuong (Diamond) : FYC L12M >= 180tr
+//        Bach Kim (Platinum) : FYC L12M >=  90tr
+//        Vang (Gold)         : FYC L12M >=  50tr
+//      Chua dat nguong Vang thi DICH van la Vang (kem so FYC con
+//      thieu). TUYET DOI khong ha dich xuong hang thap hon vi thieu
+//      thang hoat dong.
+//   2) So THANG HOAT DONG trong quy la DIEU KIEN DONG HANH de
+//      CHINH THUC dat hang dich: dich Kim Cuong / Bach Kim can 3
+//      thang, dich Vang can 2 thang ("thang hoat dong" = thang co
+//      FYC >= 5tr — PE_ACTIVE_FYC; dem tren cac snapshot cua quy).
+//   Vi du chuan: TVV FYC L12M > 180tr, moi co 2 thang hoat dong ->
+//   dich KIM CUONG, con thieu 1 thang ("Toi Kim Cuong: can them 1
+//   thang hoat dong"); du 3 thang -> "Dat Kim Cuong (tam tinh)".
+// (Nguong theo memo cong ty — Lan xac nhan van ap dung 10/11/2026.)
 //
 // DU LIEU: 100% tu Daily Sales (sheet Agent, parseDaily da parse):
 //   - agSeg   = cot AGSegName: HANG HIEN TAI cong ty ghi (Diamond /
 //               Platinum / Gold / ...; ngoai 3 hang PE thi coi nhu chua
 //               xep hang PE).
 //   - fycL12m = cot 'FYC L12M' cua snapshot thang dang xem.
-//   - So thang hoat dong: dem tu cac snapshot Daily cua cac thang trong
-//     CUNG QUY (moi thang lay ban moi nhat, FYC thang cua TVV >= 5tr).
 // HANG TAM TINH chi la so THAM KHAO de dieu hanh — ket qua chinh thuc
 // do cong ty xet hang quy (UI co ghi chu ro).
 // Don vi tien: trieu dong (nhu du lieu Daily).
@@ -36,7 +44,9 @@ export const PE_NEAR_L12M = 20
 
 /**
  * Bang hang PE, xep tu CAO xuong THAP (thu tu nay dung cho ca viec chon
- * hang tam tinh cao nhat va tim hang ke tiep).
+ * hang theo FYC va tim hang dich). `months` = so thang hoat dong
+ * DIEU KIEN DONG HANH cua hang do (dich can du thang nay moi chinh
+ * thuc dat — xem peStatus).
  */
 export const PE_TIERS = [
   { id: 'diamond', label: 'Kim Cương', icon: '💎', l12m: 180, months: 3 },
@@ -63,54 +73,57 @@ export function segToTier(agSeg) {
   return null
 }
 
-/** Hang TAM TINH cao nhat dat CA 2 dieu kien (L12M + thang hoat dong). */
-export function projectedTier(fycL12m, activeMonths) {
+/**
+ * Hang theo THUAN FYC L12M (fycTier): cao nhat trong PE_TIERS ma
+ * fycL12m dat nguong; chua dat nguong Vang -> null.
+ */
+export function projectedTier(fycL12m) {
   const l = num(fycL12m)
-  const m = Math.max(0, Math.floor(num(activeMonths)))
   for (const t of PE_TIERS) {
-    if (l >= t.l12m && m >= t.months) return t.id
+    if (l >= t.l12m) return t.id
   }
   return null
 }
 
 /**
- * Hang KE TIEP cao hon hang tam tinh (de tinh so con thieu):
- * chua co hang -> Vang; Vang -> Bach Kim; Bach Kim -> Kim Cuong;
- * Kim Cuong -> null (da o hang cao nhat).
- */
-export function nextTierOf(tierId) {
-  if (!tierId) return PE_TIERS[PE_TIERS.length - 1]
-  const idx = PE_TIERS.findIndex((t) => t.id === tierId)
-  return idx > 0 ? PE_TIERS[idx - 1] : null
-}
-
-/**
- * Trang thai PE cua 1 TVV:
+ * Trang thai PE cua 1 TVV theo MO HINH DICH (Lan lam ro 10/11/2026):
  *   agent: object co agSeg + fycL12m (agent tho cua sheet Agent hoac
  *          agentView cua team.js — ca hai deu co 2 truong nay).
  *   activeMonths: so thang hoat dong trong quy tinh den thang dang xem.
- * Tra { current, projected, fycL12m, activeMonths,
- *       next: { tierId, lackL12m, lackMonths, needL12m, needMonths } | null }
- * lack* da lam tron 0,1tr va chan duoi 0.
+ * Tra {
+ *   current,      // hang HIEN TAI theo agSeg (null = chua xep hang)
+ *   fycTier,      // hang theo thuan FYC L12M (null = chua dat Vang)
+ *   projected,    // = hang DICH (trinh bay du kien) — khong bao gio
+ *                 // bi ha xuong vi thieu thang hoat dong
+ *   target: { tierId, needL12m, lackL12m, needMonths, lackMonths },
+ *   qualified,    // true khi du CA FYC lan thang hoat dong cho dich
+ *   fycL12m, activeMonths,
+ * }
+ * Dich = fycTier; fycTier = null thi dich la Vang (gold). lack* da
+ * lam tron 0,1tr (FYC) va chan duoi 0.
  */
 export function peStatus(agent, activeMonths) {
   const fycL12m = num(agent && agent.fycL12m)
   const months = Math.max(0, Math.floor(num(activeMonths)))
   const current = segToTier(agent && agent.agSeg)
-  const projected = projectedTier(fycL12m, months)
-  const next = nextTierOf(projected)
+  const fycTier = projectedTier(fycL12m)
+  const targetTier = tierById(fycTier) || PE_TIERS[PE_TIERS.length - 1]
+  const lackL12m = Math.max(0, R1(targetTier.l12m - fycL12m))
+  const lackMonths = Math.max(0, targetTier.months - months)
   return {
     current,
-    projected,
+    fycTier,
+    projected: targetTier.id,
+    target: {
+      tierId: targetTier.id,
+      needL12m: targetTier.l12m,
+      lackL12m,
+      needMonths: targetTier.months,
+      lackMonths,
+    },
+    qualified: lackL12m === 0 && lackMonths === 0,
     fycL12m,
     activeMonths: months,
-    next: next ? {
-      tierId: next.id,
-      lackL12m: Math.max(0, R1(next.l12m - fycL12m)),
-      lackMonths: Math.max(0, next.months - months),
-      needL12m: next.l12m,
-      needMonths: next.months,
-    } : null,
   }
 }
 
@@ -155,8 +168,9 @@ function agentOfSnap(snap, msdl) {
  * san (thuong la cac thang trong cung quy, toi thang dang xem):
  * tra { active, monthsWithData, perMonth: [{ ym, fyc, hasData, active }] }.
  * Thang khong co snapshot thi khong xuat hien trong perMonth;
- * monthsWithData = so thang CO snapshot trong danh sach truyen vao
- * (UI dung de ghi chu "dang tinh tren n thang co du lieu").
+ * monthsWithData = so thang CO snapshot trong danh sach truyen vao.
+ * So thang hoat dong la DIEU KIEN DONG HANH cua hang dich (xem
+ * peStatus) — khong dung de chon hay ha hang dich.
  */
 export function quarterActivity(snaps, msdl) {
   const byMonth = latestSnapByMonth(snaps)
@@ -179,20 +193,23 @@ export function quarterActivity(snaps, msdl) {
  * snapshot moi nhat) ma FYC thang cua TVV do >= PE_ACTIVE_FYC (5tr).
  * snaps truyen vao la snapshots cua cac thang trong quy (ham khong tu
  * loc quy — nguoi goi chiu trach nhiem loc, de test ro rang).
+ * Ket qua la dieu kien dong hanh thang hoat dong cho hang dich.
  */
 export function activeMonthsInQuarter(snaps, msdl) {
   return quarterActivity(snaps, msdl).active
 }
 
 /**
- * Danh sach "SAP LEN HANG PE": TVV co hang ke tiep (theo hang TAM TINH)
- * va sap dat duoc mot trong 2 kieu:
- *   (a) con thieu FYC L12M trong khoang (0, threshold] tr; hoac
- *   (b) da du FYC L12M (lackL12m = 0) va chi thieu DUNG 1 thang hoat dong.
+ * Danh sach "SAP LEN HANG PE" theo MO HINH DICH: TVV sap dat DICH
+ * cua minh theo mot trong 2 kieu:
+ *   (a) con thieu FYC L12M trong khoang (0, threshold] tr toi dich;
+ *   (b) da du FYC cho dich (lackL12m = 0) va chi thieu DUNG 1 thang
+ *       hoat dong.
+ * TVV da qualified (du ca 2 dieu kien) KHONG nam trong danh sach.
  * agents: mang agent (tho hoac agentView — can msdl, agName, unit,
- * agSeg, fycL12m). snaps: snapshots cac thang trong quy tinh den thang
- * dang xem. Sap xep: thieu FYC it truoc (lackL12m tang dan), hoa thi
- * thieu thang it truoc, roi theo ten.
+ * agSeg, fycL12m). snaps: snapshots cac thang trong quy tinh den
+ * thang dang xem (de dem thang hoat dong). Sap xep: thieu FYC it
+ * truoc (lackL12m tang dan), hoa thi thieu thang it truoc, roi ten.
  * Tra mang item cua peStatus kem { msdl, agName, unit }.
  */
 export function nearRankList(agents, snaps, threshold = PE_NEAR_L12M) {
@@ -202,8 +219,7 @@ export function nearRankList(agents, snaps, threshold = PE_NEAR_L12M) {
     if (!a || !a.msdl) continue
     const months = activeMonthsInQuarter(snaps, a.msdl)
     const st = peStatus(a, months)
-    if (!st.next) continue
-    const { lackL12m, lackMonths } = st.next
+    const { lackL12m, lackMonths } = st.target
     const nearFyc = lackL12m > 0 && lackL12m <= th
     const nearMonth = lackL12m === 0 && lackMonths === 1
     if (!nearFyc && !nearMonth) continue
@@ -214,8 +230,8 @@ export function nearRankList(agents, snaps, threshold = PE_NEAR_L12M) {
       ...st,
     })
   }
-  out.sort((x, y) => (x.next.lackL12m - y.next.lackL12m)
-    || (x.next.lackMonths - y.next.lackMonths)
+  out.sort((x, y) => (x.target.lackL12m - y.target.lackL12m)
+    || (x.target.lackMonths - y.target.lackMonths)
     || String(x.agName || '').localeCompare(String(y.agName || ''), 'vi'))
   return out
 }
