@@ -97,6 +97,27 @@ assert.ok(doiNgu.includes("mode === 'unit'"), "DoiNgu: che do 'unit' chi hieu lu
 assert.ok(doiNgu.includes('canUnit ? ('), 'DoiNgu: thanh chuyen che do chi render khi canUnit (an han nut Phong khi khong co quyen)')
 console.log('Phong: chi Admin / duoc cap quyen / UM-BM moi thay; the Unit co FYP, Luot Active, IP phat hanh, pending')
 
+// ── DoiNgu: chinh trinh bay 10/11/2026 (Can chu y thu gon + 2 khoi mau; moi phong 1 mau) ──
+console.log('\n=== DoiNgu: Can chu y thu gon + 2 khoi mau; mau rieng tung phong ===')
+assert.ok(doiNgu.includes('attnOpen'), 'DoiNgu: khoi Can chu y phai co state thu gon/mo (attnOpen)')
+assert.ok(doiNgu.includes('memo-summary-head attn-head'), 'DoiNgu: hang tieu de Can chu y dung chung mau .memo-summary-head cua Memo')
+assert.ok(doiNgu.includes('memo-caret'), 'DoiNgu: hang tieu de Can chu y phai co mui ten .memo-caret giong Memo')
+assert.ok(doiNgu.includes('Sắp chạm mốc:') && doiNgu.includes('Chưa có hồ sơ:') && doiNgu.includes('Pending lâu nhất:'), 'DoiNgu: hang thu gon phai hien so luong ca 3 nhom')
+assert.ok(doiNgu.includes('attn-block attn-block-warn'), 'DoiNgu: phai co khoi mau CAN XU LY (attn-block-warn)')
+assert.ok(doiNgu.includes('attn-block attn-block-opp'), 'DoiNgu: phai co khoi mau CO HOI (attn-block-opp)')
+assert.ok(doiNgu.includes('⚠️ Cần xử lý'), 'DoiNgu: khoi canh bao phai co tieu de "Can xu ly"')
+assert.ok(doiNgu.includes('🎯 Sắp chạm mốc — cơ hội kéo lên'), 'DoiNgu: khoi co hoi phai co tieu de "Sap cham moc — co hoi keo len"')
+assert.ok(doiNgu.includes('attn-empty'), 'DoiNgu: nhom rong trong khoi mau phai hien dong "Khong co" (attn-empty)')
+assert.ok(doiNgu.includes("from '../lib/unitColors'"), 'DoiNgu: phai import unitColor tu lib/unitColors')
+assert.ok(doiNgu.includes('unitColor(u.unit)'), 'DoiNgu: the phong phai lay mau theo unitColor(u.unit)')
+assert.ok(doiNgu.includes('unit-dot'), 'DoiNgu: the phong + tieu de chi tiet phai co cham mau .unit-dot')
+assert.ok(doiNgu.includes('unit-detail-title'), 'DoiNgu: tieu de chi tiet phong phai co .unit-detail-title mang mau phong')
+assert.ok(css.includes('.attn-block-warn'), 'index.css: phai co nen/vien khoi canh bao (.attn-block-warn)')
+assert.ok(css.includes('.attn-block-opp'), 'index.css: phai co nen/vien khoi co hoi (.attn-block-opp)')
+assert.ok(css.includes('.attn-card'), 'index.css: phai co .attn-card (bo padding nhu .memo-summary)')
+assert.ok(css.includes('.unit-dot'), 'index.css: phai co .unit-dot')
+console.log('Can chu y: thu gon mac dinh + 2 khoi mau (Can xu ly / Co hoi keo len); moi phong 1 mau on dinh qua unitColors')
+
 // ── DoiNgu: chinh muc Phong theo chot 09/11/2026 (FYC + loc Leader + Luot Active cot BD, bo MOC) ──
 console.log('\n=== DoiNgu: Phong theo sheet Leader + Luot Active (cot BD) ===')
 // (2) Danh sach Phong chi gom Unit co trong sheet Leader

@@ -496,6 +496,29 @@ button.unit-head { font-family: inherit; }
 .attn-name { font-weight: 700; min-width: 0; }
 .attn-unit { color: var(--text3); font-size: 12px; font-weight: 600; }
 .attn-detail { margin-left: auto; text-align: right; font-size: 12.5px; color: var(--text2); font-weight: 600; }
+/* Thu gon/mo giong khoi Tom tat cua Memo (Lan yeu cau 10/11/2026):
+   the bo padding, hang tieu de dung chung .memo-summary-head. */
+.attn-card { padding: 0; overflow: hidden; }
+.attn-head-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.attn-head-title { font-size: 15px; font-weight: 800; color: var(--text); }
+.attn-head-sum { font-size: 12.5px; font-weight: 700; color: var(--primary-dark); }
+.attn-head-sub { font-size: 12px; font-weight: 600; color: var(--text3); }
+.attn-body { padding: 2px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+/* 2 khoi mau: CAN XU LY (ho phach nhat) / CO HOI KEO LEN (xanh la nhat) */
+.attn-block { border: 1px solid; border-radius: var(--radius-sm); padding: 10px 12px 12px; }
+.attn-block-warn { background: #fff7ed; border-color: #fed7aa; }
+.attn-block-opp { background: #ecfdf5; border-color: #a7f3d0; }
+.attn-block-title { font-size: 13.5px; font-weight: 800; margin-bottom: 2px; }
+.attn-block-warn .attn-block-title { color: #b45309; }
+.attn-block-opp .attn-block-title { color: var(--green); }
+.attn-block .attn-group { margin: 10px 0 2px; }
+.attn-block-warn .attn-group { color: #92400e; }
+.attn-block-warn .attn-row, .attn-block-warn .attn-empty { border-top-color: #f5ddba; }
+.attn-block-opp .attn-row, .attn-block-opp .attn-empty { border-top-color: #bbeed3; }
+.attn-empty { font-size: 12.5px; font-weight: 600; color: var(--text3); padding: 7px 0 3px; border-top: 1px dashed var(--line); }
+/* Cham mau rieng cua phong (lib/unitColors) */
+.unit-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; flex-shrink: 0; }
+.unit-detail-title { display: flex; align-items: center; font-size: 13.5px; font-weight: 800; margin-bottom: 6px; }
 
 /* ── Nhip do ve dich (pace) trong the Tien do FYP (Trang Chu) ── */
 .pace-wrap { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 10px; }

@@ -65,6 +65,7 @@ import { maskSensitive, analyzeSoSanLuong } from '../lib/analyze'
 import { buildAttentionList } from '../lib/attention'
 import { agentBadges, submissionDaysByAgent, topMsdlSet, progressRank } from '../lib/badges'
 import { boardCardData } from '../lib/shareCard'
+import { unitColor } from '../lib/unitColors'
 import { BoardShareCard, SharePreviewModal, captureShareCard } from './ShareCard'
 import { isSuperAdmin, emailToMsdl, canViewUnitSection } from '../lib/firebaseConfig'
 
@@ -135,6 +136,10 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
   // (activeUnitFilter ben duoi) tu ve '' neu phong dang chon khong con
   // trong danh sach (snapshot/leaderUnits doi) — tranh danh sach rong.
   const [unitFilter, setUnitFilter] = useState('')
+  // Khoi "Can chu y hom nay": mac dinh THU GON giong khoi "Tom tat &
+  // diem can luu y" trong chi tiet Memo (Lan yeu cau 10/11/2026) —
+  // chi hien hang tieu de + so luong tung nhom, bam moi xo chi tiet.
+  const [attnOpen, setAttnOpen] = useState(false)
   // Anh Bang Vang (ShareCard): trang thai tao anh + anh da chup (modal).
   // withAvatars = false sau khi lan chup dau loi (nghi do avatar ngoai
   // CORS) -> the anh dung vong tron chu cai dau nhu giao dien.
@@ -584,13 +589,27 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
     const actList = u.agents.filter((a) => a.isAct)
     const inactList = u.agents.filter((a) => !a.isAct)
     const actPct = u.agentCount > 0 ? Math.round((u.actCount / u.agentCount) * 100) : 0
+    // Mau rieng cua phong (lib/unitColors — bam on dinh theo Ma
+    // phong, Lan yeu cau 10/11/2026): dai mau tren dau the + cham
+    // mau canh ten + nen soft rat nhat. Phong cua chinh UM dang
+    // nhap giu nen nhan .unit-mine (chi them dai mau + cham mau).
+    const uc = unitColor(u.unit)
+    const mine = isMyUnit(u)
     return (
-      <div className={`card unit-card${isMyUnit(u) ? ' unit-mine' : ''}`} key={u.unit || '—'}>
+      <div
+        className={`card unit-card${mine ? ' unit-mine' : ''}`}
+        key={u.unit || '—'}
+        style={{
+          borderTop: `4px solid ${uc.main}`,
+          ...(mine ? null : { background: `linear-gradient(180deg, ${uc.soft}80 0%, #ffffff 55%)` }),
+        }}
+      >
         <button type="button" className="unit-head" onClick={() => handleUnitClick(u)} aria-expanded={open}>
           <span className="unit-main">
             <span className="unit-name">
+              <span className="unit-dot" style={{ background: uc.main }} />
               🏢 Unit {u.unit || '—'}
-              {isMyUnit(u) ? <span className="bv-you">Phòng của bạn</span> : null}
+              {mine ? <span className="bv-you">Phòng của bạn</span> : null}
             </span>
             {u.leaderName ? <span className="muted" style={{ display: 'block' }}>Trưởng phòng: {u.leaderName}</span> : null}
           </span>
@@ -612,6 +631,10 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
         </div>
         {open ? (
           <div className="unit-detail">
+            <div className="unit-detail-title">
+              <span className="unit-dot" style={{ background: uc.main }} />
+              <span style={{ color: uc.main }}>Chi tiết Unit {u.unit || '—'}</span>
+            </div>
             {u.agentCount === 0 ? (
               <div className="muted">Unit chưa có TVV nào trong dữ liệu tháng này.</div>
             ) : (
@@ -692,50 +715,69 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
           Vang thi mo thang chi tiet cua TVV do. ── */}
       {attention && (attention.near.length > 0 || attention.noCases.length > 0 || attention.pendingTop.length > 0) ? (
         <div className="card attn-card">
-          <h2>🔔 Cần chú ý hôm nay</h2>
-          <div className="muted">
-            {isAdmin ? 'Toàn Quận 7' : 'Chỉ phòng của bạn'} · theo dữ liệu đến {fmtDateVN(newest.id)}
-          </div>
-          {attention.near.length > 0 ? (
-            <>
-              <div className="attn-group">🎯 Sắp chạm mốc ({attention.near.length})</div>
-              {attention.near.map((r) => {
-                const clickable = listedMsdl.has(r.msdl)
-                return (
-                  <button type="button" key={r.msdl} className={`attn-row${clickable ? '' : ' static'}`} onClick={clickable ? () => openFromAttention(r.msdl) : undefined}>
+          {/* Hang tieu de THU GON — dung mau tuong tac cua khoi "Tom
+              tat & diem can luu y" trong Memo (.memo-summary-head +
+              .memo-caret): mac dinh dong, chi hien so luong tung
+              nhom; bam vao moi xo chi tiet (Lan yeu cau 10/11/2026). */}
+          <button type="button" className="memo-summary-head attn-head" onClick={() => setAttnOpen((o) => !o)} aria-expanded={attnOpen}>
+            <span className="attn-head-main">
+              <span className="attn-head-title">🔔 Cần chú ý hôm nay</span>
+              <span className="attn-head-sum">
+                Sắp chạm mốc: {fmtInt(attention.near.length)} · Chưa có hồ sơ: {fmtInt(attention.noCases.length)} · Pending lâu nhất: {fmtInt(attention.pendingTop.length)}
+              </span>
+              <span className="attn-head-sub">
+                {isAdmin ? 'Toàn Quận 7' : 'Chỉ phòng của bạn'} · theo dữ liệu đến {fmtDateVN(newest.id)}
+              </span>
+            </span>
+            <span className="memo-caret">{attnOpen ? '▾' : '▸'}</span>
+          </button>
+          {attnOpen ? (
+            <div className="attn-body">
+              {/* KHOI 1 — CAN XU LY (ho phach/do nhat): Chua co ho so +
+                  Pending lau nhat. Nhom rong van hien tieu de + dong
+                  "Khong co" de cau truc on dinh. */}
+              <div className="attn-block attn-block-warn">
+                <div className="attn-block-title">⚠️ Cần xử lý</div>
+                <div className="attn-group">📭 Chưa có hồ sơ tháng này ({attention.noCases.length})</div>
+                {attention.noCases.length > 0 ? attention.noCases.map((r) => (
+                  <div className="attn-row static" key={r.msdl}>
                     <span className="attn-name">{r.name || '—'} <span className="attn-unit">· {r.unit || '—'}</span></span>
-                    <span className="attn-detail">{r.marks.map((m) => `Thiếu ${fmtTr(m.gap)} tr tới ${m.label}`).join(' · ')}</span>
-                  </button>
-                )
-              })}
-            </>
-          ) : null}
-          {attention.noCases.length > 0 ? (
-            <>
-              <div className="attn-group">📭 Chưa có hồ sơ tháng này ({attention.noCases.length})</div>
-              {attention.noCases.map((r) => (
-                <div className="attn-row static" key={r.msdl}>
-                  <span className="attn-name">{r.name || '—'} <span className="attn-unit">· {r.unit || '—'}</span></span>
-                  <span className="attn-detail">Chưa có hồ sơ nào trong tháng</span>
-                </div>
-              ))}
-            </>
-          ) : null}
-          {attention.pendingTop.length > 0 ? (
-            <>
-              <div className="attn-group">⏳ Pending lâu nhất ({attention.pendingTop.length})</div>
-              {attention.pendingTop.map((r) => {
-                const clickable = listedMsdl.has(r.msdl)
-                return (
-                  <button type="button" key={r.proposalNum || r.msdl} className={`attn-row${clickable ? '' : ' static'}`} onClick={clickable ? () => openFromAttention(r.msdl) : undefined}>
-                    <span className="attn-name">{r.name || '—'} <span className="attn-unit">· {r.unit || '—'}</span></span>
-                    <span className="attn-detail">
-                      Hồ sơ {maskSensitive(r.policyNum || r.proposalNum, isAdmin)} · chờ <b className="num-pending">{fmtInt(r.ageDays)} ngày</b> · {fmtTr(r.value)} tr
-                    </span>
-                  </button>
-                )
-              })}
-            </>
+                    <span className="attn-detail">Chưa có hồ sơ nào trong tháng</span>
+                  </div>
+                )) : (
+                  <div className="attn-empty">Không có — TVV nào cũng đã có hồ sơ trong tháng 🎉</div>
+                )}
+                <div className="attn-group">⏳ Pending lâu nhất ({attention.pendingTop.length})</div>
+                {attention.pendingTop.length > 0 ? attention.pendingTop.map((r) => {
+                  const clickable = listedMsdl.has(r.msdl)
+                  return (
+                    <button type="button" key={r.proposalNum || r.msdl} className={`attn-row${clickable ? '' : ' static'}`} onClick={clickable ? () => openFromAttention(r.msdl) : undefined}>
+                      <span className="attn-name">{r.name || '—'} <span className="attn-unit">· {r.unit || '—'}</span></span>
+                      <span className="attn-detail">
+                        Hồ sơ {maskSensitive(r.policyNum || r.proposalNum, isAdmin)} · chờ <b className="num-pending">{fmtInt(r.ageDays)} ngày</b> · {fmtTr(r.value)} tr
+                      </span>
+                    </button>
+                  )
+                }) : (
+                  <div className="attn-empty">Không có — không còn hồ sơ pending nào 🎉</div>
+                )}
+              </div>
+              {/* KHOI 2 — CO HOI KEO LEN (xanh la nhat): Sap cham moc. */}
+              <div className="attn-block attn-block-opp">
+                <div className="attn-block-title">🎯 Sắp chạm mốc — cơ hội kéo lên</div>
+                {attention.near.length > 0 ? attention.near.map((r) => {
+                  const clickable = listedMsdl.has(r.msdl)
+                  return (
+                    <button type="button" key={r.msdl} className={`attn-row${clickable ? '' : ' static'}`} onClick={clickable ? () => openFromAttention(r.msdl) : undefined}>
+                      <span className="attn-name">{r.name || '—'} <span className="attn-unit">· {r.unit || '—'}</span></span>
+                      <span className="attn-detail">{r.marks.map((m) => `Thiếu ${fmtTr(m.gap)} tr tới ${m.label}`).join(' · ')}</span>
+                    </button>
+                  )
+                }) : (
+                  <div className="attn-empty">Không có — chưa có TVV nào ở gần mốc tháng này.</div>
+                )}
+              </div>
+            </div>
           ) : null}
         </div>
       ) : null}
