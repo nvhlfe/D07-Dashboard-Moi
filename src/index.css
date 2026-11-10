@@ -467,6 +467,10 @@ button.unit-head { font-family: inherit; }
 /* Bien the CANH BAO: FYC thang duoi moc toi thieu FYC_FLOOR (5tr) —
    chip chuyen tong do nhat, so + nhan thieu to do bang .num-short. */
 .bv-fyc.lack { background: #fef2f2; border-color: #fecaca; }
+/* Dong thong tin LEN HANG PE tren hang Bang Vang (DoiNgu — dot loc
+   PE 10/11/2026): dong phu nho xanh duong ngay duoi dong so lieu
+   (.bv-nums) cua hang, hien cho moi nguoi xem duoc hang do. */
+.bv-pe-line { display: block; font-size: 11.5px; font-weight: 700; color: #1d4ed8; margin-top: 4px; }
 .bv-num-issued { color: #6d28d9; }
 .bv-num-pending { color: #db2777; }
 .bv-num-pipeline { color: #0891b2; }

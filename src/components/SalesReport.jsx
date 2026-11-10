@@ -29,6 +29,9 @@
 // SANG tab TINH ANH (DoiNgu.jsx, van dung chung lib/pe.js). O day chi
 // con PHAN LOAI theo TVV: huy hieu hang hien tai nho tren the TVV +
 // loc theo trang thai Active.
+// DOT KHOI PHUC LOC PE 10/11/2026 (Lan yeu cau tiep): KHOI PHUC rieng
+// CHIP LOC THEO NHOM PE (hang HIEN TAI) o che do Theo TVV — chi la bo
+// loc phan loai TVV, phan PHAN TICH PE van o Tinh Anh, khong quay lai.
 // ─────────────────────────────────────────────────────────────
 import React, { useMemo, useState } from 'react'
 import { analyzeSoSanLuong, maskSensitive, prevYearMonth } from '../lib/analyze'
@@ -58,10 +61,16 @@ const STATUS_FILTERS = [
   { code: 'OTHER', label: 'Khác' },
 ]
 
-// ── Che do THEO TVV: chip loc theo trang thai Active (chip loc theo
-// hang PE da chuyen sang Tinh Anh cung dot chuyen PE 10/11/2026) ──
+// ── Che do THEO TVV: chip loc phan loai — theo NHOM PE (hang HIEN
+// TAI theo agSeg, khoi phuc theo yeu cau cua Lan 10/11/2026) + theo
+// trang thai Active. Day chi la BO LOC danh sach TVV; phan tich PE
+// tam tinh/sap len hang van o tab Tinh Anh (DoiNgu). ──
 const PE_FILTERS = [
   { code: 'ALL', label: 'Tất cả' },
+  { code: 'diamond', label: '💎 Kim Cương' },
+  { code: 'platinum', label: 'Bạch Kim' },
+  { code: 'gold', label: 'Vàng' },
+  { code: 'none', label: 'Chưa xếp hạng' },
   { code: 'active', label: '✓ Đã Active' },
   { code: 'inactive', label: 'Chưa Active' },
 ]
@@ -323,7 +332,8 @@ export default function SalesReport({ snaps, loading, remoteSettled = true, onNe
   })
 
   // ── Che do THEO TVV: loc dung chung o tim kiem + Unit, them chip
-  // trang thai Active (chip theo hang da chuyen sang Tinh Anh) ──
+  // phan loai: trang thai Active + NHOM PE theo hang HIEN TAI
+  // (r.tier = segToTier(agSeg); 'none' = chua xep hang PE) ──
   const agentFiltered = agentRows.filter((r) => {
     if (unitFilter !== 'ALL' && r.unit !== unitFilter) return false
     if (search.trim()) {
@@ -333,6 +343,8 @@ export default function SalesReport({ snaps, loading, remoteSettled = true, onNe
     }
     if (peFilter === 'active') return r.active
     if (peFilter === 'inactive') return !r.active
+    if (peFilter === 'diamond' || peFilter === 'platinum' || peFilter === 'gold') return r.tier === peFilter
+    if (peFilter === 'none') return !r.tier
     return true
   })
   // Bam 1 so o dai tom tat -> sang che do Theo TVV kem bo loc tuong ung.

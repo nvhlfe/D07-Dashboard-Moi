@@ -80,6 +80,14 @@
 // hien tai nho tren moi hang Bang Vang; (4) khoi "Duong toi hang PE"
 // day du trong CHI TIET TVV (von da gate chi chu so huu/Admin mo).
 // Sales Report chi con phan loai theo TVV (huy hieu + loc Active).
+// DOT LOC PE + DONG LEN HANG 10/11/2026 (Lan yeu cau tiep): (1) moi
+// hang Bang Vang co them DONG THONG TIN LEN HANG PE nho (.bv-pe-line)
+// duoi dong so lieu — noi dung rut gon tu peStatus, CHI hien khi da
+// co du snapshot cac thang da qua trong quy (tranh hien so sai khi
+// du lieu quy chua nap xong) va TVV co FYC 12 thang; (2) them hang
+// CHIP LOC cho Bang Vang theo hang HIEN TAI + nhom sap len hang
+// (nearRankList — cung nguong voi khoi Sap len hang, nhung tinh tren
+// toan GA cho moi nguoi loc xem). Cac phan PE dot truoc giu nguyen.
 // ─────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { buildCases } from '../lib/cases'
@@ -112,6 +120,18 @@ const SORTS = [
   { id: 'ipNet', label: 'IP phát hành' },
   { id: 'barTotal', label: 'Tổng nộp' },
   { id: 'fyc', label: 'FYC tháng' },
+]
+// Chip LOC Bang Vang theo nhom PE (dot loc PE 10/11/2026): diamond /
+// platinum / gold / none loc theo hang HIEN TAI (agSeg); 'near' loc
+// theo tap sap len hang (nearRankList cua lib/pe — cung nguong voi
+// khoi Sap len hang PE ben tren).
+const BV_PE_FILTERS = [
+  { code: 'ALL', label: 'Tất cả' },
+  { code: 'diamond', label: '💎 Kim Cương' },
+  { code: 'platinum', label: 'Bạch Kim' },
+  { code: 'gold', label: 'Vàng' },
+  { code: 'none', label: 'Chưa xếp hạng' },
+  { code: 'near', label: '🎯 Sắp lên hạng' },
 ]
 const MEDALS = ['🥇', '🥈', '🥉']
 const ROW_BG = ['bv-r1', 'bv-r2', 'bv-r3']
@@ -148,6 +168,10 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
   const canSeeFull = isAdmin
   const [sortKey, setSortKey] = useState('ipNet')
   const [search, setSearch] = useState('')
+  // Loc Bang Vang theo NHOM PE (hang hien tai / sap len hang): state
+  // DOC LAP voi sap xep + tim kiem — doi thang/sap xep/tim kiem thi
+  // bo loc van ap dung nhat quan (display ben duoi loc ket hop).
+  const [peFilter, setPeFilter] = useState('ALL')
   const [openRows, setOpenRows] = useState(() => new Set())
   // Che do xem: 'personal' (Bang Vang TVV — mac dinh) | 'unit' (muc
   // Phong, chi nguoi co quyen moi thay nut chuyen — xem canUnit duoi).
@@ -326,7 +350,7 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
       if (tid) tiers[tid] += 1
       else tiers.none += 1
     }
-    return { quarterSnaps, monthsWithData, tiers, agents: Object.values(agentsObj) }
+    return { quarterSnaps, monthsWithData, qMonths: qElapsed.length, tiers, agents: Object.values(agentsObj) }
   }, [newest, snaps])
 
   // Danh sach SAP LEN HANG PE: CUNG gate voi khoi Can chu y — chi
@@ -338,6 +362,16 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
     if (isAdmin) return all
     return all.filter((r) => myUnitCodes.has(String(r.unit || '').trim().toUpperCase()))
   }, [peData, isAdmin, isLeader, myUnitCodes])
+
+  // Tap MSDL "SAP LEN HANG" cho CHIP LOC Bang Vang: tinh tren TOAN
+  // GA, KHONG gate nhu khoi Sap len hang o tren (chip loc la cong cu
+  // xem danh sach cho moi nguoi xem duoc Bang Vang) — nhung CUNG
+  // nearRankList + CUNG nguong voi khoi do, dinh nghia nhat quan,
+  // khong tinh lai theo cach khac.
+  const peNearMsdl = useMemo(() => {
+    if (!peData) return new Set()
+    return new Set(nearRankList(peData.agents, peData.quarterSnaps).map((r) => String(r.msdl)))
+  }, [peData])
 
   // ── Hang "TIEN BO NHAT THANG" (lib/badges — 10/11/2026) ──
   // Can snapshot moi nhat cua THANG TRUOC: chua co trong snaps thi tai
@@ -439,9 +473,18 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
   const pendValue = ranked.reduce((s, a) => s + a.bar.pending, 0)
 
   const query = search.trim().toLowerCase()
-  const display = query
-    ? listed.filter(({ a }) => String(a.agName || '').toLowerCase().includes(query) || String(a.msdl || '').toLowerCase().includes(query))
-    : listed
+  // Loc Bang Vang = tim kiem + CHIP PE ket hop: chip loc theo hang
+  // HIEN TAI (segToTier cua agSeg; 'none' = chua xep hang PE) hoac
+  // tap sap len hang peNearMsdl. Loc chi THU HEP tap hien thi — thu
+  // tu cua ranked (theo che do sap xep dang chon) va so to theo che
+  // do sap xep giu nguyen khong doi.
+  const display = listed.filter(({ a }) => {
+    if (query && !(String(a.agName || '').toLowerCase().includes(query) || String(a.msdl || '').toLowerCase().includes(query))) return false
+    if (peFilter === 'near') return peNearMsdl.has(String(a.msdl))
+    if (peFilter === 'none') return !segToTier(a.agSeg)
+    if (peFilter !== 'ALL') return segToTier(a.agSeg) === peFilter
+    return true
+  })
 
   // Bam 1 dong o khoi "Can chu y": chi TVV dang co mat trong danh
   // sach Bang Vang (listed) moi mo thang chi tiet duoc — xoa tim kiem,
@@ -451,6 +494,7 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
   const openFromAttention = (msdl) => {
     if (!listedMsdl.has(msdl)) return
     setSearch('')
+    setPeFilter('ALL')
     setViewMode('personal')
     if (!openRows.has(msdl)) toggleRow(msdl)
     setTimeout(() => {
@@ -521,6 +565,25 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
     const peProj = peSt ? tierById(peSt.projected) : null
     const peNxt = peSt && peSt.next ? tierById(peSt.next.tierId) : null
     const pePct = peSt && peSt.next ? Math.min(100, Math.max(0, (peSt.fycL12m / peSt.next.needL12m) * 100)) : 100
+    // DONG THONG TIN LEN HANG PE tren hang (.bv-pe-line — dot loc
+    // PE): noi dung RUT GON tu peSt cho moi nguoi xem duoc hang do.
+    // CHI hien khi (1) snapshot quy DA DU cac thang da qua trong quy
+    // (monthsWithData = qMonths — chua nap xong thi AN, tranh hien
+    // so tam tinh sai do thieu thang hoat dong) va (2) TVV co FYC
+    // 12 thang (co so lieu PE). Ca 2 phan thieu deu ghi gon 1 dong.
+    let peLine = ''
+    if (peSt && peData && peData.qMonths > 0 && peData.monthsWithData >= peData.qMonths && (Number(a.fycL12m) || 0) > 0) {
+      if (!peSt.next) {
+        peLine = '💎 Đạt Kim Cương (tạm tính)'
+      } else {
+        const parts = []
+        if (peSt.next.lackL12m > 0) parts.push(`còn thiếu ${fmtTr(peSt.next.lackL12m)} tr FYC`)
+        if (peSt.next.lackMonths > 0) parts.push(`cần thêm ${fmtInt(peSt.next.lackMonths)} tháng hoạt động`)
+        peLine = parts.length
+          ? `🎯 Tới ${peNxt ? peNxt.label : ''}: ${parts.join(' · ')}`
+          : `🎯 Tới ${peNxt ? peNxt.label : ''}: sắp đạt 🎉`
+      }
+    }
     const bar = a.bar
     const pctOf = (v) => (bar.total > 0 ? (v / bar.total) * 100 : 0)
     return (
@@ -577,6 +640,9 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
                 <span className="num-short">Thiếu {fmtTr(FYC_FLOOR - a.fyc)} tr (mốc {FYC_FLOOR}tr FYC)</span>
               </span>
             ) : null}
+            {/* Dong thong tin len hang PE: ngay duoi dong so lieu
+                cua hang, truoc phan chi tiet xo ra ben duoi. */}
+            {peLine ? <span className="bv-pe-line">{peLine}</span> : null}
           </span>
           <span className="bv-total">
             {sortKey === 'fyc' ? (
@@ -989,6 +1055,14 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
           <button key={s.id} className={`fchip ${sortKey === s.id ? 'active' : ''}`} onClick={() => setSortKey(s.id)}>{s.label}</button>
         ))}
       </div>
+      {/* ── Loc Bang Vang theo NHOM PE (dot loc PE): hang HIEN TAI +
+          nhom sap len hang. Dat ngay duoi hang chip sap xep, gon 1
+          hang chip nho; loc doc lap voi sap xep/tim kiem. ── */}
+      <div className="chips-row">
+        {BV_PE_FILTERS.map((f) => (
+          <button key={f.code} className={`fchip sm ${peFilter === f.code ? 'active' : ''}`} onClick={() => setPeFilter(f.code)}>{f.label}</button>
+        ))}
+      </div>
 
       {/* ── Thong bao gate khi bam TVV khong co quyen mo chi tiet ── */}
       {gateNotice ? (
@@ -1014,12 +1088,13 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
           {shareErr ? <div className="msg error" style={{ marginTop: 8 }}>{shareErr}</div> : null}
         </div>
         {query ? <div className="muted" style={{ marginBottom: 4 }}>Kết quả tìm “{search.trim()}”: {display.length} TVV</div> : null}
+        {!query && peFilter !== 'ALL' ? <div className="muted" style={{ marginBottom: 4 }}>Đang lọc theo nhóm PE: {display.length} TVV</div> : null}
         {display.length === 0 ? (
           <div className="muted" style={{ padding: '10px 0' }}>
-            {query ? 'Không thấy TVV nào khớp.' : 'Chưa có TVV nào có số liệu trong tháng này.'}
+            {query || peFilter !== 'ALL' ? 'Không thấy TVV nào khớp bộ lọc.' : 'Chưa có TVV nào có số liệu trong tháng này.'}
           </div>
         ) : (<div className="bv-list">{display.map(renderRow)}</div>)}
-        {!query && hiddenCount > 0 ? (
+        {!query && peFilter === 'ALL' && hiddenCount > 0 ? (
           <div className="muted" style={{ paddingTop: 10 }}>… và {fmtInt(hiddenCount)} TVV chưa có số liệu tháng này</div>
         ) : null}
       </div>

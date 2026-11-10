@@ -319,7 +319,14 @@ assert.ok(!salesReportR.includes('peStatus'), 'SalesReport: DA GO peStatus (khon
 assert.ok(!salesReportR.includes('quarterMonths'), 'SalesReport: DA GO co che nap snapshots quy (chi phuc vu PE)')
 assert.ok(!salesReportR.includes('Kim Cương:'), 'SalesReport: dai tom tat DA GO cac so theo hang (Kim Cuong/Bach Kim/Vang)')
 assert.ok(!salesReportR.includes('strip.tiers'), 'SalesReport: dai tom tat DA GO phan dem theo hang (strip.tiers)')
-console.log('Sales Report: giu Theo ho so + Theo TVV phan loai (huy hieu hang, loc Active, dai Active); phan tich PE da go sach')
+// Dot KHOI PHUC LOC PE (Lan yeu cau tiep 10/11/2026): Sales Report
+// co LAI chip loc theo NHOM PE o che do Theo TVV — chi la bo loc
+// phan loai theo hang HIEN TAI; phan tich PE (cac assert am o tren)
+// VAN khong duoc quay lai.
+assert.ok(salesReportR.includes("code: 'diamond'") && salesReportR.includes("code: 'platinum'") && salesReportR.includes("code: 'gold'") && salesReportR.includes("code: 'none'"), 'SalesReport: chip loc Theo TVV phai co lai du nhom PE (diamond/platinum/gold/none)')
+assert.ok(salesReportR.includes('💎 Kim Cương') && salesReportR.includes('Chưa xếp hạng'), 'SalesReport: chip loc phai co nhan Kim Cuong + Chua xep hang')
+assert.ok(salesReportR.includes("peFilter === 'none'") && salesReportR.includes('r.tier === peFilter'), 'SalesReport: loc nhom PE phai theo hang HIEN TAI (r.tier tu segToTier agSeg)')
+console.log('Sales Report: giu Theo ho so + Theo TVV phan loai (huy hieu hang, loc Active, dai Active) + chip loc nhom PE khoi phuc; phan tich PE da go sach')
 // Tinh Anh (DoiNgu) nhan phan tich PE: 4 vi tri + gate nhu Can chu y
 assert.ok(doiNgu.includes("from '../lib/pe'"), 'DoiNgu: phai import lib/pe (peStatus/nearRankList/quarterMonths...)')
 assert.ok(doiNgu.includes('nearRankList') && doiNgu.includes('peStatus'), 'DoiNgu: phai dung nearRankList + peStatus cua lib/pe')
@@ -333,7 +340,16 @@ assert.ok(doiNgu.includes('đang tính trên'), 'DoiNgu: khoi Sap len hang PE ph
 assert.ok(css.includes('.sr-strip-item'), 'index.css: phai co style dai tom tat (.sr-strip-item)')
 assert.ok(css.includes('.pe-badge-dia') && css.includes('.pe-progress'), 'index.css: phai co style huy hieu PE + thanh tien do (.pe-badge/.pe-progress)')
 assert.ok(dk.includes('.sr-agent-grid { display: grid; grid-template-columns: 1fr 1fr'), 'responsive 1024: the TVV phai xep 2 cot (.sr-agent-grid)')
-console.log('Tinh Anh PE: dai phan hang o tong quan; khoi Sap len hang (gate Admin/truong phong nhu Can chu y); huy hieu hang tren hang Bang Vang; Duong toi hang PE trong chi tiet TVV')
+// Dot LOC PE + DONG LEN HANG (Lan yeu cau tiep 10/11/2026): Bang
+// Vang them hang chip loc nhom PE + dong thong tin len hang tren
+// tung hang; cac vi tri PE dot truoc giu nguyen.
+assert.ok(doiNgu.includes('BV_PE_FILTERS') && doiNgu.includes("code: 'near'"), 'DoiNgu: Bang Vang phai co hang chip loc nhom PE (BV_PE_FILTERS, gom chip Sap len hang)')
+assert.ok(doiNgu.includes('peNearMsdl'), 'DoiNgu: chip loc Sap len hang phai tai su dung tap nearRankList (peNearMsdl — cung dinh nghia khoi Sap len hang)')
+assert.ok(doiNgu.includes('bv-pe-line'), 'DoiNgu: hang Bang Vang phai co dong thong tin len hang PE (.bv-pe-line)')
+assert.ok(doiNgu.includes('🎯 Tới') && doiNgu.includes('Đạt Kim Cương (tạm tính)'), 'DoiNgu: dong len hang PE phai co mau "Toi {hang ke}: con thieu..." va trang thai Dat Kim Cuong (tam tinh)')
+assert.ok(doiNgu.includes('monthsWithData >= peData.qMonths'), 'DoiNgu: dong len hang PE chi hien khi snapshot quy da du thang (monthsWithData >= qMonths)')
+assert.ok(css.includes('.bv-pe-line'), 'index.css: phai co style dong len hang PE (.bv-pe-line)')
+console.log('Tinh Anh PE: dai phan hang o tong quan; khoi Sap len hang (gate Admin/truong phong nhu Can chu y); huy hieu hang tren hang Bang Vang; Duong toi hang PE trong chi tiet TVV; chip loc nhom PE + dong len hang PE tren hang Bang Vang')
 
 // ── Rules: memos doc cong khai ──
 console.log('\n=== firestore.rules memos ===')
