@@ -68,53 +68,57 @@ export function DailyShareCard({ data, cardRef }) {
   const k = data.kpi
   return (
     <div className="share-card" ref={cardRef}>
-      <ShareHead kind="📰 BẢN TIN NGÀY" sub={`Dữ liệu đến ${data.dateLabel}`} />
-      <div className="sc-sec-label">🎯 FYP tháng {data.month}/{data.year}</div>
-      <div className="sc-fyp-num">{fmtTr(data.fyp)} <span className="sc-unit">triệu đồng</span></div>
-      {data.target !== null ? (
-        <>
-          <div className="sc-progress"><div className="sc-progress-fill" style={{ width: `${data.pct || 0}%` }} /></div>
-          <div className="sc-note">
-            Đạt <b>{(Math.round((data.pct || 0) * 10) / 10).toLocaleString('vi-VN')}%</b> mục tiêu {fmtTr(data.target)} tr
-            {data.remaining > 0 ? <> · còn thiếu <b>{fmtTr(data.remaining)} tr</b></> : <> · đã đạt mục tiêu 🎉</>}
-          </div>
-        </>
-      ) : null}
-      <div className="sc-kpis">
-        <div className="sc-kpi" style={{ borderLeftColor: '#2563eb' }}>
-          <div className="sc-kpi-label">📥 Nộp (theo IP)</div>
-          <div className="sc-kpi-val">{fmtTr(k.nop.ip)} tr</div>
-          <div className="sc-kpi-sub">{fmtInt(k.nop.n)} hồ sơ</div>
-        </div>
-        <div className="sc-kpi" style={{ borderLeftColor: '#6d28d9' }}>
-          <div className="sc-kpi-label">✅ Phát hành (IP Net)</div>
-          <div className="sc-kpi-val" style={{ color: '#6d28d9' }}>{fmtTr(k.phatHanh.ip)} tr</div>
-          <div className="sc-kpi-sub">{fmtInt(k.phatHanh.n)} hợp đồng</div>
-        </div>
-        <div className="sc-kpi" style={{ borderLeftColor: '#db2777' }}>
-          <div className="sc-kpi-label">⏳ Pending (theo APE)</div>
-          <div className="sc-kpi-val" style={{ color: '#be185d' }}>{fmtTr(k.pending.ape)} tr</div>
-          <div className="sc-kpi-sub">{fmtInt(k.pending.n)} hồ sơ</div>
-        </div>
-        <div className="sc-kpi" style={{ borderLeftColor: '#0891b2' }}>
-          <div className="sc-kpi-label">💸 Chưa lên phí (APE)</div>
-          <div className="sc-kpi-val" style={{ color: '#b45309' }}>{fmtTr(k.chuaLenPhi.ape)} tr</div>
-          <div className="sc-kpi-sub">{fmtInt(k.chuaLenPhi.n)} hồ sơ</div>
-        </div>
+      <div className="sc-hero">
+        <ShareHead kind="📰 BẢN TIN NGÀY" sub={`Dữ liệu đến ${data.dateLabel}`} />
+        <div className="sc-fyp-label">🎯 FYP tháng {data.month}/{data.year}</div>
+        <div className="sc-fyp-num">{fmtTr(data.fyp)} <span className="sc-unit">triệu đồng</span></div>
+        {data.target !== null ? (
+          <>
+            <div className="sc-progress"><div className="sc-progress-fill" style={{ width: `${data.pct || 0}%` }} /></div>
+            <div className="sc-note-hero">
+              Đạt <b>{(Math.round((data.pct || 0) * 10) / 10).toLocaleString('vi-VN')}%</b> mục tiêu {fmtTr(data.target)} tr
+              {data.remaining > 0 ? <> · còn thiếu <b>{fmtTr(data.remaining)} tr</b></> : <> · đã đạt mục tiêu 🎉</>}
+            </div>
+          </>
+        ) : null}
       </div>
-      <div className="sc-sec-label">🏆 Top 5 TVV phát hành</div>
-      {data.top.length === 0 ? (
-        <div className="sc-note">Chưa có TVV nào phát hành trong tháng này.</div>
-      ) : data.top.map((a, i) => (
-        <div className="sc-top-row" key={`${a.name}-${i}`}>
-          {i < 3 ? <span className="sc-medal">{MEDALS[i]}</span> : <span className="sc-rank">{i + 1}</span>}
-          <div className="sc-top-who">
-            <div className="sc-top-name">{a.name || '—'}</div>
-            <div className="sc-top-unit">{a.unit || ''}</div>
+      <div className="sc-body">
+        <div className="sc-kpis">
+          <div className="sc-kpi sc-kpi-nop">
+            <div className="sc-kpi-label">📥 Nộp (theo IP)</div>
+            <div className="sc-kpi-val">{fmtTr(k.nop.ip)} tr</div>
+            <div className="sc-kpi-sub">{fmtInt(k.nop.n)} hồ sơ</div>
           </div>
-          <div className="sc-top-ip">{fmtTr(a.ip)} tr</div>
+          <div className="sc-kpi sc-kpi-issued">
+            <div className="sc-kpi-label">✅ Phát hành (IP Net)</div>
+            <div className="sc-kpi-val">{fmtTr(k.phatHanh.ip)} tr</div>
+            <div className="sc-kpi-sub">{fmtInt(k.phatHanh.n)} hợp đồng</div>
+          </div>
+          <div className="sc-kpi sc-kpi-pending">
+            <div className="sc-kpi-label">⏳ Pending (theo APE)</div>
+            <div className="sc-kpi-val">{fmtTr(k.pending.ape)} tr</div>
+            <div className="sc-kpi-sub">{fmtInt(k.pending.n)} hồ sơ</div>
+          </div>
+          <div className="sc-kpi sc-kpi-pipe">
+            <div className="sc-kpi-label">💸 Chưa lên phí (APE)</div>
+            <div className="sc-kpi-val">{fmtTr(k.chuaLenPhi.ape)} tr</div>
+            <div className="sc-kpi-sub">{fmtInt(k.chuaLenPhi.n)} hồ sơ</div>
+          </div>
         </div>
-      ))}
+        <div className="sc-sec-label">🏆 Top 5 TVV phát hành</div>
+        {data.top.length === 0 ? (
+          <div className="sc-note">Chưa có TVV nào phát hành trong tháng này.</div>
+        ) : data.top.map((a, i) => (
+          <div className={`sc-top-row${i === 0 ? ' sc-top-first' : ''}${i > 0 && i % 2 === 1 ? ' sc-top-alt' : ''}`} key={`${a.name}-${i}`}>
+            {i < 3 ? <span className="sc-medal">{MEDALS[i]}</span> : <span className="sc-rank">{i + 1}</span>}
+            <div className="sc-top-who">
+              <div className="sc-top-name">{a.name || '—'}</div>
+              <div className="sc-top-unit">{a.unit || ''}</div>
+            </div>
+            <div className="sc-top-ip">{fmtTr(a.ip)} tr</div>
+          </div>
+        ))}
+      </div>
       <div className="sc-foot">
         👥 TVV đang hoạt động: <b>{fmtInt(data.activeCount)}/{fmtInt(data.totalAgents)}</b> · Số liệu từ Daily Sales đến {data.dateLabel}
       </div>
@@ -127,15 +131,18 @@ export function BoardShareCard({ data, month, year, avatarMap = {}, withAvatars 
   if (!data) return null
   return (
     <div className="share-card" ref={cardRef}>
-      <ShareHead kind="🏆 BẢNG VÀNG" sub={`Tháng ${month}/${year}`} />
-      <div className="sc-note" style={{ marginBottom: 6 }}>
-        Xếp hạng theo: <b>{data.modeLabel}</b> · Top {data.rows.length} trong {fmtInt(data.listedCount)} TVV có số liệu tháng
+      <div className="sc-hero">
+        <ShareHead kind="🏆 BẢNG VÀNG" sub={`Tháng ${month}/${year}`} />
+        <div className="sc-hero-note">
+          Xếp hạng theo: <b>{data.modeLabel}</b> · Top {data.rows.length} trong {fmtInt(data.listedCount)} TVV có số liệu tháng
+        </div>
       </div>
+      <div className="sc-body">
       {data.rows.map((r) => {
         const av = withAvatars ? (avatarMap[String(r.msdl || '').trim().toUpperCase()] || '') : ''
         const pctOf = (v) => (r.bar.total > 0 ? (v / r.bar.total) * 100 : 0)
         return (
-          <div className="sc-board-row" key={r.msdl || r.rank}>
+          <div className={`sc-board-row${r.rank <= 3 ? ` sc-board-r${r.rank}` : ''}${r.rank > 3 && r.rank % 2 === 0 ? ' sc-board-alt' : ''}`} key={r.msdl || r.rank}>
             <span className={`sc-avatar sc-av-${segKey(r.agSeg)}`}>
               {av ? <img className="sc-avatar-img" src={av} alt="" crossOrigin="anonymous" /> : r.initials}
               {r.rank <= 3 ? <span className="sc-avatar-medal">{MEDALS[r.rank - 1]}</span> : null}
@@ -164,6 +171,7 @@ export function BoardShareCard({ data, month, year, avatarMap = {}, withAvatars 
           </div>
         )
       })}
+      </div>
       <div className="sc-foot">Prudential Quận 7 · Cùng Học Hỏi – Cùng Phát Triển – Cùng Thành Công</div>
     </div>
   )

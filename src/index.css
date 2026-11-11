@@ -527,35 +527,58 @@ button.unit-head { font-family: inherit; }
 /* ── Anh chia se (ShareCard): the render AN ngoai man hinh + anh ── */
 .share-offscreen { position: fixed; left: -10000px; top: 0; z-index: -1; pointer-events: none; }
 .share-btn-row { margin-top: 12px; }
+/* 11/11/2026: Lan che anh chia se "buon, mau sac nhat nhoa" -> lam lai
+   DAM/tuong phan cao: dai dau gradient navy dam chua header + khoi FYP
+   chu trang, 4 o KPI nen mau DAC chu trang, hang 1 nen vang nhan,
+   chan trang dai navy. Chi trinh bay (shareCard.js giu nguyen du lieu);
+   mau dung hex/rgba/gradient thong thuong de html2canvas chup dung. */
 .share-card {
-  width: 540px; background: linear-gradient(180deg, #ffffff 0%, #f6f9fc 100%);
-  color: var(--text); padding: 28px; font-size: 15px; line-height: 1.5;
+  width: 540px; background: #ffffff;
+  color: var(--text); padding: 0; font-size: 15px; line-height: 1.5;
 }
-.sc-head { display: flex; align-items: center; gap: 12px; border-bottom: 3px solid var(--navy); padding-bottom: 14px; margin-bottom: 16px; }
-.sc-logo { height: 46px; width: auto; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 3px 6px; }
-.sc-brand { font-size: 22px; font-weight: 800; color: var(--navy-dark); line-height: 1.2; }
-.sc-slogan { font-size: 12.5px; color: var(--text3); font-weight: 600; }
-.sc-kind { margin-left: auto; text-align: right; font-weight: 800; color: var(--primary); font-size: 15px; white-space: nowrap; }
-.sc-date { font-size: 13px; color: var(--text3); font-weight: 700; }
-.sc-sec-label { font-size: 15px; font-weight: 800; color: var(--navy-dark); margin: 14px 0 6px; }
-.sc-fyp-num { font-size: 40px; font-weight: 800; color: var(--navy); line-height: 1.1; }
-.sc-unit { font-size: 16px; font-weight: 600; color: var(--text3); }
-.sc-progress { height: 12px; border-radius: 99px; background: var(--line2); overflow: hidden; margin-top: 8px; }
-.sc-progress-fill { height: 100%; background: linear-gradient(90deg, var(--navy), #1a56a8); border-radius: 99px; }
+.sc-hero { background: linear-gradient(135deg, #0a2e6e 0%, #1250a8 100%); padding: 24px 28px 22px; }
+.sc-body { padding: 20px 28px 6px; }
+.sc-head { display: flex; align-items: center; gap: 12px; }
+.sc-logo { height: 48px; width: auto; background: #fff; border-radius: 12px; padding: 4px 8px; }
+.sc-brand { font-size: 23px; font-weight: 800; color: #ffffff; line-height: 1.2; }
+.sc-slogan { font-size: 12.5px; color: #c7dcf7; font-weight: 600; }
+.sc-kind { margin-left: auto; text-align: right; font-weight: 800; color: #ffffff; font-size: 15px; white-space: nowrap; }
+.sc-date { font-size: 13px; color: #bcd3f2; font-weight: 700; }
+.sc-fyp-label { font-size: 15px; font-weight: 800; color: #dbeafe; margin: 18px 0 4px; }
+.sc-fyp-num { font-size: 46px; font-weight: 800; color: #ffffff; line-height: 1.05; }
+.sc-unit { font-size: 16px; font-weight: 600; color: #bcd3f2; }
+.sc-progress { height: 13px; border-radius: 99px; background: rgba(255, 255, 255, 0.28); overflow: hidden; margin-top: 10px; }
+.sc-progress-fill { height: 100%; background: linear-gradient(90deg, #fbbf24, #f97316); border-radius: 99px; }
+.sc-note-hero { font-size: 13.5px; color: #e3edfb; margin-top: 8px; }
+.sc-note-hero b { color: #fcd34d; }
+.sc-hero-note { font-size: 13.5px; color: #dbeafe; margin-top: 14px; }
+.sc-hero-note b { color: #ffffff; }
 .sc-note { font-size: 13.5px; color: var(--text2); margin-top: 6px; }
-.sc-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0 4px; }
-.sc-kpi { border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 12px; padding: 10px 12px; background: #fff; }
-.sc-kpi-label { font-size: 12px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .02em; }
-.sc-kpi-val { font-size: 24px; font-weight: 800; line-height: 1.15; }
+.sc-sec-label { font-size: 16px; font-weight: 800; color: var(--navy-dark); margin: 16px 0 8px; border-left: 6px solid #e4002b; padding-left: 10px; }
+.sc-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 2px 0 4px; }
+.sc-kpi { border-radius: 14px; padding: 12px 14px; color: #ffffff; }
+.sc-kpi-nop { background: #2563eb; }
+.sc-kpi-issued { background: #7c3aed; }
+.sc-kpi-pending { background: #db2777; }
+.sc-kpi-pipe { background: #ea580c; }
+.sc-kpi-label { font-size: 12px; font-weight: 700; color: rgba(255, 255, 255, 0.88); text-transform: uppercase; letter-spacing: .02em; }
+.sc-kpi-val { font-size: 26px; font-weight: 800; line-height: 1.15; color: #ffffff; }
 .sc-kpi-sub { font-size: 12px; color: var(--text3); font-weight: 600; }
-.sc-top-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px dashed var(--line); }
-.sc-medal { font-size: 19px; }
-.sc-rank { color: var(--text3); font-weight: 700; font-size: 13px; margin-right: 2px; }
+.sc-kpi .sc-kpi-sub { color: rgba(255, 255, 255, 0.82); }
+.sc-top-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-top: 1px dashed var(--line); border-radius: 12px; }
+.sc-top-first { background: linear-gradient(90deg, #fef3c7, #fff6db); border-top: none; }
+.sc-top-alt { background: #f6f9fc; }
+.sc-medal { font-size: 22px; }
+.sc-rank { color: var(--text3); font-weight: 800; font-size: 14px; margin-right: 2px; }
 .sc-top-who { flex: 1 1 auto; min-width: 0; }
-.sc-top-name { font-size: 15px; font-weight: 800; line-height: 1.25; }
+.sc-top-name { font-size: 15px; font-weight: 800; line-height: 1.25; color: #0a1f33; }
 .sc-top-unit { font-size: 12.5px; color: var(--text3); font-weight: 600; }
-.sc-top-ip { font-size: 17px; font-weight: 800; color: #6d28d9; }
-.sc-board-row { display: flex; align-items: center; gap: 11px; padding: 9px 0; border-top: 1px dashed var(--line); }
+.sc-top-ip { font-size: 18px; font-weight: 800; color: #6d28d9; }
+.sc-board-row { display: flex; align-items: center; gap: 11px; padding: 9px 10px; border-top: 1px dashed var(--line); border-radius: 12px; }
+.sc-board-r1 { background: linear-gradient(90deg, #fef3c7, #fff6db); border-top: none; }
+.sc-board-r2 { background: linear-gradient(90deg, #e8eef6, #f6f9fc); border-top: none; }
+.sc-board-r3 { background: linear-gradient(90deg, #fdeeda, #fff6ec); border-top: none; }
+.sc-board-alt { background: #f8fafc; }
 .sc-avatar {
   position: relative; flex: 0 0 auto; width: 42px; height: 42px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
@@ -571,10 +594,11 @@ button.unit-head { font-family: inherit; }
 .sc-bar { display: flex; height: 8px; border-radius: 99px; overflow: hidden; background: var(--line2); width: 150px; margin-top: 3px; }
 .sc-short { font-size: 12px; font-weight: 700; color: var(--red); }
 .sc-board-total { flex: 0 0 auto; text-align: right; }
-.sc-board-num { font-size: 21px; font-weight: 800; line-height: 1.1; }
+.sc-board-num { font-size: 22px; font-weight: 800; line-height: 1.1; color: #0c2a4e; }
 .sc-num-fyc { color: var(--green); }
 .sc-num-short { color: var(--red); }
-.sc-foot { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line2); font-size: 12.5px; color: var(--text3); font-weight: 600; text-align: center; }
+.sc-foot { margin-top: 18px; padding: 13px 28px; background: linear-gradient(90deg, #0a2e6e, #1250a8); font-size: 12.5px; color: #dbeafe; font-weight: 600; text-align: center; }
+.sc-foot b { color: #ffffff; }
 .share-preview-img { width: 100%; border-radius: 12px; border: 1px solid var(--border); display: block; }
 
 /* ── Huy hieu dang chip co chu (trang Ca nhan) ── */
