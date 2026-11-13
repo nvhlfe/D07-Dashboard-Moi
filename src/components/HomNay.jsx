@@ -3,6 +3,11 @@
 // 4 KPI, Top 5 TVV, thanh xep chong, bieu do nhip nop theo ngay
 // (cot xep chong SVG, thay heatmap APE cu — mau D03) + hanh trinh nam, canh bao.
 // Nguon so: snapshot Daily moi nhat (Firestore neu co, khong thi localStorage).
+// Y 8 (13/11/2026): them BO CHON THANG xem lai so lieu — phan so lieu
+// (tien do FYP / 4 KPI / Top 5 / Nhip nop / Cua toi) theo thang chon,
+// tai lazy qua onNeedMonth; HERO countdown + canh bao pending qua 7
+// ngay + anh ban tin van theo "hom nay" (thoi gian thuc / snapshot
+// moi nhat toan cuc).
 // 4 KPI + Top 5 dung homeKpi (CHUAN B, Lan chot 10/11/2026: dem theo DONG
 // nhu file goc). analyzeSoSanLuong CHI con dung cho danh sach nhac viec
 // "pending qua 7 ngay" va hang phat hanh trong khoi "Cua toi" — KHONG
@@ -34,7 +39,7 @@ function daysUntil(isoDate) {
   return Math.round((target - today) / 86400000)
 }
 
-export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, user, profile, onOpenLogin }) {
+export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, onNeedMonth, user, profile, onOpenLogin }) {
   const [quoteOffset, setQuoteOffset] = useState(0)
   const [selDay, setSelDay] = useState(null)
   // Anh ban tin ngay (ShareCard): trang thai tao anh + anh da chup (modal)
@@ -45,15 +50,66 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
 
   const newest = snaps && snaps.length ? snaps[snaps.length - 1] : null
 
+  // ── CHON THANG XEM LAI (Y 8 — Lan duyet 13/11/2026) ──
+  // Cung mau chon thang cua Sales Report: mac dinh = thang cua
+  // snapshot moi nhat (hanh vi cu khong doi); chon thang khac thi
+  // toan bo PHAN SO LIEU (tien do FYP, 4 KPI, Top 5, Nhip nop, khoi
+  // "Cua toi") doi theo snapshot moi nhat cua thang do, tai LAZY qua
+  // onNeedMonth (ensureMonth cua App) neu thang chua co trong snaps.
+  // HERO countdown + khoi canh bao pending qua 7 ngay la phan "hom
+  // nay" — LUON theo thoi gian thuc / snapshot moi nhat toan cuc,
+  // khong doi theo thang dang xem (phan dinh o cac khoi ben duoi).
+  const [selectedMonth, setSelectedMonth] = useState('')
+  const [lazyMonth, setLazyMonth] = useState(null)
+  const months = useMemo(
+    () => [...new Set((snaps || []).map((s) => s.id.slice(0, 7)))].sort(),
+    [snaps],
+  )
+  const pickerMonths = useMemo(() => {
+    const set = new Set(months)
+    if (months.length) {
+      let [y, m] = months[months.length - 1].split('-').map(Number)
+      for (let i = 0; i < 11; i++) {
+        m -= 1; if (m === 0) { m = 12; y -= 1 }
+        set.add(`${y}-${String(m).padStart(2, '0')}`)
+      }
+    }
+    return [...set].sort()
+  }, [months])
+  const effMonth = selectedMonth && pickerMonths.includes(selectedMonth)
+    ? selectedMonth
+    : (months.length ? months[months.length - 1] : null)
+  const viewSnap = useMemo(() => {
+    if (!effMonth) return null
+    const list = (snaps || []).filter((s) => s.id.startsWith(`${effMonth}-`))
+    return list.length ? list[list.length - 1] : null
+  }, [snaps, effMonth])
+  const isLatestMonth = !!newest && !!effMonth && newest.id.slice(0, 7) === effMonth
+
+  const handleSelectMonth = (ym) => {
+    setSelectedMonth(ym)
+    setSelDay(null)
+    if (!onNeedMonth || months.includes(ym)) { setLazyMonth(null); return }
+    setLazyMonth({ ym, phase: 'loading' })
+    Promise.resolve(onNeedMonth(ym)).then((ok) => {
+      setLazyMonth((cur) => (cur && cur.ym === ym ? (ok ? null : { ym, phase: 'empty' }) : cur))
+    }).catch(() => {
+      setLazyMonth((cur) => (cur && cur.ym === ym ? { ym, phase: 'empty' } : cur))
+    })
+  }
+
   const view = useMemo(() => {
-    if (!newest) return null
+    if (!viewSnap) return null
+    const newest = viewSnap
     const [year, month] = newest.id.split('-').map(Number)
     const ymPrefix = newest.id.slice(0, 7)
     const pm = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 }
     const p = (n) => String(n).padStart(2, '0')
     const prevMonthDocs = snaps.filter((s) => s.id.startsWith(`${pm.y}-${p(pm.m)}-`))
-    // analyze CHI de lay danh sach pending qua 7 ngay (nhac viec) + hang
-    // trong khoi "Cua toi"; 4 KPI Trang Chu lay tu homeKpi (chuan B).
+    // analyze CHI de lay hang trong khoi "Cua toi" (theo thang dang
+    // xem); 4 KPI Trang Chu lay tu homeKpi (chuan B). Danh sach
+    // pending qua 7 ngay (nhac viec "hom nay") tinh rieng tu snapshot
+    // moi nhat TOAN CUC o todayPendingOld ben duoi.
     const analysis = analyzeSoSanLuong([newest], prevMonthDocs, { year, month })
     const kpi = homeKpi(newest.data)
     const agentsObj = newest.data?.agents || {}
@@ -84,20 +140,31 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
     // so GA (gaHistory: 2026 T1-T10) lay so GA; thang con lai lay snapshot
     // MOI NHAT cua thang do (trong snaps da gop may + may).
     const journey = buildYearJourney(snaps, year)
-    const pendingOld = (analysis.pendingAll || []).filter((c) => (c.ageDays ?? 0) > 7)
     const tvvActive = agentsList.filter((a) => (Number(a.fyp) || 0) > 0 || (a.cIF || 0) + (a.cPS || 0) + (a.cOther || 0) > 0).length
     return {
       year, month, daysInMonth, analysis, kpi, issRate,
-      fypTotal, top, stacks, journey, pendingOld, tvvActive, tvvTotal: agentsList.length,
+      fypTotal, top, stacks, journey, tvvActive, tvvTotal: agentsList.length,
       agentsObj,
       snapDay: Number(newest.id.split('-')[2]),
     }
+  }, [snaps, viewSnap])
+
+  // ── Canh bao "pending qua 7 ngay" la nhac viec HOM NAY: LUON tinh
+  // tu snapshot moi nhat TOAN CUC, khong doi theo thang dang xem. ──
+  const todayPendingOld = useMemo(() => {
+    if (!newest) return []
+    const [ty, tm] = newest.id.split('-').map(Number)
+    const tpm = tm === 1 ? { y: ty - 1, m: 12 } : { y: ty, m: tm - 1 }
+    const p = (x) => String(x).padStart(2, '0')
+    const prevDocs = (snaps || []).filter((s) => s.id.startsWith(`${tpm.y}-${p(tpm.m)}-`))
+    const an = analyzeSoSanLuong([newest], prevDocs, { year: ty, month: tm })
+    return (an.pendingAll || []).filter((c) => (c.ageDays ?? 0) > 7)
   }, [snaps, newest])
 
   if (loading) {
     return <div className="card empty"><div className="e-ic">⏳</div>Đang tải dữ liệu…</div>
   }
-  if (!newest || !view) {
+  if (!newest) {
     // Chua co du lieu TREN MAY nay va luot tai may dau tien chua xong:
     // hien "dang tai" thay vi man rong 📭 (truoc day nguoi dung tuong
     // he thong trong du lieu trong luc cho tai o lan mo dau/domain moi).
@@ -120,12 +187,119 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
     )
   }
 
-  const { year, month, daysInMonth, analysis, kpi, issRate, fypTotal, top, stacks, journey, pendingOld } = view
+  // ── HERO: countdown LUON theo THOI GIAN THUC (thang hien tai that),
+  // khong doi theo thang dang xem so lieu. Dong luu y muc tieu trong
+  // hero (chi Admin chinh thay — gate giu nguyen) tinh tu snapshot +
+  // muc tieu cua THANG HIEN TAI THAT; chua co du lieu thang hien tai
+  // thi an dong luu y, countdown van chay. ──
+  const nowRt = new Date()
+  const curY = nowRt.getFullYear(); const curM = nowRt.getMonth() + 1
+  const heroDaysInMonth = new Date(curY, curM, 0).getDate()
+  const heroDaysLeft = heroDaysInMonth - nowRt.getDate()
+  const daysYearEnd = daysUntil('2026-12-31')
+  const daysTet = daysUntil('2027-02-06')
+  const quote = QUOTES[(quoteIndexForDate(nowRt) + quoteOffset) % QUOTES.length]
+  const curMonthSnap = (() => {
+    const prefix = `${curY}-${String(curM).padStart(2, '0')}-`
+    const list = (snaps || []).filter((s) => s.id.startsWith(prefix))
+    return list.length ? list[list.length - 1] : null
+  })()
+  const heroTarget = curMonthSnap ? getTarget(curY, curM) : null
+  const heroFyp = curMonthSnap
+    ? Object.values(curMonthSnap.data?.agents || {}).reduce((s, a) => s + (Number(a.fyp) || 0), 0)
+    : 0
+  const heroRemaining = heroTarget !== null ? heroTarget - heroFyp : null
+  const heroNeedPerDay = heroTarget !== null && heroDaysLeft > 0 && heroRemaining > 0
+    ? heroRemaining / heroDaysLeft : null
+
+  const heroBlock = (
+    <div className="hero">
+      <div className="hero-inner">
+        <div className="cd-row">
+          <div className="cd-main">
+            <div className="cd-label">Còn</div>
+            <div className="cd-big">{heroDaysLeft}</div>
+            <div className="cd-label">ngày nữa hết tháng {curM}/{curY}</div>
+            {isSuperAdmin(user) && heroTarget !== null && heroRemaining > 0 && heroNeedPerDay !== null && (
+              <div className="cd-need">Cần {fmtTr(heroNeedPerDay)} tr/ngày để kịp mục tiêu</div>
+            )}
+            {isSuperAdmin(user) && heroTarget !== null && heroRemaining <= 0 && (
+              <div className="cd-need" style={{ color: 'var(--green)' }}>🎉 Đã đạt mục tiêu tháng!</div>
+            )}
+          </div>
+          <div className="cd-side">
+            <div>
+              <div className="cd-small-num">{Math.max(0, daysYearEnd)}</div>
+              <div className="cd-small-label">ngày nữa hết năm 2026</div>
+            </div>
+            <div>
+              <div className="cd-small-num">{Math.max(0, daysTet)}</div>
+              <div className="cd-small-label">ngày nữa đến Tết Đinh Mùi 2027</div>
+            </div>
+          </div>
+        </div>
+        <hr className="divider" />
+        <div className="quote" onClick={() => setQuoteOffset((o) => o + 1)} title="Bấm để đổi câu khác">
+          “{quote.text}”{quote.author ? <span className="author"> — {quote.author}</span> : null}
+        </div>
+      </div>
+    </div>
+  )
+
+  // ── Bo chon thang (dau PHAN SO LIEU, ngay duoi hero) — cung mau
+  // <select> cua Sales Report; chi hien khi co hon 1 thang chon duoc.
+  const monthLabel = (ym) => (ym ? `Tháng ${ym.split('-')[1]}/${ym.split('-')[0]}` : '')
+  const monthPicker = pickerMonths.length > 1 ? (
+    <div className="card" style={{ paddingTop: 12, paddingBottom: 12 }}>
+      <div className="field" style={{ marginBottom: 0 }}>
+        <label>📅 Tháng xem số liệu</label>
+        <select value={effMonth || ''} onChange={(e) => handleSelectMonth(e.target.value)}>
+          {pickerMonths.map((m) => <option key={m} value={m}>{monthLabel(m)}{months.includes(m) ? '' : ' (tải khi chọn)'}</option>)}
+        </select>
+      </div>
+      {!isLatestMonth && (
+        <div className="muted" style={{ marginTop: 6 }}>
+          Đang xem lại {monthLabel(effMonth)} — số liệu bên dưới là của tháng này; hero đếm ngược phía trên vẫn là tháng hiện tại.
+        </div>
+      )}
+    </div>
+  ) : null
+
+  // Thang dang chon CHUA CO snapshot (dang tai lazy / chua co du lieu):
+  // giu hero + bo chon thang, phan so lieu thay bang trang thai than
+  // thien — KHONG hien so 0 gay hieu nham (cung mau Sales Report).
+  if (!view) {
+    return (
+      <div>
+        {heroBlock}
+        {monthPicker}
+        {lazyMonth && lazyMonth.ym === effMonth && lazyMonth.phase === 'loading' ? (
+          <div className="card empty">
+            <div className="e-ic">⏳</div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>Đang tải dữ liệu {monthLabel(effMonth)}…</div>
+            <p>Hệ thống chỉ tải đúng tháng bạn chọn — chờ một lát nhé.</p>
+          </div>
+        ) : (
+          <div className="card empty">
+            <div className="e-ic">📭</div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>{monthLabel(effMonth)} chưa có dữ liệu</div>
+            <p>Chưa có bản Daily Sales nào của tháng này trên hệ thống. Chọn tháng khác ở ô phía trên, hoặc nạp file Daily Sales của tháng này ở tab Nạp.</p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const { year, month, daysInMonth, analysis, kpi, issRate, fypTotal, top, stacks, journey } = view
+  const pendingOld = todayPendingOld
   const target = getTarget(year, month)
 
-  // ── Anh ban tin ngay: du lieu tu lib/shareCard (CUNG ham homeKpi/
-  // topIssuedByRow voi man hinh nen so tren anh khop so dang xem) ──
-  const cardData = dailyCardData(newest, target)
+  // ── Anh ban tin ngay: LUON lay snapshot MOI NHAT TOAN CUC + muc
+  // tieu cua thang moi nhat (ban tin "ngay" la cua hien tai, khong
+  // doi theo thang dang xem lai) — nut chi hien khi dang xem thang
+  // moi nhat de so tren anh khop so dang nhin. ──
+  const newestTarget = getTarget(Number(newest.id.slice(0, 4)), Number(newest.id.slice(5, 7)))
+  const cardData = dailyCardData(newest, newestTarget)
   const handleShareDaily = async () => {
     if (shareBusy) return
     setShareErr('')
@@ -140,28 +314,24 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
     }
   }
 
-  // ── Ngay dang chon tren bieu do nhip nop (mac dinh = ngay du lieu) ──
-  const ymStr = newest.id.slice(0, 7)
-  const selDate = selDay && selDay.startsWith(ymStr) ? selDay : newest.id
+  // ── Ngay dang chon tren bieu do nhip nop (mac dinh = ngay du lieu
+  // cua thang dang xem) ──
+  const ymStr = viewSnap.id.slice(0, 7)
+  const selDate = selDay && selDay.startsWith(ymStr) ? selDay : viewSnap.id
   const selStack = stacks[selDate] || null
   const selDM = `${selDate.split('-')[2]}/${selDate.split('-')[1]}`
 
-  // ── Countdown theo thang cua snapshot, tinh voi ngay hom nay that ──
-  const now = new Date()
-  const curY = now.getFullYear(); const curM = now.getMonth() + 1
+  // ── Phep chieu o the Tien do FYP: tinh theo thang DANG XEM doi
+  // chieu ngay hom nay that (thang cu -> chieu ca thang; thang hien
+  // tai -> theo so ngay da qua). Hero countdown dung bo so rieng
+  // theo thoi gian thuc o tren, khong dung chung cac bien nay. ──
   const isCurMonth = curY === year && curM === month
   const isPastMonth = year < curY || (year === curY && month < curM)
-  const elapsedDays = isCurMonth ? now.getDate() : isPastMonth ? daysInMonth : 0
-  const daysLeft = isCurMonth ? daysInMonth - now.getDate() : isPastMonth ? 0 : daysInMonth
-  const daysYearEnd = daysUntil('2026-12-31')
-  const daysTet = daysUntil('2027-02-06')
+  const elapsedDays = isCurMonth ? nowRt.getDate() : isPastMonth ? daysInMonth : 0
 
   const remaining = target !== null ? target - fypTotal : null
-  const needPerDay = target !== null && daysLeft > 0 && remaining > 0 ? remaining / daysLeft : null
   const pct = target !== null && target > 0 ? Math.min(100, Math.max(0, (fypTotal / target) * 100)) : null
   const projection = elapsedDays > 0 ? (fypTotal / elapsedDays) * daysInMonth : null
-
-  const quote = QUOTES[(quoteIndexForDate(now) + quoteOffset) % QUOTES.length]
 
   // ── Ca nhan hoa: so cua rieng TVV dang dang nhap (theo ma TVV trong profile) ──
   const myMsdl = String(profile?.msdl || '').trim()
@@ -170,7 +340,7 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
     ? (view.agentsObj[myMsdl] || Object.values(view.agentsObj).find((a) => String(a.msdl || '').toUpperCase() === myKey) || null)
     : null
   const myCases = myMsdl
-    ? buildCases(newest, {}).filter((c) => String(c.msdl || '').toUpperCase() === myKey)
+    ? buildCases(viewSnap, {}).filter((c) => String(c.msdl || '').toUpperCase() === myKey)
     : []
   const myRankIdx = myMsdl ? analysis.agents.findIndex((a) => String(a.msdl || '').toUpperCase() === myKey) : -1
   const myAnAgent = myRankIdx >= 0 ? analysis.agents[myRankIdx] : null
@@ -187,38 +357,11 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
 
   return (
     <div>
-      {/* ── HERO: countdown + quote ── */}
-      <div className="hero">
-        <div className="hero-inner">
-          <div className="cd-row">
-            <div className="cd-main">
-              <div className="cd-label">Còn</div>
-              <div className="cd-big">{daysLeft}</div>
-              <div className="cd-label">ngày nữa hết tháng {month}/{year}</div>
-              {isSuperAdmin(user) && target !== null && remaining > 0 && needPerDay !== null && (
-                <div className="cd-need">Cần {fmtTr(needPerDay)} tr/ngày để kịp mục tiêu</div>
-              )}
-              {isSuperAdmin(user) && target !== null && remaining <= 0 && (
-                <div className="cd-need" style={{ color: 'var(--green)' }}>🎉 Đã đạt mục tiêu tháng!</div>
-              )}
-            </div>
-            <div className="cd-side">
-              <div>
-                <div className="cd-small-num">{Math.max(0, daysYearEnd)}</div>
-                <div className="cd-small-label">ngày nữa hết năm 2026</div>
-              </div>
-              <div>
-                <div className="cd-small-num">{Math.max(0, daysTet)}</div>
-                <div className="cd-small-label">ngày nữa đến Tết Đinh Mùi 2027</div>
-              </div>
-            </div>
-          </div>
-          <hr className="divider" />
-          <div className="quote" onClick={() => setQuoteOffset((o) => o + 1)} title="Bấm để đổi câu khác">
-            “{quote.text}”{quote.author ? <span className="author"> — {quote.author}</span> : null}
-          </div>
-        </div>
-      </div>
+      {/* ── HERO: countdown + quote (LUON theo thoi gian thuc) ── */}
+      {heroBlock}
+
+      {/* ── Bo chon thang xem lai so lieu (Y 8) ── */}
+      {monthPicker}
 
       {/* ── Cua toi (ca nhan hoa theo ma TVV) — Admin chinh khong can khoi nay ── */}
       {!isSuperAdmin(user) && (!user ? (
@@ -284,13 +427,17 @@ export default function HomNay({ snaps, loading, remoteSettled = true, onGoNap, 
         )}
         <div className="muted" style={{ marginTop: 4 }}>{view.tvvActive}/{view.tvvTotal} TVV có số trong tháng</div>
 
-        {/* ── Tao anh ban tin ngay de gui Zalo (ShareCard) ── */}
-        <div className="share-btn-row">
-          <button type="button" className="btn-ghost" disabled={shareBusy} onClick={handleShareDaily}>
-            {shareBusy ? 'Đang tạo ảnh…' : '📸 Tạo ảnh bản tin'}
-          </button>
-          {shareErr ? <div className="msg error" style={{ marginTop: 8 }}>{shareErr}</div> : null}
-        </div>
+        {/* ── Tao anh ban tin ngay de gui Zalo (ShareCard): anh LUON
+            la cua thang moi nhat nen nut chi hien khi dang xem thang
+            moi nhat (dang xem thang cu thi an — tranh anh lech so). ── */}
+        {isLatestMonth && (
+          <div className="share-btn-row">
+            <button type="button" className="btn-ghost" disabled={shareBusy} onClick={handleShareDaily}>
+              {shareBusy ? 'Đang tạo ảnh…' : '📸 Tạo ảnh bản tin'}
+            </button>
+            {shareErr ? <div className="msg error" style={{ marginTop: 8 }}>{shareErr}</div> : null}
+          </div>
+        )}
       </div>
 
       {/* ── 4 KPI (CHUAN B — dem theo dong nhu file goc; moi o ghi ro

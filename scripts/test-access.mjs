@@ -521,8 +521,8 @@ console.log('\n=== Trang Chu: luu y muc tieu chi Admin + Tinh Anh modal dang nha
 // (dong cd-need o hero + hau to "muc tieu ... tr · con thieu ..." o
 // dong % dat + chip chua dat muc tieu) gate bang isSuperAdmin(user);
 // so FYP + thanh tien do + % dat van hien cho moi nguoi.
-assert.ok(homNay.includes('isSuperAdmin(user) && target !== null && remaining > 0 && needPerDay !== null'), 'HomNay: dong hero "Can ... tr/ngay de kip muc tieu" chi Admin chinh thay')
-assert.ok(homNay.includes('isSuperAdmin(user) && target !== null && remaining <= 0'), 'HomNay: dong hero "Da dat muc tieu thang" chi Admin chinh thay')
+assert.ok(homNay.includes('isSuperAdmin(user) && heroTarget !== null && heroRemaining > 0 && heroNeedPerDay !== null'), 'HomNay: dong hero "Can ... tr/ngay de kip muc tieu" chi Admin chinh thay (hero tinh theo thang HIEN TAI THAT — bien hero* tu dot chon thang 13/11)')
+assert.ok(homNay.includes('isSuperAdmin(user) && heroTarget !== null && heroRemaining <= 0'), 'HomNay: dong hero "Da dat muc tieu thang" chi Admin chinh thay')
 assert.ok(homNay.includes('Đạt <b>') && homNay.includes('progress-fill'), 'HomNay: % dat + thanh tien do FYP van hien cho moi nguoi')
 assert.ok(homNay.includes('mục tiêu {fmtTr(target)} tr'), 'HomNay: hau to muc tieu van con (chi nhanh Admin moi render)')
 assert.ok(homNay.includes(') : isSuperAdmin(user) ? ('), 'HomNay: chip "Chua dat muc tieu thang — dat o tab Nap" chi Admin chinh thay')
@@ -544,5 +544,35 @@ assert.ok(!app.includes('tài khoản quản trị dùng email'), 'App.jsx: DA B
 assert.ok(!app.includes('hoặc admin@prud07.top'), 'App.jsx: placeholder KHONG con goi y email Admin')
 assert.ok(app.includes('await login(loginForm.id, loginForm.password)'), 'App.jsx: logic dang nhap GIU NGUYEN (login(loginForm.id, password) — nhap dang email van dang nhap duoc nhu cu)')
 console.log('Trang Chu: luu y muc tieu chi Admin thay (so FYP + % + thanh tien do giu nguyen cho moi nguoi); Tinh Anh: khach -> modal dang nhap (noi onOpenLogin), own -> inline; form dang nhap: nhan "Mã số đại lý", bo ghi chu email/Admin, logic giu nguyen')
+
+// ── Dot 13/11/2026 (Lan duyet): (A) Y 8 — Trang Chu CHON THANG xem
+// lai so lieu (hero + canh bao hom nay giu theo thoi gian thuc /
+// snapshot moi nhat); (B) tab moi "🏆 Thi Đua" (lib/races + ThiDua)
+// nam sau Tinh Anh, truoc Memo — moi nguoi xem duoc da dat, SAP DAT
+// gate Admin chinh / truong phong nhu khoi Can chu y. ──
+console.log('\n=== Y 8: Trang Chu chon thang + tab Thi Dua ===')
+const thiDua = read('../src/components/ThiDua.jsx')
+// (A) HomNay chon thang
+assert.ok(homNay.includes('onNeedMonth'), 'HomNay: phai nhan onNeedMonth (ensureMonth cua App) de tai lazy thang xem lai')
+assert.ok(homNay.includes('handleSelectMonth'), 'HomNay: phai co handleSelectMonth (cung mau Sales Report)')
+assert.ok(homNay.includes('Tháng xem số liệu'), 'HomNay: phai co o chon "Tháng xem số liệu" o dau phan so lieu')
+assert.ok(homNay.includes('const viewSnap = useMemo'), 'HomNay: phan so lieu tinh tu viewSnap (snapshot moi nhat cua thang dang xem)')
+assert.ok(homNay.includes('heroDaysLeft'), 'HomNay: hero countdown tinh theo THOI GIAN THUC (heroDaysLeft) — khong doi theo thang dang xem')
+assert.ok(homNay.includes('todayPendingOld'), 'HomNay: canh bao pending qua 7 ngay tinh tu snapshot moi nhat toan cuc (todayPendingOld) — khong doi theo thang dang xem')
+assert.ok(app.includes('onNeedMonth={ensureMonth}'), 'App.jsx: phai truyen onNeedMonth={ensureMonth} xuong HomNay (va cac man lazy khac)')
+// (B) Tab Thi Dua
+assert.ok(app.includes("id: 'races', label: 'Thi Đua'"), "App.jsx: NAV phai co tab { id: 'races', label: 'Thi Đua' }")
+assert.ok(
+  app.indexOf("id: 'team'") < app.indexOf("id: 'races'") && app.indexOf("id: 'races'") < app.indexOf("id: 'memo'"),
+  'App.jsx: tab Thi Dua nam SAU Tinh Anh (team) va TRUOC Memo',
+)
+assert.ok(app.includes("tab === 'races'") && app.includes('<ThiDua'), 'App.jsx: phai render <ThiDua> khi tab === races')
+assert.ok(existsSync(new URL('../src/lib/races.js', import.meta.url)), 'lib/races.js: phai ton tai (cau hinh + ham tinh thi dua)')
+assert.ok(existsSync(new URL('../src/components/ThiDua.jsx', import.meta.url)), 'components/ThiDua.jsx: phai ton tai')
+assert.ok(thiDua.includes('buildRaces'), 'ThiDua: phai dung buildRaces cua lib/races')
+assert.ok(thiDua.includes('canSeeNear'), 'ThiDua: danh sach Sap dat phai gate qua canSeeNear (Admin chinh / truong phong)')
+assert.ok(thiDua.includes('myUnitCodes'), 'ThiDua: truong phong chi thay Sap dat thuoc phong minh (myUnitCodes — cung gate khoi Can chu y)')
+assert.ok(thiDua.includes('Đã đạt'), 'ThiDua: phai co danh sach DA DAT vinh danh cong khai')
+console.log('Trang Chu: chon thang xem lai (so lieu theo thang chon; hero/canh bao/ban tin giu "hom nay"); Thi Dua: tab rieng sau Tinh Anh, da dat cong khai, sap dat gate Admin/truong phong')
 
 console.log('\n✅ TAT CA ASSERT DAT (test-access)')

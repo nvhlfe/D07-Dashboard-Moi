@@ -14,6 +14,7 @@ import HomNay from './components/HomNay.jsx'
 import NapDuLieu from './components/NapDuLieu.jsx'
 import SalesReport from './components/SalesReport.jsx'
 import DoiNgu from './components/DoiNgu.jsx'
+import ThiDua from './components/ThiDua.jsx'
 import MemoThuVien from './components/MemoThuVien.jsx'
 import CaNhan from './components/CaNhan.jsx'
 import { loadLocalSnapshots, fetchFirestoreSnapshots, fetchMonthSnapshots, persistSnapshots, mergeSnapshots, getFbConfig, fetchUserProfile, saveUserProfile, fetchAllProfiles, adminSetProfileStatus, adminSetSalesReport, adminSetUnitView } from './lib/store'
@@ -50,6 +51,7 @@ const NAV = [
   { id: 'home', label: 'Trang Chủ', icon: '🏠' },
   { id: 'sales', label: 'Sales Report', icon: '📋' },
   { id: 'team', label: 'Tinh Anh', icon: '👥' },
+  { id: 'races', label: 'Thi Đua', icon: '🏆' },
   { id: 'me', label: 'Của tôi', icon: '👤' },
   { id: 'memo', label: 'Memo', icon: '📌' },
   { id: 'nap', label: 'Nạp', icon: '📥' },
@@ -430,8 +432,13 @@ export default function App() {
           <>
             {tab === 'home' && (
               <HomNay snaps={snaps} loading={loading} remoteSettled={remoteSettled} onGoNap={() => setTab('nap')}
+                onNeedMonth={ensureMonth}
                 user={user} profile={profile}
                 onOpenLogin={() => { setLoginErr(''); setShowLogin(true) }} />
+            )}
+            {tab === 'races' && (
+              <ThiDua snaps={snaps} loading={loading} remoteSettled={remoteSettled} onNeedMonth={ensureMonth}
+                user={user} profile={profile} isSuperAdmin={superAdmin} />
             )}
             {tab === 'sales' && (canSR ? (
               <SalesReport snaps={snaps} loading={loading} remoteSettled={remoteSettled} onNeedMonth={ensureMonth} onGoNap={() => setTab('nap')} user={user} />
