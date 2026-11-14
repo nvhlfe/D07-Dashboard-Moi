@@ -17,6 +17,11 @@
 // Du lieu: dung snaps App co san + xin tai LAZY thang 10/2026 qua
 // onNeedMonth — moi thang chi xin 1 lan. The iPhone chinh thuc la
 // du lieu tinh, hien ngay ca khi chua co Daily tren may.
+// DONG/MO tung the (Lan yeu cau 14/11/2026 — trang qua dai): moi
+// the chuong trinh dong/mo doc lap bang nut o hang dau the; khi
+// DONG chi hien ten + so memo + chip han chot + 1 dong tom tat
+// nhanh; cuoi the mo co nut "Thu gon". MAC DINH chi mo 1 the co
+// han chot GAN NHAT (xem defaultOpenRaceId ben duoi).
 // ─────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { buildRaces } from '../lib/races'
@@ -40,6 +45,30 @@ function daysToDeadline(isoDate) {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const target = new Date(`${isoDate}T00:00:00`)
   return Math.round((target - today) / 86400000)
+}
+
+// The chuong trinh iPhone chinh thuc (Memo 00210) trong co che dong/mo.
+const IPHONE_RACE_ID = 'iphone'
+const IPHONE_DEADLINE = '2026-12-31'
+
+// The MAC DINH mo khi vao tab: the co han chot GAN NHAT so voi hom
+// nay — uu tien the sap chot chua qua han (han chot nho nhat trong
+// cac the chua chot); 2 the cung han chot (00311 + 00211 deu
+// 30/11) thi lay the DAU TIEN theo thu tu hien thi; neu tat ca da
+// qua han thi lay the co han chot gan hom nay nhat (moi chot nhat).
+// entries: [{ id, deadline }] theo DUNG thu tu hien thi tren tab.
+export function defaultOpenRaceId(entries) {
+  let best = null
+  for (const e of entries || []) {
+    const d = daysToDeadline(e.deadline)
+    if (!best) { best = { id: e.id, d }; continue }
+    const bestFuture = best.d >= 0
+    const candFuture = d >= 0
+    if (candFuture && !bestFuture) best = { id: e.id, d }
+    else if (candFuture && bestFuture && d < best.d) best = { id: e.id, d }
+    else if (!candFuture && !bestFuture && d > best.d) best = { id: e.id, d }
+  }
+  return best ? best.id : null
 }
 
 // Nhãn giá trị theo từng chương trình (hiện bên phải mỗi dòng TVV).
@@ -93,6 +122,21 @@ export default function ThiDua({ snaps, loading, remoteSettled = true, onNeedMon
 
   const races = useMemo(() => buildRaces(snaps || []), [snaps])
 
+  // ── Dong/mo tung the chuong trinh (state noi bo, khong luu ben).
+  // openRaces = null nghia la chua thao tac: dung ban do mac dinh
+  // chi mo 1 the gan han chot nhat. Danh sach the tinh tren cac the
+  // THUC SU se render (chua co Daily thi chi co the iPhone tinh).
+  const raceEntries = newest
+    ? [...races.map((r) => ({ id: r.meta.id, deadline: r.meta.deadline })), { id: IPHONE_RACE_ID, deadline: IPHONE_DEADLINE }]
+    : [{ id: IPHONE_RACE_ID, deadline: IPHONE_DEADLINE }]
+  const defaultOpenId = defaultOpenRaceId(raceEntries)
+  const [openRaces, setOpenRaces] = useState(null)
+  const openMap = openRaces || (defaultOpenId ? { [defaultOpenId]: true } : {})
+  const toggleRace = (id) => setOpenRaces((prev) => {
+    const cur = prev || (defaultOpenId ? { [defaultOpenId]: true } : {})
+    return { ...cur, [id]: !cur[id] }
+  })
+
   if (loading) {
     return <div className="card empty"><div className="e-ic">⏳</div>Đang tải dữ liệu…</div>
   }
@@ -108,25 +152,34 @@ export default function ThiDua({ snaps, loading, remoteSettled = true, onNeedMon
         ? nearAll
         : nearAll.filter((r) => leaderCtx.myUnitCodes.has(String(r.unit || '').trim().toUpperCase()))
     const open = !!nearOpen[meta.id]
+    const isOpen = !!openMap[meta.id]
     const notes = [...(meta.notes || [])]
     if (meta.id === 'kickoff' && !race.hasOct) {
       notes.push('App chưa có dữ liệu tháng 10/2026 nên chưa xác định được TVV mới theo quy tắc đối chiếu — số vé TVV mới có thể chưa đầy đủ.')
     }
+    // Dong tom tat nhanh chi hien khi the DONG (so tong ket san co).
+    const quickLine = meta.id === 'kickoff'
+      ? <>🏅 Đã đạt: <b>{fmtInt(race.achieved.length)}</b> TVV có vé{race.counts ? <> (mốc 50tr: {fmtInt(race.counts.standard)} · TVV mới mốc 25tr: {fmtInt(race.counts.fresh)})</> : null}</>
+      : <>🏅 Đã đạt thưởng: <b>{fmtInt(race.achieved.length)}</b> TVV{race.counts ? <> (từ 100tr: {fmtInt(race.counts.byTier[0])} · 50tr: {fmtInt(race.counts.byTier[1])} · 25tr: {fmtInt(race.counts.byTier[2])} · 18tr: {fmtInt(race.counts.byTier[3])})</> : null}</>
     return (
       <div className="card race-card" key={meta.id}>
-        <div className="race-head">
+        <button type="button" className="race-head race-toggle" onClick={() => toggleRace(meta.id)} aria-expanded={isOpen}>
           <h2>🏆 {meta.name}</h2>
           {days > 0
             ? <span className="race-chip">⏳ Còn {days} ngày</span>
             : days === 0
               ? <span className="race-chip hot">⏰ Hôm nay chốt</span>
               : <span className="race-chip done">Đã chốt</span>}
-        </div>
+          <span className="memo-caret">{isOpen ? '▾' : '▸'}</span>
+        </button>
         <div className="race-sub">
           Memo {meta.memo} · {meta.periodLabel} · Hạn chốt {fmtDateVN(meta.deadline)}
           {dataDate ? <> · Dữ liệu đến {fmtDateVN(dataDate)}</> : null}
         </div>
 
+        {!isOpen && <div className="race-quick">{quickLine}</div>}
+
+        {isOpen && (<>
         <ul className="race-tiers">
           {meta.tiersSummary.map((t) => <li key={t}>{t}</li>)}
         </ul>
@@ -189,6 +242,9 @@ export default function ThiDua({ snaps, loading, remoteSettled = true, onNeedMon
             {notes.map((nt) => <div key={nt}>ℹ️ {nt}</div>)}
           </div>
         )}
+
+        <button type="button" className="race-collapse-btn" onClick={() => toggleRace(meta.id)}>Thu gọn ⌃</button>
+        </>)}
       </div>
     )
   }
@@ -198,26 +254,36 @@ export default function ThiDua({ snaps, loading, remoteSettled = true, onNeedMon
   // co khoi "Sap dat" rieng — so con thieu tung moc da ghi ngay tren
   // tung dong). Du lieu tinh nen hien ca khi chua co Daily tren may.
   const renderIphone = () => {
-    const days = daysToDeadline('2026-12-31')
+    const days = daysToDeadline(IPHONE_DEADLINE)
     const sum = iphoneSummary()
     const rows = [...IPHONE_OFFICIAL.rows].sort((a, b) => b.total - a.total)
+    const isOpen = !!openMap[IPHONE_RACE_ID]
     const goalLine = (label, st) => (
       <>{label}: {st.reached ? <b>✅ Đạt</b> : <>còn thiếu <b>{fmtTr(st.lack / 1000000)} tr</b></>}</>
     )
     return (
       <div className="card race-card">
-        <div className="race-head">
+        <button type="button" className="race-head race-toggle" onClick={() => toggleRace(IPHONE_RACE_ID)} aria-expanded={isOpen}>
           <h2>🏆 Đỉnh cao hiệu suất — Rinh ngay quà lớn (Quý 4/2026)</h2>
           {days > 0
             ? <span className="race-chip">⏳ Còn {days} ngày</span>
             : days === 0
               ? <span className="race-chip hot">⏰ Hôm nay chốt</span>
               : <span className="race-chip done">Đã chốt</span>}
-        </div>
+          <span className="memo-caret">{isOpen ? '▾' : '▸'}</span>
+        </button>
         <div className="race-sub">
           Memo 00210/AD/2026 · Quý 4/2026 (T10–T12) · Hạn chốt 31/12/2026
         </div>
 
+        {!isOpen && (
+          <div className="race-quick">
+            🏅 Đạt iPhone 18 Pro Max: <b>{fmtInt(sum.datPromax)}</b> TVV · Đạt iPhone Duo: <b>{fmtInt(sum.datDuo)}</b> TVV
+            {' '}· Bảng công ty có {fmtInt(sum.total)} TVV
+          </div>
+        )}
+
+        {isOpen && (<>
         <div className="race-source">
           📋 Kết quả theo bảng theo dõi chính thức của công ty — {IPHONE_OFFICIAL.updatedLabel}.
           Công ty tính IP nộp + phát hành và IP hỗ trợ đặc biệt nên app hiển thị nguyên văn bảng này, không tự tính lại từ Daily Sales.
@@ -258,6 +324,9 @@ export default function ThiDua({ snaps, loading, remoteSettled = true, onNeedMon
           <div>ℹ️ Điều kiện của memo: mỗi TVV tối đa 01 quà, không quy đổi tiền; riêng Pru-Đầu Tư Vững Tiến chỉ tính hồ sơ từ 20tr.</div>
           <div>ℹ️ Khi công ty gửi bảng cập nhật mới, Admin gửi ảnh/file cho Muse để cập nhật lại danh sách này.</div>
         </div>
+
+        <button type="button" className="race-collapse-btn" onClick={() => toggleRace(IPHONE_RACE_ID)}>Thu gọn ⌃</button>
+        </>)}
       </div>
     )
   }
@@ -271,6 +340,7 @@ export default function ThiDua({ snaps, loading, remoteSettled = true, onNeedMon
           hiển thị theo <b>bảng theo dõi chính thức của công ty</b>. Danh sách <b>đã đạt</b> mở công khai để vinh danh;
           danh sách <b>sắp đạt</b> (các chương trình tự tính) chỉ Admin chính và trưởng phòng thấy để đốc thúc.
           Điều kiện nằm ngoài dữ liệu Daily (nếu có) được ghi chú ngay trong từng chương trình.
+          Bấm vào đầu từng chương trình để mở/thu gọn.
         </div>
       </div>
       <div className="race-grid">

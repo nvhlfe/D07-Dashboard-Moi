@@ -590,4 +590,28 @@ assert.ok(!racesLib.includes('raceQ4'), 'lib/races: KHONG con raceQ4 (00210 khon
 assert.ok(!racesLib.includes('q4BonusIp'), 'lib/races: KHONG con q4BonusIp (bo so tu tinh 00210 da go han)')
 console.log('00210: the iPhone dung bang chinh thuc cong ty (iphoneOfficial), races.js khong con ham tu tinh Q4')
 
+// ── Dot 14/11/2026 (Lan yeu cau — tab Thi Dua qua dai): DONG/MO
+// tung the chuong trinh. MAC DINH chi mo 1 the co han chot GAN
+// NHAT (defaultOpenRaceId tinh tren dung cac the se render, cung
+// han chot thi the dau tien); khi DONG the chi hien ten + so memo
+// + chip han chot + dong tom tat nhanh (.race-quick); the mo co
+// nut "Thu gon" o cuoi the; dong/mo doc lap tung the (openRaces).
+console.log('\n=== Thi Dua: dong/mo tung the chuong trinh ===')
+assert.ok(thiDua.includes('defaultOpenRaceId'), 'ThiDua: phai co defaultOpenRaceId (chon the mac dinh mo theo han chot gan nhat)')
+assert.ok(thiDua.includes('defaultOpenRaceId(raceEntries)'), 'ThiDua: the mac dinh mo tinh tu raceEntries (dung cac the se render)')
+assert.ok(thiDua.includes('const [openRaces, setOpenRaces] = useState(null)'), 'ThiDua: phai co state openRaces (null = chua thao tac, dung mac dinh)')
+assert.ok(thiDua.includes('toggleRace'), 'ThiDua: phai co toggleRace de dong/mo tung the doc lap')
+assert.ok(thiDua.includes('race-head race-toggle'), 'ThiDua: hang dau the la nut bam dong/mo (race-head race-toggle)')
+assert.ok(thiDua.includes('toggleRace(meta.id)'), 'ThiDua: the tu tinh (00311/00211) dong/mo theo meta.id')
+assert.ok(thiDua.includes('toggleRace(IPHONE_RACE_ID)'), 'ThiDua: the iPhone 00210 dong/mo theo IPHONE_RACE_ID')
+assert.ok(thiDua.includes('race-quick'), 'ThiDua: the DONG phai hien dong tom tat nhanh (.race-quick)')
+assert.ok(thiDua.includes('TVV có vé'), 'ThiDua: dong tom tat the Kickoff khi dong: "Da dat: n TVV co ve"')
+assert.ok(thiDua.includes('Đã đạt thưởng:'), 'ThiDua: dong tom tat the 00211 khi dong: "Da dat thuong: n TVV"')
+assert.ok(thiDua.includes('Thu gọn ⌃'), 'ThiDua: cuoi the MO phai co nut "Thu gon ⌃" de dong lai khong can cuon len dau')
+assert.ok(thiDua.includes('race-collapse-btn'), 'ThiDua: nut Thu gon dung class race-collapse-btn')
+assert.ok(css.includes('.race-toggle'), 'index.css: phai co .race-toggle (nut hang dau the Thi Dua)')
+assert.ok(css.includes('.race-quick'), 'index.css: phai co .race-quick (dong tom tat nhanh khi the dong)')
+assert.ok(css.includes('.race-collapse-btn'), 'index.css: phai co .race-collapse-btn (nut Thu gon cuoi the)')
+console.log('Thi Dua: dong/mo tung the doc lap; mac dinh mo 1 the gan han chot nhat; the dong chi hien tom tat nhanh; cuoi the mo co nut Thu gon')
+
 console.log('\n✅ TAT CA ASSERT DAT (test-access)')

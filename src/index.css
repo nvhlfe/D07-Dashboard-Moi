@@ -612,7 +612,19 @@ button.unit-head { font-family: inherit; }
 }
 /* ── Tab Thi Dua (13/11/2026): the chuong trinh + dong TVV da dat ── */
 .race-head { display: flex; align-items: flex-start; gap: 10px; }
+/* Dong/mo tung the (14/11/2026): hang dau the la nut bam toan hang. */
+.race-toggle {
+  width: 100%; background: none; border: none; padding: 0; margin: 0;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.race-toggle .memo-caret { flex: none; padding-top: 4px; }
 .race-head h2 { flex: 1; min-width: 0; }
+.race-quick { font-size: 13.5px; font-weight: 600; color: var(--text2); }
+.race-collapse-btn {
+  margin-top: 12px; display: inline-flex; align-items: center; gap: 4px;
+  background: #f8fafc; border: 1px solid var(--border); border-radius: 999px;
+  padding: 6px 14px; font-size: 12.5px; font-weight: 700; color: var(--text2); cursor: pointer;
+}
 .race-chip {
   flex: none; font-size: 12px; font-weight: 800; color: var(--primary-dark);
   background: #e3ecf8; border: 1px solid #c3d5ee; border-radius: 999px; padding: 3px 10px;
