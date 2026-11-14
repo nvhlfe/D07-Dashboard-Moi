@@ -575,4 +575,19 @@ assert.ok(thiDua.includes('myUnitCodes'), 'ThiDua: truong phong chi thay Sap dat
 assert.ok(thiDua.includes('Đã đạt'), 'ThiDua: phai co danh sach DA DAT vinh danh cong khai')
 console.log('Trang Chu: chon thang xem lai (so lieu theo thang chon; hero/canh bao/ban tin giu "hom nay"); Thi Dua: tab rieng sau Tinh Anh, da dat cong khai, sap dat gate Admin/truong phong')
 
+// ── Dot 14/11/2026: chuong trinh Memo 00210 (iPhone Quy 4) chuyen
+// sang BANG CHINH THUC cua cong ty (lib/iphoneOfficial, trich tu
+// anh bang cong ty Lan gui 13/11/2026) — races.js KHONG con tu
+// tinh 00210 (tranh 2 bo so lech nhau); the iPhone hien cong khai
+// toan bo danh sach kem so con thieu tung moc, khong gate Sap dat.
+console.log('\n=== Import bang iPhone chinh thuc (Memo 00210) ===')
+const racesLib = read('../src/lib/races.js')
+assert.ok(existsSync(new URL('../src/lib/iphoneOfficial.js', import.meta.url)), 'lib/iphoneOfficial.js: phai ton tai (du lieu bang iPhone chinh thuc)')
+assert.ok(thiDua.includes('iphoneOfficial'), 'ThiDua: the 00210 phai dung du lieu chinh thuc lib/iphoneOfficial')
+assert.ok(thiDua.includes('chính thức của công ty'), 'ThiDua: the 00210 phai ghi ro nguon "bang theo doi chinh thuc cua cong ty"')
+assert.ok(thiDua.includes('renderIphone'), 'ThiDua: phai co renderIphone rieng cho the 00210 chinh thuc')
+assert.ok(!racesLib.includes('raceQ4'), 'lib/races: KHONG con raceQ4 (00210 khong tu tinh nua)')
+assert.ok(!racesLib.includes('q4BonusIp'), 'lib/races: KHONG con q4BonusIp (bo so tu tinh 00210 da go han)')
+console.log('00210: the iPhone dung bang chinh thuc cong ty (iphoneOfficial), races.js khong con ham tu tinh Q4')
+
 console.log('\n✅ TAT CA ASSERT DAT (test-access)')

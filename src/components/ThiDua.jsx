@@ -1,19 +1,26 @@
 // ─────────────────────────────────────────────────────────────
 // ThiDua — Tab "🏆 Thi Đua" (Lan duyet 13/11/2026): theo doi cac
-// chuong trinh thi đua dang chay, TU TINH tu Daily Sales (lib/races).
-// Dot dau gom 3 chuong trinh: Memo 00311 (Kickoff T11), Memo 00211
-// (Thi đua Thang 11), Memo 00210 (Quy 4/2026).
+// chuong trinh thi đua dang chay. 2 chuong trinh thang 11 TU TINH
+// tu Daily Sales (lib/races): Memo 00311 (Kickoff T11) + Memo
+// 00211 (Thi đua Thang 11). Chuong trinh Memo 00210 (thuong
+// iPhone Quy 4) hien theo BANG THEO DOI CHINH THUC cua cong ty
+// (lib/iphoneOfficial — Lan gui bang ngay 13/11/2026, import
+// 14/11/2026): cong ty tinh gom ca IP nop + phat hanh va IP ho
+// tro dac biet, khac du lieu Daily nen app KHONG tu tinh lai.
 // QUYEN XEM: MOI NGUOI (ke ca chua dang nhap) xem the chuong trinh +
-// danh sach DA DAT (vinh danh cong khai). Danh sach SAP DAT chi
-// Admin chinh + TRUONG PHONG thay — CUNG gate + loc theo phong minh
-// nhu khoi "Can chu y hom nay" o Tinh Anh (DoiNgu): Admin thay toan
-// GA, truong phong chi thay TVV thuoc Unit minh dung dau (leaderCode
-// trung MSDL cua minh trong sheet Leader).
-// Du lieu: dung snaps App co san + xin tai LAZY thang 10/2026 (va
-// 12/2026 neu chua co) qua onNeedMonth — moi thang chi xin 1 lan.
+// danh sach DA DAT (vinh danh cong khai). Danh sach SAP DAT (2
+// chuong trinh tu tinh) chi Admin chinh + TRUONG PHONG thay —
+// CUNG gate + loc theo phong minh nhu khoi "Can chu y hom nay" o
+// Tinh Anh (DoiNgu): Admin thay toan GA, truong phong chi thay
+// TVV thuoc Unit minh dung dau (leaderCode trung MSDL cua minh
+// trong sheet Leader).
+// Du lieu: dung snaps App co san + xin tai LAZY thang 10/2026 qua
+// onNeedMonth — moi thang chi xin 1 lan. The iPhone chinh thuc la
+// du lieu tinh, hien ngay ca khi chua co Daily tren may.
 // ─────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { buildRaces } from '../lib/races'
+import { IPHONE_OFFICIAL, iphoneRowStatus, iphoneSummary } from '../lib/iphoneOfficial'
 import { isSuperAdmin, emailToMsdl } from '../lib/firebaseConfig'
 
 const fmtTr = (n) => {
@@ -39,7 +46,6 @@ function daysToDeadline(isoDate) {
 const VALUE_LABEL = {
   kickoff: 'IP thuần T11',
   nov: 'IP phát hành T11',
-  q4: 'IP tính thưởng Q4',
 }
 
 export default function ThiDua({ snaps, loading, remoteSettled = true, onNeedMonth, user, profile, isSuperAdmin: adminProp }) {
@@ -49,11 +55,12 @@ export default function ThiDua({ snaps, loading, remoteSettled = true, onNeedMon
 
   const newest = snaps && snaps.length ? snaps[snaps.length - 1] : null
 
-  // ── Xin tai lazy cac thang nen cua 3 chuong trinh (T10 cho Q4 +
-  // xac dinh TVV moi; T12 cho Q4 khi vao thang 12) — moi thang 1 lan.
+  // ── Xin tai lazy cac thang nen cua 2 chuong trinh tu tinh
+  // (T10 cho xac dinh TVV moi cua Kickoff; T11 la thang thi dua)
+  // — moi thang 1 lan.
   useEffect(() => {
     if (!onNeedMonth) return
-    for (const ym of ['2026-10', '2026-11', '2026-12']) {
+    for (const ym of ['2026-10', '2026-11']) {
       if ((snaps || []).some((s) => s.id && s.id.startsWith(`${ym}-`))) continue
       if (raceReqRef.current.has(ym)) continue
       raceReqRef.current.add(ym)
@@ -89,31 +96,10 @@ export default function ThiDua({ snaps, loading, remoteSettled = true, onNeedMon
   if (loading) {
     return <div className="card empty"><div className="e-ic">⏳</div>Đang tải dữ liệu…</div>
   }
-  if (!newest) {
-    if (!remoteSettled) {
-      return (
-        <div className="card empty">
-          <div className="e-ic">⏳</div>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>Đang tải dữ liệu…</div>
-          <p>Lần đầu trên thiết bị này có thể mất vài giây — dữ liệu đang được tải về, bạn không cần nạp lại file.</p>
-        </div>
-      )
-    }
-    return (
-      <div className="card empty">
-        <div className="e-ic">📭</div>
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>Chưa có dữ liệu Daily Sales</div>
-        <p>Số thi đua sẽ hiện tại đây sau khi Admin chính nạp file Daily Sales.</p>
-      </div>
-    )
-  }
-
   const renderRace = (race) => {
     const { meta } = race
     const days = daysToDeadline(meta.deadline)
-    const dataDate = meta.id === 'q4'
-      ? (race.dataDates?.nov || race.dataDates?.oct || race.dataDates?.dec)
-      : race.dataDate
+    const dataDate = race.dataDate
     // Sap dat: gate Admin/truong phong; truong phong chi thay phong minh.
     const nearAll = race.near || []
     const nearShown = !canSeeNear
@@ -123,9 +109,6 @@ export default function ThiDua({ snaps, loading, remoteSettled = true, onNeedMon
         : nearAll.filter((r) => leaderCtx.myUnitCodes.has(String(r.unit || '').trim().toUpperCase()))
     const open = !!nearOpen[meta.id]
     const notes = [...(meta.notes || [])]
-    if (meta.id === 'q4' && !race.hasDec) {
-      notes.push('Số liệu hiện chưa gồm tháng 12/2026 — IP tính thưởng sẽ còn tăng khi có Daily tháng 12.')
-    }
     if (meta.id === 'kickoff' && !race.hasOct) {
       notes.push('App chưa có dữ liệu tháng 10/2026 nên chưa xác định được TVV mới theo quy tắc đối chiếu — số vé TVV mới có thể chưa đầy đủ.')
     }
@@ -155,9 +138,6 @@ export default function ThiDua({ snaps, loading, remoteSettled = true, onNeedMon
             : null}
           {meta.id === 'nov' && race.counts
             ? <> (từ 100tr: {fmtInt(race.counts.byTier[0])} · 50tr: {fmtInt(race.counts.byTier[1])} · 25tr: {fmtInt(race.counts.byTier[2])} · 18tr: {fmtInt(race.counts.byTier[3])})</>
-            : null}
-          {meta.id === 'q4' && race.counts
-            ? <> (iPhone Duo: {fmtInt(race.counts.duo)} · iPhone 18 Pro Max: {fmtInt(race.counts.pro)})</>
             : null}
         </div>
 
@@ -213,18 +193,100 @@ export default function ThiDua({ snaps, loading, remoteSettled = true, onNeedMon
     )
   }
 
+  // ── The Memo 00210: BANG CHINH THUC cua cong ty (lib/iphoneOfficial).
+  // Hien TOAN BO danh sach cong khai (so cong ty, khong gate, khong
+  // co khoi "Sap dat" rieng — so con thieu tung moc da ghi ngay tren
+  // tung dong). Du lieu tinh nen hien ca khi chua co Daily tren may.
+  const renderIphone = () => {
+    const days = daysToDeadline('2026-12-31')
+    const sum = iphoneSummary()
+    const rows = [...IPHONE_OFFICIAL.rows].sort((a, b) => b.total - a.total)
+    const goalLine = (label, st) => (
+      <>{label}: {st.reached ? <b>✅ Đạt</b> : <>còn thiếu <b>{fmtTr(st.lack / 1000000)} tr</b></>}</>
+    )
+    return (
+      <div className="card race-card">
+        <div className="race-head">
+          <h2>🏆 Đỉnh cao hiệu suất — Rinh ngay quà lớn (Quý 4/2026)</h2>
+          {days > 0
+            ? <span className="race-chip">⏳ Còn {days} ngày</span>
+            : days === 0
+              ? <span className="race-chip hot">⏰ Hôm nay chốt</span>
+              : <span className="race-chip done">Đã chốt</span>}
+        </div>
+        <div className="race-sub">
+          Memo 00210/AD/2026 · Quý 4/2026 (T10–T12) · Hạn chốt 31/12/2026
+        </div>
+
+        <div className="race-source">
+          📋 Kết quả theo bảng theo dõi chính thức của công ty — {IPHONE_OFFICIAL.updatedLabel}.
+          Công ty tính IP nộp + phát hành và IP hỗ trợ đặc biệt nên app hiển thị nguyên văn bảng này, không tự tính lại từ Daily Sales.
+        </div>
+
+        <ul className="race-tiers">
+          <li>Tổng IP tính thưởng 600–&lt;900tr → iPhone 18 Pro Max 256GB</li>
+          <li>Tổng IP tính thưởng từ 900tr → iPhone Duo 256GB</li>
+        </ul>
+
+        <div className="race-count">
+          🏅 Đạt iPhone 18 Pro Max: <b>{fmtInt(sum.datPromax)}</b> TVV · Đạt iPhone Duo: <b>{fmtInt(sum.datDuo)}</b> TVV
+          {' '}· Bảng công ty có {fmtInt(sum.total)} TVV
+        </div>
+
+        {rows.map((r, i) => {
+          const st = iphoneRowStatus(r)
+          return (
+            <div className="race-row" key={r.msdl}>
+              <span className="race-rank">{i + 1}</span>
+              <div className="race-who">
+                <div className="race-name">{r.name || '—'}{r.unit ? <span className="race-unit"> · {r.unit}</span> : null}</div>
+                <div className="race-tier">
+                  {goalLine('📱 iPhone 18 Pro Max', st.promax)}
+                  {' · '}
+                  {goalLine('📱 iPhone Duo', st.duo)}
+                </div>
+              </div>
+              <div className="race-val">
+                <div className="race-val-num">{fmtTr(r.total / 1000000)} tr</div>
+                <div className="race-val-label">Tổng IP tính thưởng</div>
+              </div>
+            </div>
+          )
+        })}
+
+        <div className="race-notes">
+          <div>ℹ️ Điều kiện của memo: mỗi TVV tối đa 01 quà, không quy đổi tiền; riêng Pru-Đầu Tư Vững Tiến chỉ tính hồ sơ từ 20tr.</div>
+          <div>ℹ️ Khi công ty gửi bảng cập nhật mới, Admin gửi ảnh/file cho Muse để cập nhật lại danh sách này.</div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="card" style={{ marginBottom: 14 }}>
         <h2>🏆 Thi Đua — các chương trình đang chạy</h2>
         <div className="muted">
-          Số liệu tự tính từ Daily Sales Admin nạp hằng ngày. Danh sách <b>đã đạt</b> mở công khai để vinh danh;
-          danh sách <b>sắp đạt</b> chỉ Admin chính và trưởng phòng thấy để đốc thúc.
+          Hai chương trình tháng 11 tự tính từ Daily Sales Admin nạp hằng ngày; chương trình thưởng iPhone Quý 4
+          hiển thị theo <b>bảng theo dõi chính thức của công ty</b>. Danh sách <b>đã đạt</b> mở công khai để vinh danh;
+          danh sách <b>sắp đạt</b> (các chương trình tự tính) chỉ Admin chính và trưởng phòng thấy để đốc thúc.
           Điều kiện nằm ngoài dữ liệu Daily (nếu có) được ghi chú ngay trong từng chương trình.
         </div>
       </div>
       <div className="race-grid">
-        {races.map(renderRace)}
+        {newest
+          ? races.map(renderRace)
+          : (
+            <div className="card">
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>{remoteSettled ? '📭 Chưa có dữ liệu Daily Sales' : '⏳ Đang tải dữ liệu…'}</div>
+              <div className="muted">
+                {remoteSettled
+                  ? 'Hai chương trình tháng 11 (00311, 00211) sẽ hiện tại đây sau khi Admin chính nạp file Daily Sales. Chương trình iPhone Quý 4 theo bảng công ty vẫn xem được ở bên cạnh.'
+                  : 'Lần đầu trên thiết bị này có thể mất vài giây — dữ liệu Daily đang được tải về, bạn không cần nạp lại file. Chương trình iPhone Quý 4 theo bảng công ty vẫn xem được ở bên cạnh.'}
+              </div>
+            </div>
+          )}
+        {renderIphone()}
       </div>
     </div>
   )

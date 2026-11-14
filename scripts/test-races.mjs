@@ -7,8 +7,9 @@
 //    cua snapshot T10 nhung co mat o du lieu T11).
 //  - 00211 T11: IP PHAT HANH = tong ipSub dong IF; bac 18/25/50/100,
 //    thuong du kien (8% o bac cao nhat, tran 100tr).
-//  - 00210 Q4: IP tinh thuong = T10 x2 + T11 x1,5 (TA9 x2), LOAI ho
-//    so Dau Tu Vung Tien ipSub < 20tr; moc qua 600/900tr.
+//  Chuong trinh 00210 (iPhone Quy 4) KHONG con test o day: tu
+//  14/11/2026 hien theo BANG CHINH THUC cua cong ty — test rieng
+//  o scripts/test-iphone.mjs (doi chieu file trich xuat tu anh).
 // Nguong sap dat (ca 3): gap <= max(20% moc ke, 10tr).
 // Chay: node scripts/test-races.mjs
 import * as XLSX from 'xlsx'
@@ -16,8 +17,7 @@ import { readFileSync } from 'node:fs'
 import assert from 'node:assert'
 import { parseWorkbook } from '../src/lib/parseDaily.js'
 import {
-  isTA9Product, isDTVTProduct, latestSnapOfMonth, issuedSubByAgent,
-  raceKickoff, raceNov, raceQ4, novTier, q4BonusIp,
+  latestSnapOfMonth, raceKickoff, raceNov, novTier,
 } from '../src/lib/races.js'
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0)
@@ -43,21 +43,7 @@ const ag10 = rawRows(H + '/workspace/user/files/Daily_Sales_25.10.xlsx', 'Agent'
 const ag11 = rawRows(H + '/workspace/user/files/Daily_Sales_8.11.xlsx', 'Agent')
 
 const isIF = (r) => String(r['PolicyStatus'] || '').trim().toUpperCase() === 'IF'
-const prodOf = (r) => r['Remarked_ProductNameVN'] || r['ProductCode'] || ''
-const ta9Raw = (p) => { const s = String(p || '').toUpperCase(); return s.includes('TA9') || s.includes('YÊN TÂM VUI KHỎE') }
-const dtvtRaw = (p) => String(p || '').toUpperCase().includes('ĐẦU TƯ VỮNG TIẾN')
 const nearRule = (gap, next) => gap > 0 && gap <= Math.max(next * 0.2, 10)
-
-// ═══ Nhan dien san pham ═══
-console.log('=== nhan dien san pham TA9 / Dau Tu Vung Tien ===')
-assert.strictEqual(isTA9Product('PRUYÊN TÂM VUI KHỎE'), true)
-assert.strictEqual(isTA9Product('TA9'), true)
-assert.strictEqual(isTA9Product('PRU-ĐẦU TƯ VỮNG TIẾN'), false)
-assert.strictEqual(isDTVTProduct('PRU-ĐẦU TƯ VỮNG TIẾN'), true)
-assert.strictEqual(isDTVTProduct('UR9'), true)
-assert.strictEqual(isDTVTProduct('PRUBẢO VỆ TỐI ĐA 2.0'), false)
-assert.strictEqual(isDTVTProduct(''), false)
-console.log('TA9 (ten VN + ma) / DTVT (ten VN + UR9) — dung')
 
 // ═══ latestSnapOfMonth ═══
 assert.strictEqual(latestSnapOfMonth(snaps, '2026-11').id, '2026-11-08')
@@ -137,56 +123,5 @@ const expNovNear = [...phMap.entries()]
   .sort((a, b) => a.gap - b.gap)
 assert.deepStrictEqual(nov.near.map((r) => r.msdl), expNovNear.map((r) => r.msdl), '00211: sap dat (sap cham moc 18tr) khop doc lap')
 console.log(`Dat thuong: ${nov.achieved.length} TVV (bac 100/50/25/18 = ${nov.counts.byTier.join('/')}); Trang thuong du kien ${R1(trangNov.bonus)}tr; sap dat ${nov.near.length} nguoi`)
-
-// ═══ (3) 00210 Quy 4 ═══
-console.log('\n=== 00210 Q4: IP tinh thuong (he so + loai DTVT <20tr), moc 600/900 ===')
-function monthIpRaw(rows) {
-  const m = new Map()
-  for (const r of rows) {
-    if (!isIF(r) || !r['AGCode']) continue
-    const ip = num(r['IP Sub']); const p = prodOf(r)
-    if (dtvtRaw(p) && ip < 20) continue
-    const k = String(r['AGCode'])
-    const cur = m.get(k) || { ip: 0, ta9: 0, name: r['AGName'] || '', unit: r['UnitCode'] || '' }
-    cur.ip += ip; if (ta9Raw(p)) cur.ta9 += ip
-    m.set(k, cur)
-  }
-  return m
-}
-const oMap = monthIpRaw(prop10); const nMap = monthIpRaw(prop11)
-const expQ4 = []
-for (const k of new Set([...oMap.keys(), ...nMap.keys()])) {
-  const o = oMap.get(k) || { ip: 0, ta9: 0 }; const nv = nMap.get(k) || { ip: 0, ta9: 0 }
-  const b = o.ip * 2 + (nv.ip - nv.ta9) * 1.5 + nv.ta9 * 2
-  if (b > 0) expQ4.push({ msdl: k, b })
-}
-expQ4.sort((a, b) => b.b - a.b)
-
-const q4 = raceQ4(snaps)
-assert.strictEqual(q4.hasDec, false, 'Q4: du lieu test chua co thang 12')
-assert.strictEqual(q4.achieved.length, 0, 'Q4: chua ai dat 600tr tren du lieu den 8.11')
-assert.strictEqual(q4.counts.total, 0)
-assert.strictEqual(R1(q4BonusIp({ octIp: 100, novIp: 100, novIpTA9: 40 })), R1(100 * 2 + 60 * 1.5 + 40 * 2), 'q4BonusIp: he so T10 x2, T11 thuong x1,5 + TA9 x2')
-// Gia tri tung TVV: tinh lai bang cac ham lib (issuedSubByAgent +
-// q4BonusIp) de doi chieu tung nguoi voi tinh doc lap o tren.
-const q4All = new Map()
-{
-  const o = issuedSubByAgent(snapT10, { forQ4: true })
-  const nv2 = issuedSubByAgent(snapT11, { forQ4: true })
-  for (const k of new Set([...o.keys(), ...nv2.keys()])) {
-    q4All.set(k, q4BonusIp({ octIp: o.get(k)?.ip || 0, novIp: nv2.get(k)?.ip || 0, novIpTA9: nv2.get(k)?.ipTA9 || 0 }))
-  }
-}
-for (const e of expQ4) {
-  assert.strictEqual(R1(q4All.get(e.msdl)), R1(e.b), `Q4: IP tinh thuong cua ${e.msdl} khop doc lap`)
-}
-assert.strictEqual(R1(q4All.get('60556971')), 456.6, 'Q4: Trang IP tinh thuong = 456,6tr (T10 179,9 x2 + T11 64,5 x1,5)')
-assert.strictEqual(R1(q4All.get('60789834')), 358.4, 'Q4: Phuong IP tinh thuong = 358,4tr')
-const expQ4Near = expQ4
-  .map((e) => ({ msdl: e.msdl, gap: 600 - e.b }))
-  .filter((x) => nearRule(x.gap, 600))
-  .sort((a, b) => a.gap - b.gap)
-assert.deepStrictEqual(q4.near.map((r) => r.msdl), expQ4Near.map((r) => r.msdl), 'Q4: danh sach sap dat moc 600 khop doc lap (gap <= max(20% x 600, 10) = 120)')
-console.log(`Chua ai dat qua (dung du lieu den 8.11, chua gom T12); Trang dan dau IP tinh thuong ${R1(q4All.get('60556971'))}tr; sap dat moc 600: ${q4.near.length} nguoi`)
 
 console.log('\n✅ test-races: TAT CA KHAI BAO DAT')

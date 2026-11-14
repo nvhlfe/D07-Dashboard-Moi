@@ -1,17 +1,21 @@
 // ─────────────────────────────────────────────────────────────
-// races.js — TAB THI DUA: cau hinh 3 chuong trinh thi dua dang chay
-// + ham tinh THUAN tu cac snapshot Daily Sales (khong phu thuoc
-// React/Firebase de test bang node — scripts/test-races.mjs).
+// races.js — TAB THI DUA: cau hinh 2 chuong trinh thi dua thang
+// 11/2026 (00311 + 00211) + ham tinh THUAN tu cac snapshot Daily
+// Sales (khong phu thuoc React/Firebase de test bang node —
+// scripts/test-races.mjs).
 //
-// NGUON DINH NGHIA: 2 memo 00211 + 00210 dung lai DINH NGHIA cua
-// khoi "Du bao thi dua" o dashboard cu (Lan chot 05/11/2026, code cu
-// o legacy-backup/insightsLogic.js):
+// Chuong trinh Memo 00210 (thuong iPhone Quy 4) KHONG con tu tinh
+// o day: tu 14/11/2026 hien theo BANG CHINH THUC cua cong ty —
+// xem lib/iphoneOfficial.js (cach tinh cua cong ty gom IP nop +
+// phat hanh va IP ho tro dac biet, khac du lieu Daily nen app
+// khong tu tinh lai de tranh 2 bo so lech nhau).
+//
+// NGUON DINH NGHIA 00211: dung lai DINH NGHIA cua khoi "Du bao
+// thi dua" o dashboard cu (Lan chot 05/11/2026, code cu o
+// legacy-backup/insightsLogic.js):
 //  - Co so IP PHAT HANH = ho so trang thai IF trong Proposal, lay
 //    ipSub cua tung DONG (snapshot luy ke: chi dung doc MOI NHAT
 //    cua moi thang).
-//  - Pru Yen Tam Vui Khoe = ma san pham TA9; Pru-Dau Tu Vung Tien
-//    nhan dien qua ten san pham (parseDaily gop ProductCode vao
-//    truong product khi khong co ten VN — nhan dien ca 2 dang).
 // Memo 00311 (Kickoff) dung IP THUAN = tong ipNet cac dong IF theo
 // TVV, dem theo dong — CUNG dinh nghia issuedRow cua team.js/homeKpi.
 //
@@ -25,17 +29,6 @@ const n = (v) => {
   return Number.isFinite(x) ? x : 0
 }
 
-// ── Nhan dien san pham ──
-export const TA9_CODE = 'TA9'
-export function isTA9Product(product) {
-  const s = String(product || '').toUpperCase()
-  return s.includes(TA9_CODE) || s.includes('YÊN TÂM VUI KHỎE') || s.includes('YEN TAM VUI KHOE')
-}
-export function isDTVTProduct(product) {
-  const s = String(product || '').toUpperCase()
-  return s.includes('ĐẦU TƯ VỮNG TIẾN') || s.includes('DAU TU VUNG TIEN') || s.includes('UR9')
-}
-
 /** Doc MOI NHAT cua 1 thang ('YYYY-MM') trong snaps, khong co -> null. */
 export function latestSnapOfMonth(snaps, ym) {
   const list = (snaps || []).filter((s) => s && s.id && s.id.startsWith(`${ym}-`))
@@ -44,22 +37,19 @@ export function latestSnapOfMonth(snaps, ym) {
 
 /**
  * IP PHAT HANH theo TVV tu 1 snapshot: chi dong IF, lay ipSub.
- * forQ4=true: loai ho so Pru-Dau Tu Vung Tien co IP < 20tr (Memo 00210).
- * Tra Map msdl -> { msdl, name, unit, ip, ipTA9, cases }.
+ * Tra Map msdl -> { msdl, name, unit, ip, cases }.
  */
-export function issuedSubByAgent(snap, { forQ4 = false } = {}) {
+export function issuedSubByAgent(snap) {
   const byCode = new Map()
   const rows = (snap && snap.data && snap.data.proposalRows) || []
   for (const p of rows) {
     if (p.statusGroup !== 'IF') continue
     const ip = n(p.ipSub)
-    if (forQ4 && isDTVTProduct(p.product) && ip < 20) continue
     const code = String(p.msdl || '').trim()
     if (!code) continue
     let row = byCode.get(code)
-    if (!row) { row = { msdl: code, name: '', unit: '', ip: 0, ipTA9: 0, cases: 0 }; byCode.set(code, row) }
+    if (!row) { row = { msdl: code, name: '', unit: '', ip: 0, cases: 0 }; byCode.set(code, row) }
     row.ip += ip
-    if (isTA9Product(p.product)) row.ipTA9 += ip
     row.cases += 1
     if (!row.name && p.agName) row.name = p.agName
     if (!row.unit && p.unit) row.unit = p.unit
@@ -232,79 +222,9 @@ export function raceNov(snaps) {
   return { meta: RACE_NOV_META, dataDate: snapNov.id, achieved, near, counts: { total: achieved.length, byTier } }
 }
 
-// ─────────────────────────────────────────────────────────────
-// (3) Memo 00210/AD/2026 — Quy 4/2026
-// ─────────────────────────────────────────────────────────────
-export const Q4_GIFTS = [
-  { min: 900, label: 'iPhone Duo 256GB' },
-  { min: 600, label: 'iPhone 18 Pro Max 256GB' },
-]
-
-export const RACE_Q4_META = {
-  id: 'q4',
-  memo: '00210/AD/2026',
-  name: 'Đỉnh cao hiệu suất — Rinh ngay quà lớn (Quý 4/2026)',
-  periodLabel: 'Quý 4/2026 (T10–T12)',
-  deadline: '2026-12-31',
-  tiersSummary: [
-    'IP tính thưởng 600–<900tr → iPhone 18 Pro Max 256GB',
-    'IP tính thưởng từ 900tr → iPhone Duo 256GB (tối đa 1 quà/TVV, không quy đổi tiền)',
-    'Hệ số nhân: T10 ×2 · T11 ×1,5 (TA9 ×2) · T12 ×1 (TA9 ×2)',
-  ],
-  notes: [
-    'Hồ sơ Pru-Đầu Tư Vững Tiến chỉ tính khi IP từ 20tr (dưới 20tr không tính vào IP thưởng quý).',
-  ],
-}
-
-/** IP tinh thuong Q4 cua 1 TVV tu IP phat hanh tung thang (da loai DTVT < 20tr o tang du lieu). */
-export function q4BonusIp({ octIp = 0, novIp = 0, novIpTA9 = 0, decIp = 0, decIpTA9 = 0 } = {}) {
-  return n(octIp) * 2
-    + (n(novIp) - n(novIpTA9)) * 1.5 + n(novIpTA9) * 2
-    + (n(decIp) - n(decIpTA9)) * 1 + n(decIpTA9) * 2
-}
-
-export function raceQ4(snaps) {
-  const snapOct = latestSnapOfMonth(snaps, '2026-10')
-  const snapNov = latestSnapOfMonth(snaps, '2026-11')
-  const snapDec = latestSnapOfMonth(snaps, '2026-12')
-  const base = { meta: RACE_Q4_META, hasDec: !!snapDec, dataDates: { oct: snapOct?.id || null, nov: snapNov?.id || null, dec: snapDec?.id || null } }
-  if (!snapOct && !snapNov && !snapDec) return { ...base, achieved: [], near: [], counts: { total: 0, duo: 0, pro: 0 } }
-  const oct = issuedSubByAgent(snapOct, { forQ4: true })
-  const nov = issuedSubByAgent(snapNov, { forQ4: true })
-  const dec = issuedSubByAgent(snapDec, { forQ4: true })
-  const keys = new Set([...oct.keys(), ...nov.keys(), ...dec.keys()])
-  const achieved = []
-  const near = []
-  let duo = 0
-  let pro = 0
-  for (const k of keys) {
-    const o = oct.get(k); const nv = nov.get(k); const dc = dec.get(k)
-    const ref = nv || o || dc
-    const bonusIp = q4BonusIp({
-      octIp: o?.ip || 0,
-      novIp: nv?.ip || 0, novIpTA9: nv?.ipTA9 || 0,
-      decIp: dc?.ip || 0, decIpTA9: dc?.ipTA9 || 0,
-    })
-    if (bonusIp <= 0) continue
-    const row = { msdl: k, name: ref?.name || '', unit: ref?.unit || '', value: bonusIp }
-    const gift = bonusIp >= 900 ? Q4_GIFTS[0] : bonusIp >= 600 ? Q4_GIFTS[1] : null
-    if (gift) {
-      if (gift.min === 900) duo += 1; else pro += 1
-      achieved.push({ ...row, tierLabel: `🎁 ${gift.label}` })
-      // Da dat moc thap, sap len moc cao hon (600 -> 900) van vao sap dat.
-      if (gift.min === 600 && isNearGap(900 - bonusIp, 900)) {
-        near.push({ ...row, gap: 900 - bonusIp, nextLabel: 'mốc 900tr (iPhone Duo 256GB)' })
-      }
-    } else if (isNearGap(600 - bonusIp, 600)) {
-      near.push({ ...row, gap: 600 - bonusIp, nextLabel: 'mốc 600tr (iPhone 18 Pro Max 256GB)' })
-    }
-  }
-  achieved.sort(byValueDesc)
-  near.sort(byGapAsc)
-  return { ...base, achieved, near, counts: { total: achieved.length, duo, pro } }
-}
-
-/** Ca 3 chuong trinh theo thu tu hien thi tren tab Thi Dua. */
+/** 2 chuong trinh TU TINH tu Daily theo thu tu hien thi tren tab
+ * Thi Dua. Chuong trinh 00210 (iPhone Quy 4) hien rieng theo bang
+ * chinh thuc cua cong ty — xem lib/iphoneOfficial.js. */
 export function buildRaces(snaps) {
-  return [raceKickoff(snaps), raceNov(snaps), raceQ4(snaps)]
+  return [raceKickoff(snaps), raceNov(snaps)]
 }
