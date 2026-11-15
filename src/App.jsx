@@ -17,6 +17,7 @@ import DoiNgu from './components/DoiNgu.jsx'
 import ThiDua from './components/ThiDua.jsx'
 import MemoThuVien from './components/MemoThuVien.jsx'
 import CaNhan from './components/CaNhan.jsx'
+import ChatbotSP from './components/ChatbotSP.jsx'
 import { loadLocalSnapshots, fetchFirestoreSnapshots, fetchMonthSnapshots, persistSnapshots, mergeSnapshots, getFbConfig, fetchUserProfile, saveUserProfile, fetchAllProfiles, adminSetProfileStatus, adminSetSalesReport, adminSetUnitView } from './lib/store'
 import { useAuth } from './lib/auth'
 import { emailToMsdl, isMsdlAccount, isSuperAdmin, msdlToEmail, canViewSalesReport } from './lib/firebaseConfig'
@@ -54,6 +55,7 @@ const NAV = [
   { id: 'races', label: 'Thi Đua', icon: '🏆' },
   { id: 'me', label: 'Của tôi', icon: '👤' },
   { id: 'memo', label: 'Memo', icon: '📌' },
+  { id: 'chatbot', label: 'Chatbot SP', icon: '🤖' },
   { id: 'nap', label: 'Nạp', icon: '📥' },
 ]
 
@@ -471,6 +473,11 @@ export default function App() {
                 onOpenLogin={() => { setLoginErr(''); setShowLogin(true) }} />
             )}
             {tab === 'nap' && <NapDuLieu onSaved={reload} user={user} snaps={snaps} />}
+            {/* Chatbot SP: luon giu trong cay khi da mo lan dau (an bang
+                display:none) de iframe khong nap lai / khong mat hoi thoai */}
+            <div style={{ display: tab === 'chatbot' ? 'block' : 'none' }}>
+              <ChatbotSP active={tab === 'chatbot'} />
+            </div>
           </>
 
           <nav className="bottom-nav">
