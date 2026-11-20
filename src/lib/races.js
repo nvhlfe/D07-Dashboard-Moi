@@ -4,6 +4,11 @@
 // Sales (khong phu thuoc React/Firebase de test bang node —
 // scripts/test-races.mjs).
 //
+// LUU Y 20/11/2026: ThiDua.jsx KHONG con dung lib nay — ca 3
+// chuong trinh (00311 + 00211 + 00210) da chuyen sang BANG CHINH
+// THUC cua cong ty (lib/raceOfficial.js + lib/iphoneOfficial.js).
+// File nay chi giu lam tham khao dinh nghia cu, KHONG doi logic.
+//
 // Chuong trinh Memo 00210 (thuong iPhone Quy 4) KHONG con tu tinh
 // o day: tu 14/11/2026 hien theo BANG CHINH THUC cua cong ty —
 // xem lib/iphoneOfficial.js (cach tinh cua cong ty gom IP nop +

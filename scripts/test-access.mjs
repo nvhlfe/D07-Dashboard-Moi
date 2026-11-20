@@ -547,9 +547,10 @@ console.log('Trang Chu: luu y muc tieu chi Admin thay (so FYP + % + thanh tien d
 
 // ── Dot 13/11/2026 (Lan duyet): (A) Y 8 — Trang Chu CHON THANG xem
 // lai so lieu (hero + canh bao hom nay giu theo thoi gian thuc /
-// snapshot moi nhat); (B) tab moi "🏆 Thi Đua" (lib/races + ThiDua)
-// nam sau Tinh Anh, truoc Memo — moi nguoi xem duoc da dat, SAP DAT
-// gate Admin chinh / truong phong nhu khoi Can chu y. ──
+// snapshot moi nhat); (B) tab moi "🏆 Thi Đua" nam sau Tinh Anh,
+// truoc Memo. Kien truc tab Thi Dua da thay o dot 20/11/2026 (ca 3
+// the theo BANG CHINH THUC cong ty — xem section rieng ben duoi);
+// cac assert (B) o day chi con khoa vi tri tab + file ton tai. ──
 console.log('\n=== Y 8: Trang Chu chon thang + tab Thi Dua ===')
 const thiDua = read('../src/components/ThiDua.jsx')
 // (A) HomNay chon thang
@@ -567,13 +568,34 @@ assert.ok(
   'App.jsx: tab Thi Dua nam SAU Tinh Anh (team) va TRUOC Memo',
 )
 assert.ok(app.includes("tab === 'races'") && app.includes('<ThiDua'), 'App.jsx: phai render <ThiDua> khi tab === races')
-assert.ok(existsSync(new URL('../src/lib/races.js', import.meta.url)), 'lib/races.js: phai ton tai (cau hinh + ham tinh thi dua)')
+assert.ok(existsSync(new URL('../src/lib/races.js', import.meta.url)), 'lib/races.js: van ton tai (giu lam tham khao dinh nghia cu — ThiDua khong con dung tu 20/11/2026)')
 assert.ok(existsSync(new URL('../src/components/ThiDua.jsx', import.meta.url)), 'components/ThiDua.jsx: phai ton tai')
-assert.ok(thiDua.includes('buildRaces'), 'ThiDua: phai dung buildRaces cua lib/races')
-assert.ok(thiDua.includes('canSeeNear'), 'ThiDua: danh sach Sap dat phai gate qua canSeeNear (Admin chinh / truong phong)')
-assert.ok(thiDua.includes('myUnitCodes'), 'ThiDua: truong phong chi thay Sap dat thuoc phong minh (myUnitCodes — cung gate khoi Can chu y)')
 assert.ok(thiDua.includes('Đã đạt'), 'ThiDua: phai co danh sach DA DAT vinh danh cong khai')
-console.log('Trang Chu: chon thang xem lai (so lieu theo thang chon; hero/canh bao/ban tin giu "hom nay"); Thi Dua: tab rieng sau Tinh Anh, da dat cong khai, sap dat gate Admin/truong phong')
+console.log('Trang Chu: chon thang xem lai (so lieu theo thang chon; hero/canh bao/ban tin giu "hom nay"); Thi Dua: tab rieng sau Tinh Anh (kien truc bang chinh thuc khoa o section 20/11 ben duoi)')
+
+// ── Dot 20/11/2026 (Lan gui file Excel Memo_18.11.xlsx): CA 3 the
+// Thi Dua chuyen sang BANG THEO DOI CHINH THUC cua cong ty —
+// 00311 + 00211 dung lib/raceOfficial (NOV_OFFICIAL /
+// KICKOFF_OFFICIAL), 00210 dung lib/iphoneOfficial (iphoneSummary).
+// Khoa kien truc moi: KHONG con buildRaces tu tinh tu Daily, KHONG
+// con tai lazy thang (onNeedMonth), KHONG con khoi Sap dat gate
+// Admin/truong phong (canSeeNear / myUnitCodes / leaderCtx). ──
+console.log('\n=== Thi Dua: ca 3 the theo bang chinh thuc cong ty 18/11 ===')
+assert.ok(existsSync(new URL('../src/lib/raceOfficial.js', import.meta.url)), 'lib/raceOfficial.js: phai ton tai (du lieu chinh thuc 00311 + 00211)')
+assert.ok(thiDua.includes("from '../lib/raceOfficial'"), 'ThiDua: phai import lib/raceOfficial (bang chinh thuc 00311 + 00211)')
+assert.ok(thiDua.includes("from '../lib/iphoneOfficial'"), 'ThiDua: phai import lib/iphoneOfficial (bang chinh thuc 00210)')
+assert.ok(thiDua.includes('NOV_OFFICIAL'), 'ThiDua: the 00211 phai dung NOV_OFFICIAL')
+assert.ok(thiDua.includes('KICKOFF_OFFICIAL'), 'ThiDua: the 00311 phai dung KICKOFF_OFFICIAL')
+assert.ok(thiDua.includes('novOfficialSummary') && thiDua.includes('kickoffOfficialSummary'), 'ThiDua: tong ket 2 the thang 11 phai lay tu novOfficialSummary / kickoffOfficialSummary')
+assert.ok(thiDua.includes('iphoneSummary'), 'ThiDua: the 00210 phai dung iphoneSummary cua lib/iphoneOfficial')
+assert.ok(!thiDua.includes('buildRaces'), 'ThiDua: KHONG con buildRaces (khong tu tinh thi dua tu Daily nua)')
+assert.ok(!thiDua.includes('lib/races'), 'ThiDua: KHONG con import lib/races')
+assert.ok(!thiDua.includes('onNeedMonth'), 'ThiDua: KHONG con xin tai lazy thang qua onNeedMonth (du lieu tinh bang cong ty)')
+assert.ok(!thiDua.includes('canSeeNear'), 'ThiDua: KHONG con gate Sap dat canSeeNear')
+assert.ok(!thiDua.includes('myUnitCodes') && !thiDua.includes('leaderCtx'), 'ThiDua: KHONG con nhan dien truong phong (leaderCtx / myUnitCodes) cho khoi Sap dat')
+assert.ok(!thiDua.includes('Sắp đạt'), 'ThiDua: KHONG con khoi "Sap dat" (ca 3 the hien cong khai theo bang cong ty)')
+assert.ok(!thiDua.includes('VALUE_LABEL'), 'ThiDua: KHONG con VALUE_LABEL (nhan gia tri ghi thang trong tung the)')
+console.log('Thi Dua 20/11: 00311 + 00211 = raceOfficial, 00210 = iphoneOfficial; bo han buildRaces / onNeedMonth / gate Sap dat')
 
 // ── Dot 14/11/2026: chuong trinh Memo 00210 (iPhone Quy 4) chuyen
 // sang BANG CHINH THUC cua cong ty (lib/iphoneOfficial, trich tu
@@ -602,10 +624,11 @@ assert.ok(thiDua.includes('defaultOpenRaceId(raceEntries)'), 'ThiDua: the mac di
 assert.ok(thiDua.includes('const [openRaces, setOpenRaces] = useState(null)'), 'ThiDua: phai co state openRaces (null = chua thao tac, dung mac dinh)')
 assert.ok(thiDua.includes('toggleRace'), 'ThiDua: phai co toggleRace de dong/mo tung the doc lap')
 assert.ok(thiDua.includes('race-head race-toggle'), 'ThiDua: hang dau the la nut bam dong/mo (race-head race-toggle)')
-assert.ok(thiDua.includes('toggleRace(meta.id)'), 'ThiDua: the tu tinh (00311/00211) dong/mo theo meta.id')
+assert.ok(thiDua.includes("toggleRace('kickoff')"), 'ThiDua: the Kickoff 00311 dong/mo theo id co dinh kickoff')
+assert.ok(thiDua.includes("toggleRace('nov')"), 'ThiDua: the Thang 11 00211 dong/mo theo id co dinh nov')
 assert.ok(thiDua.includes('toggleRace(IPHONE_RACE_ID)'), 'ThiDua: the iPhone 00210 dong/mo theo IPHONE_RACE_ID')
 assert.ok(thiDua.includes('race-quick'), 'ThiDua: the DONG phai hien dong tom tat nhanh (.race-quick)')
-assert.ok(thiDua.includes('TVV có vé'), 'ThiDua: dong tom tat the Kickoff khi dong: "Da dat: n TVV co ve"')
+assert.ok(thiDua.includes('Vé tạm đạt:'), 'ThiDua: dong tom tat the Kickoff khi dong: "Ve tam dat: n ve · n TVV dat"')
 assert.ok(thiDua.includes('Đã đạt thưởng:'), 'ThiDua: dong tom tat the 00211 khi dong: "Da dat thuong: n TVV"')
 assert.ok(thiDua.includes('Thu gọn ⌃'), 'ThiDua: cuoi the MO phai co nut "Thu gon ⌃" de dong lai khong can cuon len dau')
 assert.ok(thiDua.includes('race-collapse-btn'), 'ThiDua: nut Thu gon dung class race-collapse-btn')

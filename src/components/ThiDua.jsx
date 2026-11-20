@@ -1,42 +1,42 @@
 // ─────────────────────────────────────────────────────────────
 // ThiDua — Tab "🏆 Thi Đua" (Lan duyet 13/11/2026): theo doi cac
-// chuong trinh thi đua dang chay. 2 chuong trinh thang 11 TU TINH
-// tu Daily Sales (lib/races): Memo 00311 (Kickoff T11) + Memo
-// 00211 (Thi đua Thang 11). Chuong trinh Memo 00210 (thuong
-// iPhone Quy 4) hien theo BANG THEO DOI CHINH THUC cua cong ty
-// (lib/iphoneOfficial — Lan gui bang ngay 13/11/2026, import
-// 14/11/2026): cong ty tinh gom ca IP nop + phat hanh va IP ho
-// tro dac biet, khac du lieu Daily nen app KHONG tu tinh lai.
-// QUYEN XEM: MOI NGUOI (ke ca chua dang nhap) xem the chuong trinh +
-// danh sach DA DAT (vinh danh cong khai). Danh sach SAP DAT (2
-// chuong trinh tu tinh) chi Admin chinh + TRUONG PHONG thay —
-// CUNG gate + loc theo phong minh nhu khoi "Can chu y hom nay" o
-// Tinh Anh (DoiNgu): Admin thay toan GA, truong phong chi thay
-// TVV thuoc Unit minh dung dau (leaderCode trung MSDL cua minh
-// trong sheet Leader).
-// Du lieu: dung snaps App co san + xin tai LAZY thang 10/2026 qua
-// onNeedMonth — moi thang chi xin 1 lan. The iPhone chinh thuc la
-// du lieu tinh, hien ngay ca khi chua co Daily tren may.
+// chuong trinh thi đua dang chay. Tu 20/11/2026 CA 3 chuong trinh
+// deu hien theo BANG THEO DOI CHINH THUC cua cong ty trong file
+// Excel Memo_18.11.xlsx (Lan gui 20/11/2026):
+//  - Memo 00311 (Kickoff 2027) + Memo 00211 (Thi đua Thang 11):
+//    lib/raceOfficial — cong ty tinh gom ca IP nop + phat hanh
+//    (00211) va da tinh san SO VE TAM DAT (00311), khac du lieu
+//    Daily nen app KHONG tu tinh lai tu Daily nua.
+//  - Memo 00210 (thuong iPhone Quy 4): lib/iphoneOfficial — bang
+//    cong ty cap nhat 18/11/2026 (45 TVV).
+// Khong con tu tinh tu Daily, khong con tai lazy thang, khong
+// con khoi "Sap dat" gate Admin/truong phong:
+// ca 3 the la du lieu TINH cua cong ty, hien cong khai toan bo
+// danh sach de vinh danh (so con thieu tung moc ghi ngay tren
+// tung dong o the iPhone; ve 00311 la ve TAM DAT — cong ty chot
+// dieu kien duy tri phi tai 30/11/2026).
 // DONG/MO tung the (Lan yeu cau 14/11/2026 — trang qua dai): moi
 // the chuong trinh dong/mo doc lap bang nut o hang dau the; khi
 // DONG chi hien ten + so memo + chip han chot + 1 dong tom tat
 // nhanh; cuoi the mo co nut "Thu gon". MAC DINH chi mo 1 the co
 // han chot GAN NHAT (xem defaultOpenRaceId ben duoi).
 // ─────────────────────────────────────────────────────────────
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { buildRaces } from '../lib/races'
+import React, { useState } from 'react'
 import { IPHONE_OFFICIAL, iphoneRowStatus, iphoneSummary } from '../lib/iphoneOfficial'
-import { isSuperAdmin, emailToMsdl } from '../lib/firebaseConfig'
+import {
+  NOV_OFFICIAL, KICKOFF_OFFICIAL, KICKOFF_OFFICIAL_TARGET,
+  novOfficialTier, novOfficialSummary, kickoffOfficialSummary,
+} from '../lib/raceOfficial'
 
 const fmtTr = (n) => {
   const v = Number(n) || 0
   return (Math.round(v * 10) / 10).toLocaleString('vi-VN')
 }
 const fmtInt = (n) => Math.round(Number(n) || 0).toLocaleString('vi-VN')
-const fmtDateVN = (iso) => {
-  if (!iso) return '—'
-  const p = String(iso).split('-')
-  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : String(iso)
+// Ty le 0–1 -> phan tram 1 chu so thap phan, dinh dang vi-VN (dau phay).
+const fmtPct = (ratio) => {
+  const v = (Number(ratio) || 0) * 100
+  return (Math.round(v * 10) / 10).toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 }
 
 // So ngay con lai toi han chot (tinh theo ngay hom nay that cua thiet bi).
@@ -50,6 +50,14 @@ function daysToDeadline(isoDate) {
 // The chuong trinh iPhone chinh thuc (Memo 00210) trong co che dong/mo.
 const IPHONE_RACE_ID = 'iphone'
 const IPHONE_DEADLINE = '2026-12-31'
+
+// Danh sach the co dinh theo DUNG thu tu hien thi tren tab:
+// Kickoff -> Thang 11 -> iPhone.
+const raceEntries = [
+  { id: 'kickoff', deadline: '2026-11-30' },
+  { id: 'nov', deadline: '2026-11-30' },
+  { id: IPHONE_RACE_ID, deadline: IPHONE_DEADLINE },
+]
 
 // The MAC DINH mo khi vao tab: the co han chot GAN NHAT so voi hom
 // nay — uu tien the sap chot chua qua han (han chot nho nhat trong
@@ -71,64 +79,10 @@ export function defaultOpenRaceId(entries) {
   return best ? best.id : null
 }
 
-// Nhãn giá trị theo từng chương trình (hiện bên phải mỗi dòng TVV).
-const VALUE_LABEL = {
-  kickoff: 'IP thuần T11',
-  nov: 'IP phát hành T11',
-}
-
-export default function ThiDua({ snaps, loading, remoteSettled = true, onNeedMonth, user, profile, isSuperAdmin: adminProp }) {
-  const isAdmin = typeof adminProp === 'boolean' ? adminProp : isSuperAdmin(user)
-  const [nearOpen, setNearOpen] = useState({})
-  const raceReqRef = useRef(new Set())
-
-  const newest = snaps && snaps.length ? snaps[snaps.length - 1] : null
-
-  // ── Xin tai lazy cac thang nen cua 2 chuong trinh tu tinh
-  // (T10 cho xac dinh TVV moi cua Kickoff; T11 la thang thi dua)
-  // — moi thang 1 lan.
-  useEffect(() => {
-    if (!onNeedMonth) return
-    for (const ym of ['2026-10', '2026-11']) {
-      if ((snaps || []).some((s) => s.id && s.id.startsWith(`${ym}-`))) continue
-      if (raceReqRef.current.has(ym)) continue
-      raceReqRef.current.add(ym)
-      onNeedMonth(ym)
-    }
-  }, [snaps, onNeedMonth])
-
-  // ── Nhan dien truong phong + phong minh dung dau (CUNG cach DoiNgu):
-  // UM/BM theo AGLevel trong sheet Agent, hoac MSDL trung LeaderCode
-  // cua 1 Unit trong sheet Leader (snapshot moi nhat toan cuc).
-  const viewerMsdl = String((profile && profile.msdl) || emailToMsdl(user && user.email) || '').trim().toUpperCase()
-  const leaderCtx = useMemo(() => {
-    const empty = { isLeader: false, myUnitCodes: new Set() }
-    if (!viewerMsdl || !newest) return empty
-    const agentsObj = (newest.data && newest.data.agents) || {}
-    const mine = Object.values(agentsObj).find(
-      (a) => String((a && a.msdl) || '').trim().toUpperCase() === viewerMsdl,
-    )
-    const lv = String((mine && mine.level) || '').trim().toUpperCase()
-    const myUnitCodes = new Set()
-    const unitsObj = (newest.data && newest.data.units) || {}
-    for (const [code, u] of Object.entries(unitsObj)) {
-      if (String((u && u.leaderCode) || '').trim().toUpperCase() === viewerMsdl) {
-        myUnitCodes.add(String(code || '').trim().toUpperCase())
-      }
-    }
-    return { isLeader: lv === 'UM' || lv === 'BM' || myUnitCodes.size > 0, myUnitCodes }
-  }, [viewerMsdl, newest])
-  const canSeeNear = isAdmin || leaderCtx.isLeader
-
-  const races = useMemo(() => buildRaces(snaps || []), [snaps])
-
+export default function ThiDua({ loading }) {
   // ── Dong/mo tung the chuong trinh (state noi bo, khong luu ben).
   // openRaces = null nghia la chua thao tac: dung ban do mac dinh
-  // chi mo 1 the gan han chot nhat. Danh sach the tinh tren cac the
-  // THUC SU se render (chua co Daily thi chi co the iPhone tinh).
-  const raceEntries = newest
-    ? [...races.map((r) => ({ id: r.meta.id, deadline: r.meta.deadline })), { id: IPHONE_RACE_ID, deadline: IPHONE_DEADLINE }]
-    : [{ id: IPHONE_RACE_ID, deadline: IPHONE_DEADLINE }]
+  // chi mo 1 the gan han chot nhat (hien tai la Kickoff 00311).
   const defaultOpenId = defaultOpenRaceId(raceEntries)
   const [openRaces, setOpenRaces] = useState(null)
   const openMap = openRaces || (defaultOpenId ? { [defaultOpenId]: true } : {})
@@ -140,110 +94,153 @@ export default function ThiDua({ snaps, loading, remoteSettled = true, onNeedMon
   if (loading) {
     return <div className="card empty"><div className="e-ic">⏳</div>Đang tải dữ liệu…</div>
   }
-  const renderRace = (race) => {
-    const { meta } = race
-    const days = daysToDeadline(meta.deadline)
-    const dataDate = race.dataDate
-    // Sap dat: gate Admin/truong phong; truong phong chi thay phong minh.
-    const nearAll = race.near || []
-    const nearShown = !canSeeNear
-      ? null
-      : isAdmin
-        ? nearAll
-        : nearAll.filter((r) => leaderCtx.myUnitCodes.has(String(r.unit || '').trim().toUpperCase()))
-    const open = !!nearOpen[meta.id]
-    const isOpen = !!openMap[meta.id]
-    const notes = [...(meta.notes || [])]
-    if (meta.id === 'kickoff' && !race.hasOct) {
-      notes.push('App chưa có dữ liệu tháng 10/2026 nên chưa xác định được TVV mới theo quy tắc đối chiếu — số vé TVV mới có thể chưa đầy đủ.')
-    }
-    // Dong tom tat nhanh chi hien khi the DONG (so tong ket san co).
-    const quickLine = meta.id === 'kickoff'
-      ? <>🏅 Đã đạt: <b>{fmtInt(race.achieved.length)}</b> TVV có vé{race.counts ? <> (mốc 50tr: {fmtInt(race.counts.standard)} · TVV mới mốc 25tr: {fmtInt(race.counts.fresh)})</> : null}</>
-      : <>🏅 Đã đạt thưởng: <b>{fmtInt(race.achieved.length)}</b> TVV{race.counts ? <> (từ 100tr: {fmtInt(race.counts.byTier[0])} · 50tr: {fmtInt(race.counts.byTier[1])} · 25tr: {fmtInt(race.counts.byTier[2])} · 18tr: {fmtInt(race.counts.byTier[3])})</> : null}</>
+
+  // Hang dau the (nut bam dong/mo) + chip han chot — dung chung 3 the.
+  const renderHead = (id, title, deadline) => {
+    const days = daysToDeadline(deadline)
+    const isOpen = !!openMap[id]
     return (
-      <div className="card race-card" key={meta.id}>
-        <button type="button" className="race-head race-toggle" onClick={() => toggleRace(meta.id)} aria-expanded={isOpen}>
-          <h2>🏆 {meta.name}</h2>
-          {days > 0
-            ? <span className="race-chip">⏳ Còn {days} ngày</span>
-            : days === 0
-              ? <span className="race-chip hot">⏰ Hôm nay chốt</span>
-              : <span className="race-chip done">Đã chốt</span>}
-          <span className="memo-caret">{isOpen ? '▾' : '▸'}</span>
-        </button>
+      <button type="button" className="race-head race-toggle" onClick={() => toggleRace(id)} aria-expanded={isOpen}>
+        <h2>{title}</h2>
+        {days > 0
+          ? <span className="race-chip">⏳ Còn {days} ngày</span>
+          : days === 0
+            ? <span className="race-chip hot">⏰ Hôm nay chốt</span>
+            : <span className="race-chip done">Đã chốt</span>}
+        <span className="memo-caret">{isOpen ? '▾' : '▸'}</span>
+      </button>
+    )
+  }
+
+  // ── The Memo 00311 (Kickoff 2027): BANG CHINH THUC cong ty
+  // (lib/raceOfficial) — so ve TAM DAT cong ty da tinh san.
+  const renderKickoff = () => {
+    const sum = kickoffOfficialSummary()
+    const rows = [...KICKOFF_OFFICIAL.rows].sort((a, b) => b.ipNet - a.ipNet)
+    const isOpen = !!openMap.kickoff
+    const countLine = (
+      <>🏅 Vé tạm đạt: <b>{fmtInt(sum.totalTickets)}</b> vé · <b>{fmtInt(sum.achievers)}</b> TVV đạt · Bảng công ty có {fmtInt(sum.total)} TVV</>
+    )
+    return (
+      <div className="card race-card">
+        {renderHead('kickoff', '🏆 Tăng tốc về đích 2026 — Ghi danh Agency Kickoff 2027', '2026-11-30')}
         <div className="race-sub">
-          Memo {meta.memo} · {meta.periodLabel} · Hạn chốt {fmtDateVN(meta.deadline)}
-          {dataDate ? <> · Dữ liệu đến {fmtDateVN(dataDate)}</> : null}
+          Memo 00311/AD/2026 · 01/11 – 30/11/2026 · Hạn chốt 30/11/2026
         </div>
 
-        {!isOpen && <div className="race-quick">{quickLine}</div>}
+        {!isOpen && <div className="race-quick">{countLine}</div>}
 
         {isOpen && (<>
-        <ul className="race-tiers">
-          {meta.tiersSummary.map((t) => <li key={t}>{t}</li>)}
-        </ul>
-
-        <div className="race-count">
-          🏅 Đã đạt: <b>{fmtInt(race.achieved.length)}</b> TVV
-          {meta.id === 'kickoff' && race.counts
-            ? <> (mốc 50tr: {fmtInt(race.counts.standard)} · TVV mới mốc 25tr: {fmtInt(race.counts.fresh)})</>
-            : null}
-          {meta.id === 'nov' && race.counts
-            ? <> (từ 100tr: {fmtInt(race.counts.byTier[0])} · 50tr: {fmtInt(race.counts.byTier[1])} · 25tr: {fmtInt(race.counts.byTier[2])} · 18tr: {fmtInt(race.counts.byTier[3])})</>
-            : null}
+        <div className="race-source">
+          📋 Kết quả theo bảng theo dõi chính thức của công ty — {KICKOFF_OFFICIAL.updatedLabel}.
+          Vé trong bảng là vé TẠM ĐẠT — công ty chốt điều kiện duy trì phí tại 30/11/2026.
         </div>
 
-        {race.achieved.length === 0
-          ? <div className="muted" style={{ marginBottom: 10 }}>Chưa có TVV nào đạt mốc của chương trình này theo dữ liệu hiện có.</div>
-          : race.achieved.map((r, i) => (
+        <ul className="race-tiers">
+          <li>TVV: IP thuần tháng 11 từ 50tr → 01 vé tham dự</li>
+          <li>TVV MỚI có hoạt động: IP thuần tháng 11 từ 25tr → 01 vé</li>
+        </ul>
+
+        <div className="race-count">{countLine}</div>
+
+        {rows.map((r, i) => {
+          const parts = []
+          if ((Number(r.tickets) || 0) > 0) {
+            parts.push(`🎟️ Vé tạm đạt: ${fmtInt(r.tickets)} vé (diện TVV)`)
+          } else {
+            parts.push(`Còn thiếu ${fmtTr((KICKOFF_OFFICIAL_TARGET - r.ipNet) / 1000000)} tr tới mốc vé 50tr`)
+          }
+          if (r.retention != null) {
+            parts.push(`Duy trì phí cá nhân ${fmtPct(r.retention)}%`)
+          }
+          return (
             <div className="race-row" key={r.msdl}>
               <span className="race-rank">{i + 1}</span>
               <div className="race-who">
                 <div className="race-name">{r.name || '—'}{r.unit ? <span className="race-unit"> · {r.unit}</span> : null}</div>
-                <div className="race-tier">{r.tierLabel}{meta.id === 'nov' && r.bonus ? <> · thưởng dự kiến <b>{fmtTr(r.bonus)} tr</b></> : null}</div>
+                <div className="race-tier">{parts.join(' · ')}</div>
               </div>
               <div className="race-val">
-                <div className="race-val-num">{fmtTr(r.value)} tr</div>
-                <div className="race-val-label">{VALUE_LABEL[meta.id]}</div>
+                <div className="race-val-num">{fmtTr(r.ipNet / 1000000)} tr</div>
+                <div className="race-val-label">IP thuần T11</div>
               </div>
             </div>
-          ))}
+          )
+        })}
 
-        {nearShown !== null && (
-          <div className="race-near">
-            <button type="button" className="memo-summary-head attn-head" onClick={() => setNearOpen((o) => ({ ...o, [meta.id]: !o[meta.id] }))} aria-expanded={open}>
-              <span className="attn-head-main">
-                <span className="attn-head-title">🎯 Sắp đạt ({nearShown.length} người)</span>
-                <span className="attn-head-sub">
-                  {isAdmin ? 'Chỉ Admin chính và trưởng phòng thấy danh sách này' : 'Chỉ hiện TVV thuộc phòng bạn đứng đầu'}
-                  {' · '}ngưỡng: còn thiếu ≤ 20% mốc kế tiếp hoặc ≤ 10tr
-                </span>
-              </span>
-              <span className="memo-caret">{open ? '▾' : '▸'}</span>
-            </button>
-            {open ? (
-              <div className="attn-body">
-                {nearShown.length === 0
-                  ? <div className="attn-empty">Chưa có TVV nào ở ngưỡng sắp đạt.</div>
-                  : nearShown.map((r) => (
-                    <div className="attn-row static" key={r.msdl}>
-                      <span className="attn-name">{r.name || '—'} <span className="attn-unit">· {r.unit || '—'}</span></span>
-                      <span className="attn-detail">{VALUE_LABEL[meta.id]} {fmtTr(r.value)} tr · còn thiếu <b>{fmtTr(r.gap)} tr</b> tới {r.nextLabel}</span>
-                    </div>
-                  ))}
+        <div className="race-notes">
+          <div>ℹ️ Điều kiện chốt vé: tỷ lệ duy trì phí tái tục cá nhân (TVV) / của phòng (QLTVV) tại 30/11/2026 từ 75%; tối đa 01 vé/TVV, riêng TVV giới thiệu tối đa 02 vé.</div>
+          <div>ℹ️ Trong bảng 18/11, cả 33 TVV đều thuộc diện TVV thường và 10 vé tạm đạt đều thuộc diện TVV — chưa có vé thuộc diện TVV mới, giới thiệu hay QLTVV.</div>
+        </div>
+
+        <button type="button" className="race-collapse-btn" onClick={() => toggleRace('kickoff')}>Thu gọn ⌃</button>
+        </>)}
+      </div>
+    )
+  }
+
+  // ── The Memo 00211 (Thi đua Thang 11): BANG CHINH THUC cong ty
+  // (lib/raceOfficial) — IP nop + phat hanh theo cach tinh cong ty.
+  const renderNov = () => {
+    const sum = novOfficialSummary()
+    const rows = [...NOV_OFFICIAL.rows].sort((a, b) => b.total - a.total)
+    const isOpen = !!openMap.nov
+    const countLine = (
+      <>🏅 Đã đạt thưởng: <b>{fmtInt(sum.achieved)}</b> TVV · Tổng thưởng dự kiến {fmtTr(sum.totalBonus / 1000000)}tr (từ 100tr: {fmtInt(sum.byTier[0])} · 50tr: {fmtInt(sum.byTier[1])} · 25tr: {fmtInt(sum.byTier[2])} · 18tr: {fmtInt(sum.byTier[3])})</>
+    )
+    return (
+      <div className="card race-card">
+        {renderHead('nov', '🏆 Thi đua Tháng 11/2026', '2026-11-30')}
+        <div className="race-sub">
+          Memo 00211/AD/2026 · 01/11 – 30/11/2026 · Hạn chốt 30/11/2026
+        </div>
+
+        {!isOpen && <div className="race-quick">{countLine}</div>}
+
+        {isOpen && (<>
+        <div className="race-source">
+          📋 Kết quả theo bảng theo dõi chính thức của công ty — {NOV_OFFICIAL.updatedLabel}.
+          IP trong bảng là IP nộp + phát hành theo cách tính của công ty.
+        </div>
+
+        <ul className="race-tiers">
+          <li>IP phát hành từ 18–&lt;25tr → thưởng 1,5tr</li>
+          <li>IP phát hành từ 25–&lt;50tr → thưởng 2,5tr</li>
+          <li>IP phát hành từ 50–&lt;100tr → thưởng 5,0tr</li>
+          <li>IP phát hành từ 100tr → thưởng 8% IP (tổng thưởng tối đa 100tr/TVV)</li>
+        </ul>
+
+        <div className="race-count">{countLine}</div>
+
+        {rows.map((r, i) => {
+          const t = novOfficialTier(r.total, r.crossRatio)
+          const pct = fmtPct(r.crossRatio)
+          return (
+            <div className="race-row" key={r.msdl}>
+              <span className="race-rank">{i + 1}</span>
+              <div className="race-who">
+                <div className="race-name">{r.name || '—'}{r.unit ? <span className="race-unit"> · {r.unit}</span> : null}</div>
+                <div className="race-tier">
+                  {t.tier
+                    ? <>{t.tier.label} · thưởng dự kiến <b>{fmtTr(t.bonus / 1000000)} tr</b>{t.doubled ? <> (đã ×2 vì IP bán cùng {pct}% ≥ 40%)</> : null}</>
+                    : <>Chưa đạt · còn thiếu {fmtTr(t.lackToFirst / 1000000)} tr tới mốc 18tr (thưởng 1,5tr)</>}
+                  {' · '}IP bán cùng {pct}%
+                </div>
               </div>
-            ) : null}
-          </div>
-        )}
+              <div className="race-val">
+                <div className="race-val-num">{fmtTr(r.total / 1000000)} tr</div>
+                <div className="race-val-label">Tổng IP T11</div>
+              </div>
+            </div>
+          )
+        })}
 
-        {notes.length > 0 && (
-          <div className="race-notes">
-            {notes.map((nt) => <div key={nt}>ℹ️ {nt}</div>)}
-          </div>
-        )}
+        <div className="race-notes">
+          <div>ℹ️ Thưởng chính nhân đôi (×2) khi IP bán cùng đạt từ 40% — trong bảng 18/11 có 2 TVV đạt điều kiện này và đã tính vào thưởng dự kiến: Trần Thị Ngọc Phương (42,0%) và Đỗ Ngọc Thảo (40,3%).</div>
+          <div>ℹ️ Số IP của bảng công ty gồm cả nộp + phát hành nên khác số IP phát hành app tự tính từ Daily trước đây.</div>
+        </div>
 
-        <button type="button" className="race-collapse-btn" onClick={() => toggleRace(meta.id)}>Thu gọn ⌃</button>
+        <button type="button" className="race-collapse-btn" onClick={() => toggleRace('nov')}>Thu gọn ⌃</button>
         </>)}
       </div>
     )
@@ -254,7 +251,6 @@ export default function ThiDua({ snaps, loading, remoteSettled = true, onNeedMon
   // co khoi "Sap dat" rieng — so con thieu tung moc da ghi ngay tren
   // tung dong). Du lieu tinh nen hien ca khi chua co Daily tren may.
   const renderIphone = () => {
-    const days = daysToDeadline(IPHONE_DEADLINE)
     const sum = iphoneSummary()
     const rows = [...IPHONE_OFFICIAL.rows].sort((a, b) => b.total - a.total)
     const isOpen = !!openMap[IPHONE_RACE_ID]
@@ -263,15 +259,7 @@ export default function ThiDua({ snaps, loading, remoteSettled = true, onNeedMon
     )
     return (
       <div className="card race-card">
-        <button type="button" className="race-head race-toggle" onClick={() => toggleRace(IPHONE_RACE_ID)} aria-expanded={isOpen}>
-          <h2>🏆 Đỉnh cao hiệu suất — Rinh ngay quà lớn (Quý 4/2026)</h2>
-          {days > 0
-            ? <span className="race-chip">⏳ Còn {days} ngày</span>
-            : days === 0
-              ? <span className="race-chip hot">⏰ Hôm nay chốt</span>
-              : <span className="race-chip done">Đã chốt</span>}
-          <span className="memo-caret">{isOpen ? '▾' : '▸'}</span>
-        </button>
+        {renderHead(IPHONE_RACE_ID, '🏆 Đỉnh cao hiệu suất — Rinh ngay quà lớn (Quý 4/2026)', IPHONE_DEADLINE)}
         <div className="race-sub">
           Memo 00210/AD/2026 · Quý 4/2026 (T10–T12) · Hạn chốt 31/12/2026
         </div>
@@ -336,26 +324,14 @@ export default function ThiDua({ snaps, loading, remoteSettled = true, onNeedMon
       <div className="card" style={{ marginBottom: 14 }}>
         <h2>🏆 Thi Đua — các chương trình đang chạy</h2>
         <div className="muted">
-          Hai chương trình tháng 11 tự tính từ Daily Sales Admin nạp hằng ngày; chương trình thưởng iPhone Quý 4
-          hiển thị theo <b>bảng theo dõi chính thức của công ty</b>. Danh sách <b>đã đạt</b> mở công khai để vinh danh;
-          danh sách <b>sắp đạt</b> (các chương trình tự tính) chỉ Admin chính và trưởng phòng thấy để đốc thúc.
-          Điều kiện nằm ngoài dữ liệu Daily (nếu có) được ghi chú ngay trong từng chương trình.
+          Cả ba chương trình thi đua hiển thị theo bảng theo dõi chính thức của công ty (cập nhật 18/11/2026).
+          Danh sách đã đạt mở công khai để vinh danh; điều kiện nằm ngoài bảng (nếu có) được ghi chú ngay trong từng chương trình.
           Bấm vào đầu từng chương trình để mở/thu gọn.
         </div>
       </div>
       <div className="race-grid">
-        {newest
-          ? races.map(renderRace)
-          : (
-            <div className="card">
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>{remoteSettled ? '📭 Chưa có dữ liệu Daily Sales' : '⏳ Đang tải dữ liệu…'}</div>
-              <div className="muted">
-                {remoteSettled
-                  ? 'Hai chương trình tháng 11 (00311, 00211) sẽ hiện tại đây sau khi Admin chính nạp file Daily Sales. Chương trình iPhone Quý 4 theo bảng công ty vẫn xem được ở bên cạnh.'
-                  : 'Lần đầu trên thiết bị này có thể mất vài giây — dữ liệu Daily đang được tải về, bạn không cần nạp lại file. Chương trình iPhone Quý 4 theo bảng công ty vẫn xem được ở bên cạnh.'}
-              </div>
-            </div>
-          )}
+        {renderKickoff()}
+        {renderNov()}
         {renderIphone()}
       </div>
     </div>
