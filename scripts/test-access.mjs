@@ -548,9 +548,10 @@ console.log('Trang Chu: luu y muc tieu chi Admin thay (so FYP + % + thanh tien d
 // ── Dot 13/11/2026 (Lan duyet): (A) Y 8 — Trang Chu CHON THANG xem
 // lai so lieu (hero + canh bao hom nay giu theo thoi gian thuc /
 // snapshot moi nhat); (B) tab moi "🏆 Thi Đua" nam sau Tinh Anh,
-// truoc Memo. Kien truc tab Thi Dua da thay o dot 20/11/2026 (ca 3
-// the theo BANG CHINH THUC cong ty — xem section rieng ben duoi);
-// cac assert (B) o day chi con khoa vi tri tab + file ton tai. ──
+// truoc Memo. Kien truc tab Thi Dua: dot 20/11/2026 ca 3 the theo
+// bang cong ty, dot 25/11/2026 the Kickoff tu tinh lai tu Daily
+// (xem section rieng ben duoi); cac assert (B) o day chi con khoa
+// vi tri tab + file ton tai. ──
 console.log('\n=== Y 8: Trang Chu chon thang + tab Thi Dua ===')
 const thiDua = read('../src/components/ThiDua.jsx')
 // (A) HomNay chon thang
@@ -568,34 +569,40 @@ assert.ok(
   'App.jsx: tab Thi Dua nam SAU Tinh Anh (team) va TRUOC Memo',
 )
 assert.ok(app.includes("tab === 'races'") && app.includes('<ThiDua'), 'App.jsx: phai render <ThiDua> khi tab === races')
-assert.ok(existsSync(new URL('../src/lib/races.js', import.meta.url)), 'lib/races.js: van ton tai (giu lam tham khao dinh nghia cu — ThiDua khong con dung tu 20/11/2026)')
+assert.ok(existsSync(new URL('../src/lib/races.js', import.meta.url)), 'lib/races.js: van ton tai (lib tu tinh — ThiDua dung lai raceKickoff tu 25/11/2026)')
 assert.ok(existsSync(new URL('../src/components/ThiDua.jsx', import.meta.url)), 'components/ThiDua.jsx: phai ton tai')
 assert.ok(thiDua.includes('Đã đạt'), 'ThiDua: phai co danh sach DA DAT vinh danh cong khai')
-console.log('Trang Chu: chon thang xem lai (so lieu theo thang chon; hero/canh bao/ban tin giu "hom nay"); Thi Dua: tab rieng sau Tinh Anh (kien truc bang chinh thuc khoa o section 20/11 ben duoi)')
+console.log('Trang Chu: chon thang xem lai (so lieu theo thang chon; hero/canh bao/ban tin giu "hom nay"); Thi Dua: tab rieng sau Tinh Anh (kien truc khoa o section 25/11 ben duoi)')
 
-// ── Dot 20/11/2026 (Lan gui file Excel Memo_18.11.xlsx): CA 3 the
-// Thi Dua chuyen sang BANG THEO DOI CHINH THUC cua cong ty —
-// 00311 + 00211 dung lib/raceOfficial (NOV_OFFICIAL /
-// KICKOFF_OFFICIAL), 00210 dung lib/iphoneOfficial (iphoneSummary).
-// Khoa kien truc moi: KHONG con buildRaces tu tinh tu Daily, KHONG
-// con tai lazy thang (onNeedMonth), KHONG con khoi Sap dat gate
-// Admin/truong phong (canSeeNear / myUnitCodes / leaderCtx). ──
-console.log('\n=== Thi Dua: ca 3 the theo bang chinh thuc cong ty 18/11 ===')
-assert.ok(existsSync(new URL('../src/lib/raceOfficial.js', import.meta.url)), 'lib/raceOfficial.js: phai ton tai (du lieu chinh thuc 00311 + 00211)')
-assert.ok(thiDua.includes("from '../lib/raceOfficial'"), 'ThiDua: phai import lib/raceOfficial (bang chinh thuc 00311 + 00211)')
+// ── Dot 20/11/2026 (Lan gui file Excel Memo_18.11.xlsx): ca 3 the
+// Thi Dua tung chuyen sang BANG THEO DOI CHINH THUC cua cong ty.
+// Dot 25/11/2026 (Lan yeu cau): the Kickoff 00311 TU TINH LAI tu
+// Daily Sales bang raceKickoff (lib/races) — dieu kien de, app tu
+// tinh duoc; khoi "Sap dat" cua the Kickoff hien CONG KHAI (KHONG
+// khoi phuc gate Admin/truong phong canSeeNear / leaderCtx).
+// 2 the con lai GIU NGUYEN bang cong ty 18/11: 00211 dung
+// lib/raceOfficial (NOV_OFFICIAL), 00210 dung lib/iphoneOfficial
+// (iphoneSummary). Khoa: ThiDua import raceKickoff (khong
+// buildRaces / raceNov), xin tai lazy thang qua onNeedMonth. ──
+console.log('\n=== Thi Dua: Kickoff tu tinh tu Daily (25/11) + 00211/00210 bang cong ty 18/11 ===')
+assert.ok(existsSync(new URL('../src/lib/raceOfficial.js', import.meta.url)), 'lib/raceOfficial.js: phai ton tai (du lieu chinh thuc 00211)')
+assert.ok(thiDua.includes("from '../lib/races'"), 'ThiDua: phai import lib/races (raceKickoff tu tinh the 00311)')
+assert.ok(thiDua.includes('raceKickoff'), 'ThiDua: the 00311 phai tu tinh bang raceKickoff(snaps)')
+assert.ok(thiDua.includes("from '../lib/raceOfficial'"), 'ThiDua: phai import lib/raceOfficial (bang chinh thuc 00211)')
 assert.ok(thiDua.includes("from '../lib/iphoneOfficial'"), 'ThiDua: phai import lib/iphoneOfficial (bang chinh thuc 00210)')
 assert.ok(thiDua.includes('NOV_OFFICIAL'), 'ThiDua: the 00211 phai dung NOV_OFFICIAL')
-assert.ok(thiDua.includes('KICKOFF_OFFICIAL'), 'ThiDua: the 00311 phai dung KICKOFF_OFFICIAL')
-assert.ok(thiDua.includes('novOfficialSummary') && thiDua.includes('kickoffOfficialSummary'), 'ThiDua: tong ket 2 the thang 11 phai lay tu novOfficialSummary / kickoffOfficialSummary')
+assert.ok(thiDua.includes('novOfficialSummary'), 'ThiDua: tong ket the 00211 phai lay tu novOfficialSummary')
 assert.ok(thiDua.includes('iphoneSummary'), 'ThiDua: the 00210 phai dung iphoneSummary cua lib/iphoneOfficial')
-assert.ok(!thiDua.includes('buildRaces'), 'ThiDua: KHONG con buildRaces (khong tu tinh thi dua tu Daily nua)')
-assert.ok(!thiDua.includes('lib/races'), 'ThiDua: KHONG con import lib/races')
-assert.ok(!thiDua.includes('onNeedMonth'), 'ThiDua: KHONG con xin tai lazy thang qua onNeedMonth (du lieu tinh bang cong ty)')
-assert.ok(!thiDua.includes('canSeeNear'), 'ThiDua: KHONG con gate Sap dat canSeeNear')
-assert.ok(!thiDua.includes('myUnitCodes') && !thiDua.includes('leaderCtx'), 'ThiDua: KHONG con nhan dien truong phong (leaderCtx / myUnitCodes) cho khoi Sap dat')
-assert.ok(!thiDua.includes('Sắp đạt'), 'ThiDua: KHONG con khoi "Sap dat" (ca 3 the hien cong khai theo bang cong ty)')
+assert.ok(!thiDua.includes('buildRaces'), 'ThiDua: KHONG dung buildRaces (chi dung rieng raceKickoff)')
+assert.ok(!thiDua.includes('raceNov'), 'ThiDua: KHONG dung raceNov (00211 giu bang cong ty, khong tu tinh lai)')
+assert.ok(!thiDua.includes('KICKOFF_OFFICIAL'), 'ThiDua: KHONG con KICKOFF_OFFICIAL (the 00311 khong con dung bang cong ty)')
+assert.ok(!thiDua.includes('kickoffOfficialSummary'), 'ThiDua: KHONG con kickoffOfficialSummary')
+assert.ok(thiDua.includes('onNeedMonth'), 'ThiDua: phai xin tai lazy thang nen (2026-10 + 2026-11) qua onNeedMonth cho the Kickoff tu tinh')
+assert.ok(!thiDua.includes('canSeeNear'), 'ThiDua: KHONG khoi phuc gate Sap dat canSeeNear (Sap dat Kickoff hien cong khai)')
+assert.ok(!thiDua.includes('myUnitCodes') && !thiDua.includes('leaderCtx'), 'ThiDua: KHONG con nhan dien truong phong (leaderCtx / myUnitCodes)')
+assert.ok(thiDua.includes('Sắp đạt'), 'ThiDua: the Kickoff phai co khoi "Sap dat" cong khai')
 assert.ok(!thiDua.includes('VALUE_LABEL'), 'ThiDua: KHONG con VALUE_LABEL (nhan gia tri ghi thang trong tung the)')
-console.log('Thi Dua 20/11: 00311 + 00211 = raceOfficial, 00210 = iphoneOfficial; bo han buildRaces / onNeedMonth / gate Sap dat')
+console.log('Thi Dua 25/11: 00311 = raceKickoff tu tinh tu Daily (+ tai lazy onNeedMonth, Sap dat cong khai); 00211 = NOV_OFFICIAL, 00210 = iphoneOfficial')
 
 // ── Dot 14/11/2026: chuong trinh Memo 00210 (iPhone Quy 4) chuyen
 // sang BANG CHINH THUC cua cong ty (lib/iphoneOfficial, trich tu

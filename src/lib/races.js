@@ -4,10 +4,12 @@
 // Sales (khong phu thuoc React/Firebase de test bang node —
 // scripts/test-races.mjs).
 //
-// LUU Y 20/11/2026: ThiDua.jsx KHONG con dung lib nay — ca 3
-// chuong trinh (00311 + 00211 + 00210) da chuyen sang BANG CHINH
-// THUC cua cong ty (lib/raceOfficial.js + lib/iphoneOfficial.js).
-// File nay chi giu lam tham khao dinh nghia cu, KHONG doi logic.
+// LUU Y 25/11/2026: ThiDua.jsx DUNG LAI raceKickoff cua lib nay
+// theo yeu cau cua Lan — the Kickoff (Memo 00311) TU TINH tu
+// Daily Sales (dieu kien de, app tu tinh duoc; tu 20/11/2026 den
+// 24/11/2026 the nay tam hien bang cong ty). raceNov VAN KHONG
+// dung: chuong trinh 00211 giu BANG CHINH THUC cua cong ty
+// (lib/raceOfficial.js); 00210 dung lib/iphoneOfficial.js.
 //
 // Chuong trinh Memo 00210 (thuong iPhone Quy 4) KHONG con tu tinh
 // o day: tu 14/11/2026 hien theo BANG CHINH THUC cua cong ty —
