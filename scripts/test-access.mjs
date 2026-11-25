@@ -604,6 +604,24 @@ assert.ok(thiDua.includes('Sắp đạt'), 'ThiDua: the Kickoff phai co khoi "Sa
 assert.ok(!thiDua.includes('VALUE_LABEL'), 'ThiDua: KHONG con VALUE_LABEL (nhan gia tri ghi thang trong tung the)')
 console.log('Thi Dua 25/11: 00311 = raceKickoff tu tinh tu Daily (+ tai lazy onNeedMonth, Sap dat cong khai); 00211 = NOV_OFFICIAL, 00210 = iphoneOfficial')
 
+// ── Dot 25/11/2026 (Lan quyet dinh): 2 the bang cong ty (00211 +
+// 00210) co them khoi "📊 Tạm tính từ Daily" (lib/raceProvisional
+// — cong thuc da kiem chung cung ngay: Nov khop 23/29, iPhone
+// trang thai moc trung 44/45) de theo doi hang ngay; so chinh
+// thuc van la bang cong ty. Khoa: ThiDua import raceProvisional,
+// ca 2 the deu co khoi tam tinh, xin tai lazy them thang 12. ──
+console.log('\n=== Thi Dua: khoi Tam tinh tu Daily cho 00211 + 00210 (25/11) ===')
+assert.ok(existsSync(new URL('../src/lib/raceProvisional.js', import.meta.url)), 'lib/raceProvisional.js: phai ton tai (so tam tinh 00211 + 00210)')
+assert.ok(thiDua.includes("from '../lib/raceProvisional'"), 'ThiDua: phai import lib/raceProvisional')
+assert.ok(thiDua.includes('provisionalNov'), 'ThiDua: the 00211 phai tinh tam tinh bang provisionalNov(snaps)')
+assert.ok(thiDua.includes('provisionalIphone'), 'ThiDua: the 00210 phai tinh tam tinh bang provisionalIphone(snaps)')
+assert.strictEqual(thiDua.split('Tạm tính từ Daily').length - 1 >= 2, true, 'ThiDua: ca 2 the 00211 + 00210 deu co khoi "Tam tinh tu Daily"')
+assert.ok(thiDua.includes('Tổng IP tạm tính'), 'ThiDua: khoi tam tinh 00210 phai co nhan gia tri "Tong IP tam tinh"')
+assert.ok(thiDua.includes('thưởng tạm tính'), 'ThiDua: khoi tam tinh 00211 phai hien thuong tam tinh tung TVV')
+assert.ok(thiDua.includes("'2026-12'"), 'ThiDua: xin tai lazy them thang 2026-12 cho tam tinh iPhone')
+assert.ok(thiDua.includes('Số chính thức là bảng công ty ở trên'), 'ThiDua: khoi tam tinh phai ghi ro so chinh thuc la bang cong ty')
+console.log('Thi Dua 25/11 (tam tinh): 00211 + 00210 co khoi Tam tinh tu Daily (raceProvisional), chinh thuc van bang cong ty')
+
 // ── Dot 14/11/2026: chuong trinh Memo 00210 (iPhone Quy 4) chuyen
 // sang BANG CHINH THUC cua cong ty (lib/iphoneOfficial, trich tu
 // anh bang cong ty Lan gui 13/11/2026) — races.js KHONG con tu

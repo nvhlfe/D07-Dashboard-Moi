@@ -15,10 +15,14 @@
 //    gate Admin/truong phong nhu ban truoc 20/11/2026).
 //  - Memo 00211 (Thi đua Thang 11): lib/raceOfficial
 //    (NOV_OFFICIAL) — cong ty tinh gom ca IP nop + phat hanh,
-//    khac du lieu Daily nen app khong tu tinh lai.
+//    khac du lieu Daily nen app khong tu tinh lai. Kem khoi
+//    "📊 Tạm tính từ Daily" (lib/raceProvisional, cong thuc da
+//    kiem chung 25/11/2026) de theo doi hang ngay giua cac dot
+//    bang cong ty — so chinh thuc van la bang cong ty.
 //  - Memo 00210 (thuong iPhone Quy 4): lib/iphoneOfficial — bang
 //    cong ty cap nhat 18/11/2026 (45 TVV), hien toan bo danh
-//    sach kem so con thieu tung moc tren tung dong.
+//    sach kem so con thieu tung moc tren tung dong. Kem khoi
+//    "📊 Tạm tính từ Daily" nhu 00211.
 // DONG/MO tung the (Lan yeu cau 14/11/2026 — trang qua dai): moi
 // the chuong trinh dong/mo doc lap bang nut o hang dau the; khi
 // DONG chi hien ten + so memo + chip han chot + 1 dong tom tat
@@ -32,6 +36,7 @@ import {
   NOV_OFFICIAL,
   novOfficialTier, novOfficialSummary,
 } from '../lib/raceOfficial'
+import { provisionalNov, provisionalIphone } from '../lib/raceProvisional'
 
 const fmtTr = (n) => {
   const v = Number(n) || 0
@@ -91,14 +96,16 @@ export function defaultOpenRaceId(entries) {
 
 export default function ThiDua({ snaps, loading, onNeedMonth }) {
   const [nearOpen, setNearOpen] = useState(false)
+  const [provOpen, setProvOpen] = useState({})
   const raceReqRef = useRef(new Set())
 
-  // ── Xin tai lazy 2 thang nen cua the Kickoff tu tinh (T10 cho
-  // xac dinh TVV moi; T11 la thang thi dua) — moi thang 1 lan,
-  // chi khi snaps chua co thang do.
+  // ── Xin tai lazy cac thang nen: T10 + T11 cho the Kickoff tu
+  // tinh va 2 khoi tam tinh; T12 them cho tam tinh iPhone (vo
+  // hai khi chua co du lieu) — moi thang 1 lan, chi khi snaps
+  // chua co thang do.
   useEffect(() => {
     if (!onNeedMonth) return
-    for (const ym of ['2026-10', '2026-11']) {
+    for (const ym of ['2026-10', '2026-11', '2026-12']) {
       if ((snaps || []).some((s) => s.id && s.id.startsWith(`${ym}-`))) continue
       if (raceReqRef.current.has(ym)) continue
       raceReqRef.current.add(ym)
@@ -108,6 +115,14 @@ export default function ThiDua({ snaps, loading, onNeedMonth }) {
 
   // ── The Kickoff TU TINH tu Daily Sales (lib/races).
   const kickoff = useMemo(() => raceKickoff(snaps || []), [snaps])
+
+  // ── So TAM TINH tu Daily cho 2 the bang cong ty (00211 +
+  // 00210) — lib/raceProvisional, cong thuc da kiem chung
+  // 25/11/2026. Chi de theo doi hang ngay; so chinh thuc van
+  // la bang cong ty hien o phan tren cua moi the.
+  const provNov = useMemo(() => provisionalNov(snaps || []), [snaps])
+  const provIp = useMemo(() => provisionalIphone(snaps || []), [snaps])
+  const toggleProv = (id) => setProvOpen((o) => ({ ...o, [id]: !o[id] }))
 
   // ── Dong/mo tung the chuong trinh (state noi bo, khong luu ben).
   // openRaces = null nghia la chua thao tac: dung ban do mac dinh
@@ -295,6 +310,37 @@ export default function ThiDua({ snaps, loading, onNeedMonth }) {
           <div>ℹ️ Số IP của bảng công ty gồm cả nộp + phát hành nên khác số IP phát hành app tự tính từ Daily trước đây.</div>
         </div>
 
+        <div className="race-near">
+          <button type="button" className="memo-summary-head" onClick={() => toggleProv('nov')} aria-expanded={!!provOpen.nov}>
+            <span className="attn-head-main">
+              <span className="attn-head-title">📊 Tạm tính từ Daily</span>
+              <span className="attn-head-sub">
+                {provNov.dataDate
+                  ? <>theo Daily đến {fmtDateVN(provNov.dataDate)} · {fmtInt(provNov.counts.total)} TVV đạt thưởng · tổng thưởng tạm tính {fmtTr(provNov.totalBonus)} tr</>
+                  : 'Chưa có dữ liệu Daily tháng 11 để tạm tính'}
+              </span>
+            </span>
+            <span className="memo-caret">{provOpen.nov ? '▾' : '▸'}</span>
+          </button>
+          {provOpen.nov ? (
+            <div className="attn-body">
+              {!provNov.dataDate
+                ? <div className="attn-empty">Chưa có dữ liệu Daily tháng 11 để tạm tính.</div>
+                : provNov.achieved.length === 0
+                  ? <div className="attn-empty">Chưa có TVV nào đạt bậc thưởng theo Daily hiện có.</div>
+                  : provNov.achieved.map((r) => (
+                    <div className="attn-row static" key={r.msdl}>
+                      <span className="attn-name">{r.name || '—'} <span className="attn-unit">· {r.unit || '—'}</span></span>
+                      <span className="attn-detail">{r.tierLabel} · thưởng tạm tính <b>{fmtTr(r.bonus)} tr</b> · IP phát hành {fmtTr(r.value)} tr</span>
+                    </div>
+                  ))}
+              <div className="race-notes">
+                <div>ℹ️ Số tạm tính tự tính từ Daily Sales: chưa gồm ×2 IP bán cùng (Daily không có dữ kiện này) và có thể lệch bảng công ty vì công ty loại một số hồ sơ theo điều kiện ngoài Daily. Số chính thức là bảng công ty ở trên.</div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
         <button type="button" className="race-collapse-btn" onClick={() => toggleRace('nov')}>Thu gọn ⌃</button>
         </>)}
       </div>
@@ -309,6 +355,14 @@ export default function ThiDua({ snaps, loading, onNeedMonth }) {
     const sum = iphoneSummary()
     const rows = [...IPHONE_OFFICIAL.rows].sort((a, b) => b.total - a.total)
     const isOpen = !!openMap[IPHONE_RACE_ID]
+    // Tam tinh tu Daily: chi liet ke TVV tam dat it nhat Pro Max
+    // + TVV co tong tam tinh cao nhat trong so chua dat (rows cua
+    // provIp da sap giam dan theo total).
+    const provAchieved = provIp.rows.filter((r) => iphoneRowStatus(r).promax.reached)
+    const provTopNear = provIp.rows.find((r) => !iphoneRowStatus(r).promax.reached) || null
+    const provGoalLine = (label, st) => (
+      <>{label}: {st.reached ? <b>✅ Tạm đạt</b> : <>còn thiếu <b>{fmtTr(st.lack / 1000000)} tr</b></>}</>
+    )
     const goalLine = (label, st) => (
       <>{label}: {st.reached ? <b>✅ Đạt</b> : <>còn thiếu <b>{fmtTr(st.lack / 1000000)} tr</b></>}</>
     )
@@ -368,6 +422,74 @@ export default function ThiDua({ snaps, loading, onNeedMonth }) {
           <div>ℹ️ Khi công ty gửi bảng cập nhật mới, Admin gửi ảnh/file cho Muse để cập nhật lại danh sách này.</div>
         </div>
 
+        <div className="race-near">
+          <button type="button" className="memo-summary-head" onClick={() => toggleProv('iphone')} aria-expanded={!!provOpen.iphone}>
+            <span className="attn-head-main">
+              <span className="attn-head-title">📊 Tạm tính từ Daily</span>
+              <span className="attn-head-sub">
+                {provIp.dataDate
+                  ? <>theo Daily đến {fmtDateVN(provIp.dataDate)} · tạm đạt Pro Max {fmtInt(provIp.summary.datPromax)} · tạm đạt Duo {fmtInt(provIp.summary.datDuo)}</>
+                  : 'Chưa có dữ liệu Daily tháng 10 + 11 để tạm tính'}
+              </span>
+            </span>
+            <span className="memo-caret">{provOpen.iphone ? '▾' : '▸'}</span>
+          </button>
+          {provOpen.iphone ? (
+            <div className="attn-body">
+              {!provIp.dataDate
+                ? <div className="attn-empty">Chưa có dữ liệu Daily tháng 10 + 11 để tạm tính.</div>
+                : (<>
+                  {provAchieved.length === 0 && !provTopNear
+                    ? <div className="attn-empty">Chưa có TVV nào có tổng IP tạm tính theo Daily hiện có.</div>
+                    : null}
+                  {provAchieved.map((r, i) => {
+                    const st = iphoneRowStatus(r)
+                    return (
+                      <div className="race-row" key={r.msdl}>
+                        <span className="race-rank">{i + 1}</span>
+                        <div className="race-who">
+                          <div className="race-name">{r.name || '—'}{r.unit ? <span className="race-unit"> · {r.unit}</span> : null}</div>
+                          <div className="race-tier">
+                            {provGoalLine('📱 Pro Max', st.promax)}
+                            {' · '}
+                            {provGoalLine('📱 Duo', st.duo)}
+                          </div>
+                        </div>
+                        <div className="race-val">
+                          <div className="race-val-num">{fmtTr(r.total / 1000000)} tr</div>
+                          <div className="race-val-label">Tổng IP tạm tính</div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {provTopNear ? (() => {
+                    const st = iphoneRowStatus(provTopNear)
+                    return (
+                      <div className="race-row" key={provTopNear.msdl}>
+                        <span className="race-rank">{provAchieved.length + 1}</span>
+                        <div className="race-who">
+                          <div className="race-name">{provTopNear.name || '—'}{provTopNear.unit ? <span className="race-unit"> · {provTopNear.unit}</span> : null}</div>
+                          <div className="race-tier">
+                            🎯 Cao nhất trong số chưa đạt · {provGoalLine('📱 Pro Max', st.promax)}
+                            {' · '}
+                            {provGoalLine('📱 Duo', st.duo)}
+                          </div>
+                        </div>
+                        <div className="race-val">
+                          <div className="race-val-num">{fmtTr(provTopNear.total / 1000000)} tr</div>
+                          <div className="race-val-label">Tổng IP tạm tính</div>
+                        </div>
+                      </div>
+                    )
+                  })() : null}
+                  <div className="race-notes">
+                    <div>ℹ️ Số tạm tính theo công thức app đã đối chiếu với bảng công ty 18/11 (trạng thái đạt mốc đúng 44/45 người nhưng số tiền có thể lệch vì công ty xét hợp lệ từng hồ sơ theo điều kiện ngoài Daily). Số chính thức là bảng công ty ở trên.</div>
+                  </div>
+                </>)}
+            </div>
+          ) : null}
+        </div>
+
         <button type="button" className="race-collapse-btn" onClick={() => toggleRace(IPHONE_RACE_ID)}>Thu gọn ⌃</button>
         </>)}
       </div>
@@ -381,6 +503,7 @@ export default function ThiDua({ snaps, loading, onNeedMonth }) {
         <div className="muted">
           Vé Kickoff (Memo 00311) tự tính từ Daily Sales Admin nạp hằng ngày; hai chương trình còn lại
           (00211 Tháng 11, 00210 iPhone Quý 4) hiển thị theo bảng theo dõi chính thức của công ty (cập nhật 18/11/2026).
+          Hai chương trình 00211 và 00210 có thêm khối 📊 Tạm tính từ Daily để theo dõi hằng ngày giữa các đợt bảng công ty.
           Danh sách đã đạt mở công khai để vinh danh.
           Bấm vào đầu từng chương trình để mở/thu gọn.
         </div>
