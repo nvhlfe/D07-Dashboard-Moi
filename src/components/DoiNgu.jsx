@@ -895,8 +895,7 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
           <div className="card">
             <h2>🏢 Phòng (Unit) — tháng {month}/{year}</h2>
             <div className="muted">
-              Chỉ gồm các phòng có trong sheet Leader (có trưởng phòng).
-              Lượt Active: số TVV Active theo FYC của phòng (theo sheet Leader); phòng hiện “–” là file chưa có số.
+              Lượt Active: số TVV Active theo FYC của phòng (theo sheet Leader).
             </div>
             {unitRows.length > 0 ? (
               <div className="field unit-filter">
@@ -1149,7 +1148,7 @@ export default function DoiNgu({ snaps, loading, remoteSettled = true, onGoNap, 
           <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title">🔒 Cần đăng nhập</div>
             <p className="muted" style={{ marginBottom: 12 }}>
-              Cần đăng nhập để xem thông tin chi tiết của tư vấn viên — mỗi TVV đăng nhập bằng MSĐL của mình để xem chi tiết của chính mình.
+              Cần đăng nhập để xem thông tin chi tiết của tư vấn viên.
             </p>
             <button type="button" className="btn-primary" onClick={() => { setShowLoginGate(false); if (onOpenLogin) onOpenLogin() }}>
               Đăng nhập

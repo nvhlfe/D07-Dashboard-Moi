@@ -356,9 +356,8 @@ export default function CaNhan({ snaps, loading, remoteSettled = true, user, pro
           <div className="e-ic">🔎</div>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>Chưa có dữ liệu Daily cho MSĐL {viewerMsdl}</div>
           <p>
-            Bản Daily tháng {view.month}/{view.year} hiện chưa có mã số đại lý của bạn trong sheet Agent.
-            Dữ liệu sẽ tự hiện ở đây sau khi có bản Daily mới nhất chứa MSĐL của bạn —
-            nếu chắc chắn đã có số mà vẫn chưa thấy, hãy báo Admin chính kiểm tra lại MSĐL.
+            Bản Daily tháng {view.month}/{view.year} hiện chưa có MSĐL của bạn trong sheet Agent.
+            Nếu chắc chắn đã có số mà vẫn chưa thấy, hãy báo Admin chính kiểm tra lại MSĐL.
           </p>
         </div>
       ) : (

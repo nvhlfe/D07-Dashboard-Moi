@@ -111,9 +111,9 @@ export const RACE_KICKOFF_META = {
     'TVV MỚI có hoạt động: IP thuần tháng 11 từ 25tr → 01 vé',
   ],
   notes: [
-    'TVV mới được xác định theo lần đầu xuất hiện trong dữ liệu Daily (chưa có mặt ở snapshot tháng 10/2026) — danh sách chính thức theo điều kiện tốt nghiệp T10–T11/2026 của memo, Admin đối chiếu thêm.',
-    'Điều kiện nhận vé ngoài Daily: tỷ lệ duy trì phí tái tục cá nhân tại 30/11/2026 từ 75%; TVV mới không áp dụng cho trường hợp khôi phục hợp đồng dưới 24 tháng; tối đa 01 vé/TVV.',
-    'Vé cho QLTVV có TVV mới đạt chuẩn và vé giới thiệu: memo có quy định riêng — app không tự tính (Daily không có dữ kiện người giới thiệu), xem ghi chú trong memo.',
+    'TVV mới xác định theo lần đầu xuất hiện trong Daily — danh sách chính thức theo điều kiện tốt nghiệp T10–T11/2026 của memo.',
+    'Vé chỉ chốt khi tỷ lệ duy trì phí tái tục tại 30/11/2026 đạt từ 75%.',
+    'Vé QLTVV và vé giới thiệu: memo có quy định riêng, app không tự tính.',
   ],
 }
 

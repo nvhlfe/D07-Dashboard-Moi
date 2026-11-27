@@ -527,7 +527,7 @@ export default function MemoThuVien({ user, isSuperAdmin, onClose, onOpenLogin }
         <div className="card memo-form">
           <h2>＋ Đăng memo mới</h2>
           <div className="field">
-            <label>File PDF (tối đa 25MB) — app tự tách từng trang thành ảnh để xem, vẫn giữ PDF gốc cho nút tải về</label>
+            <label>File PDF (tối đa 25MB)</label>
             <input type="file" accept="application/pdf,.pdf" onChange={handlePickFile} />
             {pdfFile ? <div className="muted" style={{ marginTop: 4 }}>{pdfFile.name} · {(pdfFile.size / 1024 / 1024).toFixed(2)}MB</div> : null}
           </div>

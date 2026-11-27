@@ -223,7 +223,7 @@ export default function NapDuLieu({ onSaved, user, snaps }) {
         >
           <div className="dz-ic">📂</div>
           <div style={{ fontWeight: 700 }}>Kéo thả file .xlsx vào đây, hoặc bấm để chọn file</div>
-          <div className="muted">Chấp nhận file Daily Sales đầy đủ 5 sheet (Proposal, Agent, Leader, Pending, Pipeline) — hoặc file chỉ có sheet Proposal để cập nhật trạng thái hồ sơ (cần đã có bản Daily đầy đủ cùng tháng trước đó).</div>
+          <div className="muted">Chấp nhận file Daily Sales đầy đủ 5 sheet (Proposal, Agent, Leader, Pending, Pipeline) — hoặc file chỉ có sheet Proposal để cập nhật trạng thái hồ sơ (cần đã có bản Daily đầy đủ cùng tháng).</div>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }}
             onChange={(e) => handleFile(e.target.files && e.target.files[0])} />
         </div>
@@ -278,8 +278,7 @@ export default function NapDuLieu({ onSaved, user, snaps }) {
         <details className="collapse" style={{ marginTop: 12, marginBottom: 0 }}>
           <summary>⚙️ Nâng cao: dùng cấu hình khác</summary>
           <p className="muted" style={{ margin: '8px 0' }}>
-            Chỉ dùng khi muốn trỏ app sang Firebase project khác. Dán toàn bộ block <b>firebaseConfig</b>
-            hoặc điền từng ô — config ghi đè lưu trên máy này (key <b>fb_config</b>, giống bản cũ) và được ưu tiên hơn cấu hình nhúng sẵn.
+            Chỉ dùng khi muốn trỏ app sang Firebase project khác — config ghi đè lưu trên máy này và được ưu tiên hơn cấu hình nhúng sẵn.
           </p>
           <div className="field">
             <label>Dán firebaseConfig block</label>

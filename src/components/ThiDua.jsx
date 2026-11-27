@@ -168,7 +168,7 @@ export default function ThiDua({ snaps, loading, onNeedMonth }) {
       : <>⏳ Chờ dữ liệu Daily Sales tháng 11…</>
     const notes = [...(meta.notes || [])]
     if (hasData && !kickoff.hasOct) {
-      notes.push('App chưa có dữ liệu tháng 10/2026 nên chưa xác định được TVV mới theo quy tắc đối chiếu — số vé TVV mới có thể chưa đầy đủ.')
+      notes.push('Chưa có dữ liệu tháng 10/2026 nên chưa xác định được TVV mới.')
     }
     return (
       <div className="card race-card">
@@ -189,8 +189,7 @@ export default function ThiDua({ snaps, loading, onNeedMonth }) {
 
         {isOpen && hasData && (<>
         <div className="race-source">
-          📊 Tự tính từ Daily Sales Admin nạp hằng ngày — dữ liệu đến {fmtDateVN(kickoff.dataDate)}.
-          Vé là vé TẠM ĐẠT theo IP thuần phát hành; điều kiện duy trì phí tái tục ≥75% được công ty chốt tại 30/11/2026 theo memo.
+          📊 Tự tính từ Daily Sales — dữ liệu đến {fmtDateVN(kickoff.dataDate)}.
         </div>
 
         <ul className="race-tiers">
@@ -269,8 +268,7 @@ export default function ThiDua({ snaps, loading, onNeedMonth }) {
 
         {isOpen && (<>
         <div className="race-source">
-          📋 Kết quả theo bảng theo dõi chính thức của công ty — {NOV_OFFICIAL.updatedLabel}.
-          IP trong bảng là IP nộp + phát hành theo cách tính của công ty.
+          📋 {NOV_OFFICIAL.updatedLabel}.
         </div>
 
         <ul className="race-tiers">
@@ -306,8 +304,7 @@ export default function ThiDua({ snaps, loading, onNeedMonth }) {
         })}
 
         <div className="race-notes">
-          <div>ℹ️ Thưởng chính nhân đôi (×2) khi IP bán cùng đạt từ 40% — trong bảng 18/11 có 2 TVV đạt điều kiện này và đã tính vào thưởng dự kiến: Trần Thị Ngọc Phương (42,0%) và Đỗ Ngọc Thảo (40,3%).</div>
-          <div>ℹ️ Số IP của bảng công ty gồm cả nộp + phát hành nên khác số IP phát hành app tự tính từ Daily trước đây.</div>
+          <div>ℹ️ IP trong bảng là IP nộp + phát hành theo cách tính của công ty; thưởng ×2 khi IP bán cùng ≥40% (bảng 18/11 có 2 TVV đạt, đã tính vào thưởng dự kiến).</div>
         </div>
 
         <div className="race-near">
@@ -335,7 +332,7 @@ export default function ThiDua({ snaps, loading, onNeedMonth }) {
                     </div>
                   ))}
               <div className="race-notes">
-                <div>ℹ️ Số tạm tính tự tính từ Daily Sales: chưa gồm ×2 IP bán cùng (Daily không có dữ kiện này) và có thể lệch bảng công ty vì công ty loại một số hồ sơ theo điều kiện ngoài Daily. Số chính thức là bảng công ty ở trên.</div>
+                <div>ℹ️ Tạm tính từ Daily Sales — chưa gồm ×2 bán cùng; số chính thức là bảng công ty ở trên.</div>
               </div>
             </div>
           ) : null}
@@ -382,8 +379,7 @@ export default function ThiDua({ snaps, loading, onNeedMonth }) {
 
         {isOpen && (<>
         <div className="race-source">
-          📋 Kết quả theo bảng theo dõi chính thức của công ty — {IPHONE_OFFICIAL.updatedLabel}.
-          Công ty tính IP nộp + phát hành và IP hỗ trợ đặc biệt nên app hiển thị nguyên văn bảng này, không tự tính lại từ Daily Sales.
+          📋 {IPHONE_OFFICIAL.updatedLabel}.
         </div>
 
         <ul className="race-tiers">
@@ -418,8 +414,7 @@ export default function ThiDua({ snaps, loading, onNeedMonth }) {
         })}
 
         <div className="race-notes">
-          <div>ℹ️ Điều kiện của memo: mỗi TVV tối đa 01 quà, không quy đổi tiền; riêng Pru-Đầu Tư Vững Tiến chỉ tính hồ sơ từ 20tr.</div>
-          <div>ℹ️ Khi công ty gửi bảng cập nhật mới, Admin gửi ảnh/file cho Muse để cập nhật lại danh sách này.</div>
+          <div>ℹ️ Mỗi TVV tối đa 01 quà, không quy đổi tiền; Pru-Đầu Tư Vững Tiến chỉ tính hồ sơ từ 20tr.</div>
         </div>
 
         <div className="race-near">
@@ -483,7 +478,7 @@ export default function ThiDua({ snaps, loading, onNeedMonth }) {
                     )
                   })() : null}
                   <div className="race-notes">
-                    <div>ℹ️ Số tạm tính theo công thức app đã đối chiếu với bảng công ty 18/11 (trạng thái đạt mốc đúng 44/45 người nhưng số tiền có thể lệch vì công ty xét hợp lệ từng hồ sơ theo điều kiện ngoài Daily). Số chính thức là bảng công ty ở trên.</div>
+                    <div>ℹ️ Tạm tính từ Daily Sales — số tiền có thể lệch bảng công ty; số chính thức là bảng công ty ở trên.</div>
                   </div>
                 </>)}
             </div>
@@ -501,10 +496,6 @@ export default function ThiDua({ snaps, loading, onNeedMonth }) {
       <div className="card" style={{ marginBottom: 14 }}>
         <h2>🏆 Thi Đua — các chương trình đang chạy</h2>
         <div className="muted">
-          Vé Kickoff (Memo 00311) tự tính từ Daily Sales Admin nạp hằng ngày; hai chương trình còn lại
-          (00211 Tháng 11, 00210 iPhone Quý 4) hiển thị theo bảng theo dõi chính thức của công ty (cập nhật 18/11/2026).
-          Hai chương trình 00211 và 00210 có thêm khối 📊 Tạm tính từ Daily để theo dõi hằng ngày giữa các đợt bảng công ty.
-          Danh sách đã đạt mở công khai để vinh danh.
           Bấm vào đầu từng chương trình để mở/thu gọn.
         </div>
       </div>
